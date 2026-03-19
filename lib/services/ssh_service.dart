@@ -8,6 +8,7 @@ class SshService {
   bool _connected = false;
 
   bool get isConnected => _connected;
+  SSHClient? get client => _client;
 
   Future<bool> connect({
     required String host,
@@ -50,7 +51,8 @@ class SshService {
         line.contains('batocera-check-updates') ||
         line.contains('butterfly') ||
         line.contains('type \'batocera') ||
-        line.contains('add \'butterfly');
+        line.contains('add \'butterfly') ||
+        line.contains('/dev/tty');
   }
 
   Future<String> execute(String command) async {
@@ -58,7 +60,10 @@ class SshService {
       throw Exception('Non connecté');
     }
     try {
-      final session = await _client!.execute('bash -l -c \'$command\'');
+      // </dev/null évite le /dev/tty, 2>/dev/null supprime stderr
+      final session = await _client!.execute(
+        'bash -l -c \'$command\' </dev/null 2>/dev/null',
+      );
       final stdoutBytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
       session.stderr.drain();
       await session.done;
@@ -160,17 +165,10 @@ class SshService {
     await execute('batocera-record stop');
   }
 
-  // ─── Logs ───────────────────────────────────────────────────────────────────
-
-  Future<String> readFile(String remotePath) async {
-    if (_client == null || !_connected) throw Exception("Non connecté");
-    final session = await _client!.execute("cat \"$remotePath\"");
-    final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
-    await session.done;
-    return utf8.decode(bytes);
-  }
+  // ─── Logs & fichiers (sans bash -l pour éviter le banner) ───────────────────
 
   Future<String> readLog(String filename) async {
+    if (_client == null || !_connected) throw Exception('Non connecté');
     final session = await _client!.execute(
       'cat /userdata/system/logs/$filename',
     );
@@ -178,6 +176,14 @@ class SshService {
     await session.done;
     final output = utf8.decode(bytes).trim();
     return output.isEmpty ? '(fichier vide)' : output;
+  }
+
+  Future<String> readFile(String remotePath) async {
+    if (_client == null || !_connected) throw Exception('Non connecté');
+    final session = await _client!.execute('cat "$remotePath"');
+    final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+    await session.done;
+    return utf8.decode(bytes);
   }
 
   // ─── Téléchargement SFTP ────────────────────────────────────────────────────
@@ -202,7 +208,6 @@ class SshService {
     }
     return result;
   }
-
 
   // ─── Upload SFTP ─────────────────────────────────────────────────────────────
 

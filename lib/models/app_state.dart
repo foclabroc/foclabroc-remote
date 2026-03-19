@@ -19,6 +19,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, String>> _roms = [];
   bool _loadingRoms = false;
   List<String> _recentHosts = [];
+  bool _skipReconnect = false;
+  DateTime? _skipReconnectUntil;
 
   ConnectionStatus get status => _status;
   String get errorMessage => _errorMessage;
@@ -33,6 +35,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool get loadingRoms => _loadingRoms;
   List<String> get recentHosts => _recentHosts;
   SshService get ssh => _ssh;
+
+  // Ignore reconnexion temporairement (ex: ouverture navigateur)
+  void pauseReconnect({int seconds = 10}) {
+    _skipReconnectUntil = DateTime.now().add(Duration(seconds: seconds));
+  }
 
   AppState() {
     _loadPrefs();
@@ -54,6 +61,8 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> _checkAndReconnect() async {
     if (_status != ConnectionStatus.connected) return;
+    // Ignore si on vient d'ouvrir le navigateur
+    if (_skipReconnectUntil != null && DateTime.now().isBefore(_skipReconnectUntil!)) return;
     // Vérifie si la connexion est toujours active
     try {
       await _ssh.execute('echo ok');

@@ -6,6 +6,7 @@ import 'system_screen.dart';
 import 'capture_screen.dart';
 import 'ssh_terminal_screen.dart';
 import 'file_manager_screen.dart';
+import 'running_game_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const _tabs = [
     _TabInfo(icon: Icons.wifi_rounded, label: 'Connexion'),
+    _TabInfo(icon: Icons.sports_esports_rounded, label: 'Jeu'),
     _TabInfo(icon: Icons.camera_alt_rounded, label: 'Capture'),
     _TabInfo(icon: Icons.terminal_rounded, label: 'SSH'),
     _TabInfo(icon: Icons.folder_rounded, label: 'Fichiers'),
@@ -26,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -39,9 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
       onGenerateRoute: (_) => MaterialPageRoute(
         builder: (_) => switch (index) {
           0 => const ConnectScreen(),
-          1 => const CaptureScreen(),
-          2 => const SshTerminalScreen(),
-          3 => const FileManagerScreen(),
+          1 => const RunningGameScreen(),
+          2 => const CaptureScreen(),
+          3 => const SshTerminalScreen(),
+          4 => const FileManagerScreen(),
           _ => const SystemScreen(),
         },
       ),
@@ -56,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       body: Stack(
-        children: List.generate(5, (i) => Offstage(
+        children: List.generate(6, (i) => Offstage(
           offstage: _index != i,
           child: _buildScreen(i),
         )),
@@ -81,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: disabled ? null : () => setState(() => _index = i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: selected ? accent.withOpacity(0.12) : Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
