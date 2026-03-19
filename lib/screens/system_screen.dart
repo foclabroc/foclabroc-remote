@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/app_state.dart';
 
 class SystemScreen extends StatelessWidget {
@@ -233,6 +234,7 @@ class _LogButtonState extends State<_LogButton> {
     if (!mounted) return;
 
     final capturedContent = logContent;
+    final capturedFilename = widget.filename;
 
     showModalBottomSheet(
       context: ctx,
@@ -259,19 +261,28 @@ class _LogButtonState extends State<_LogButton> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 0, 8, 12),
               child: Row(
                 children: [
                   Icon(widget.icon, color: widget.color, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      widget.filename,
+                      capturedFilename,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.share_rounded,
+                        color: Colors.white54, size: 20),
+                    tooltip: 'Partager',
+                    onPressed: () => Share.share(
+                      capturedContent,
+                      subject: capturedFilename,
                     ),
                   ),
                   IconButton(
@@ -288,7 +299,7 @@ class _LogButtonState extends State<_LogButton> {
               child: SingleChildScrollView(
                 controller: scrollCtrl,
                 padding: const EdgeInsets.all(16),
-                child: Text(
+                child: SelectableText(
                   capturedContent,
                   style: const TextStyle(
                     fontFamily: 'monospace',

@@ -40,7 +40,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     setState(() => _loadingScreenshot = true);
     try {
       final filename = await state.ssh.screenshot();
-      if (mounted) _showSuccess('Capture effectuée !');
+      if (mounted) _showSuccess('Capture sauvegardée dans: /userdata/screenshots !');
     } catch (e) {
       if (mounted) _showError('Erreur : $e');
     } finally {
@@ -82,7 +82,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         _seconds = 0;
         _loadingRecord = false;
       });
-      if (mounted) _showSuccess('Enregistrement arrêté — durée : $duration');
+      if (mounted) _showSuccess('Enregistrement sauvegardé dans: /userdata/recordings — durée : $duration');
     } catch (e) {
       if (mounted) _showError('Erreur : $e');
       setState(() => _loadingRecord = false);
@@ -190,7 +190,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Enregistre une vidéo de Batocera via batocera-record.',
+                        'Enregistre une vidéo de Batocera.',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 24),
@@ -199,7 +199,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         decoration: BoxDecoration(
                           color: _recording
                               ? Colors.redAccent.withOpacity(0.08)
@@ -223,7 +223,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                                 Text(
                                   _recording ? _timerLabel : '00:00',
                                   style: TextStyle(
-                                    fontSize: 48,
+                                    fontSize: 28,
                                     fontWeight: FontWeight.w800,
                                     color: _recording
                                         ? Colors.redAccent
