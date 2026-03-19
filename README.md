@@ -10,7 +10,7 @@
 
 ## 📥 Télécharger
 
-[![Download APK](https://img.shields.io/badge/Download-APK-red?style=for-the-badge&logo=android)](https://github.com/foclabroc/foclabroc-remote/releases/download/release/foclabroc.remote.apk)
+[![Download APK](https://img.shields.io/badge/Download-APK-red?style=for-the-badge&logo=android)](https://github.com/foclabroc/foclabroc-remote/releases)
 
 ---
 
