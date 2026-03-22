@@ -11,6 +11,7 @@ class ConnectScreen extends StatefulWidget {
 }
 
 class _ConnectScreenState extends State<ConnectScreen> {
+  final _nameCtrl = TextEditingController();
   final _ipCtrl = TextEditingController();
   final _portCtrl = TextEditingController(text: '22');
   final _userCtrl = TextEditingController(text: 'root');
@@ -31,11 +32,66 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _ipCtrl.dispose();
     _portCtrl.dispose();
     _userCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
+  }
+
+  void _showEntryOptions(BuildContext context, AppState state, String entry) {
+    final ip = state.recentHostIp(entry);
+    final name = state.recentHostName(entry);
+    final nameCtrl = TextEditingController(text: name);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C2230),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(ip, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: nameCtrl,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Nom (ex: Salon, Bureau...)',
+              hintStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.06),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  state.removeRecentHost(entry);
+                  Navigator.pop(ctx);
+                },
+                icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
+                label: const Text('Supprimer', style: TextStyle(color: Colors.redAccent)),
+                style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  state.renameRecentHost(entry, nameCtrl.text);
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Sauvegarder'),
+              ),
+            ),
+          ]),
+        ]),
+      ),
+    );
   }
 
   Future<void> _connect(AppState state) async {
@@ -44,6 +100,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final port = int.tryParse(_portCtrl.text.trim()) ?? 22;
     await state.connect(
       host: ip,
+      name: _nameCtrl.text.trim(),
       port: port,
       username: _userCtrl.text.trim(),
       password: _passCtrl.text,
@@ -125,12 +182,16 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
-                  children: state.recentHosts.map((host) {
+                  runSpacing: 8,
+                  children: state.recentHosts.map((entry) {
+                    final ip = state.recentHostIp(entry);
+                    final name = state.recentHostName(entry);
                     return GestureDetector(
                       onTap: () {
-                        _ipCtrl.text = host;
+                        _ipCtrl.text = ip;
                         _connect(state);
                       },
+                      onLongPress: () => _showEntryOptions(context, state, entry),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
@@ -143,11 +204,23 @@ class _ConnectScreenState extends State<ConnectScreen> {
                           children: [
                             Icon(Icons.history_rounded, color: accent, size: 14),
                             const SizedBox(width: 6),
-                            Text(host,
-                                style: TextStyle(
-                                    color: accent,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600)),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (name.isNotEmpty)
+                                  Text(name,
+                                      style: TextStyle(
+                                          color: accent,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700)),
+                                Text(ip,
+                                    style: TextStyle(
+                                        color: name.isNotEmpty ? accent.withOpacity(0.7) : accent,
+                                        fontSize: name.isNotEmpty ? 11 : 13,
+                                        fontWeight: name.isNotEmpty ? FontWeight.w400 : FontWeight.w600)),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -172,6 +245,13 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     const SizedBox(height: 20),
 
                     // IP + Port
+                    _FieldBox(
+                      controller: _nameCtrl,
+                      label: 'Nom (optionnel)',
+                      icon: Icons.label_outline_rounded,
+                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(

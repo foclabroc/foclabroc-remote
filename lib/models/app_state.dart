@@ -20,7 +20,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   String _systemInfo = '';
   List<Map<String, String>> _roms = [];
   bool _loadingRoms = false;
-  List<String> _recentHosts = [];
+  List<String> _recentHosts = []; // format: 'name::ip' or just 'ip'
 
   ConnectionStatus get status => _status;
   String get errorMessage => _errorMessage;
@@ -137,14 +137,41 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<void> _savePrefs() async {
+  Future<void> _savePrefs({String name = ''}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('host', _host);
     await prefs.setInt('port', _port);
     await prefs.setString('username', _username);
     await prefs.setString('password', _password);
-    _recentHosts = [_host, ..._recentHosts.where((h) => h != _host)].take(3).toList();
+    final existing = _recentHosts.firstWhere(
+      (e) => _extractIp(e) == _host, orElse: () => '');
+    final entryName = name.trim().isNotEmpty ? name.trim()
+        : existing.isNotEmpty ? _extractName(existing) : '';
+    final newEntry = entryName.isNotEmpty ? '$entryName::$_host' : _host;
+    _recentHosts = [newEntry, ..._recentHosts.where((e) => _extractIp(e) != _host)].take(5).toList();
     await prefs.setStringList('recent_hosts', _recentHosts);
+  }
+
+  String _extractIp(String entry) => entry.contains('::') ? entry.split('::')[1] : entry;
+  String _extractName(String entry) => entry.contains('::') ? entry.split('::')[0] : '';
+
+  String recentHostIp(String entry) => _extractIp(entry);
+  String recentHostName(String entry) => _extractName(entry);
+
+  Future<void> renameRecentHost(String entry, String newName) async {
+    final ip = _extractIp(entry);
+    final newEntry = newName.trim().isEmpty ? ip : '${newName.trim()}::$ip';
+    _recentHosts = _recentHosts.map((e) => _extractIp(e) == ip ? newEntry : e).toList();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('recent_hosts', _recentHosts);
+    notifyListeners();
+  }
+
+  Future<void> removeRecentHost(String entry) async {
+    _recentHosts = _recentHosts.where((e) => e != entry).toList();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('recent_hosts', _recentHosts);
+    notifyListeners();
   }
 
   Future<void> clearRecentHosts() async {
@@ -159,6 +186,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     required int port,
     required String username,
     required String password,
+    String name = '',
   }) async {
     _host = host;
     _port = port;
@@ -177,7 +205,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
 
     if (ok) {
       _status = ConnectionStatus.connected;
-      await _savePrefs();
+      await _savePrefs(name: name);
       await refreshSystemInfo();
       await refreshVolume();
     } else {
