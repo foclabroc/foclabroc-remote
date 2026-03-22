@@ -87,7 +87,7 @@ class _GamesScreenState extends State<GamesScreen> {
       final list = jsonDecode(raw) as List;
       final systems = list
           .map((s) => s as Map<String, dynamic>)
-          .where((s) => s['visible'] == 'true' && s['name'] != 'all')
+          .where((s) => s['visible'] == 'true' && s['name'] != 'all' && s['name'] != 'recordings' && s['name'] != 'imageviewer' && s['name'] != 'favorites' && s['name'] != 'recent' && s['name'] != 'flatpak' && s['name'] != 'odcommander')
           .toList();
       systems.sort((a, b) => (a['fullname'] ?? '').toString()
           .compareTo((b['fullname'] ?? '').toString()));

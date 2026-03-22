@@ -177,12 +177,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                           ),
                         ),
                       ),
-                      // Logo
+                      // Logo sans fond blanc
                       Opacity(
                         opacity: _logoOpacity.value,
                         child: Transform.scale(
                           scale: _logoScale.value,
-                          child: Image.asset('assets/icon.png', width: 180, height: 180),
+                          child: ColorFiltered(
+                            colorFilter: const ColorFilter.matrix(<double>[
+                              1, 0, 0, 0, 0,
+                              0, 1, 0, 0, 0,
+                              0, 0, 1, 0, 0,
+                              -1, -1, -1, 3, 0, // white → transparent
+                            ]),
+                            child: Image.asset('assets/icon.png', width: 210, height: 210),
+                          ),
                         ),
                       ),
                     ],
@@ -263,14 +271,17 @@ class _BackgroundPainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
 
     // Gradient background circles
-    paint.color = const Color(0xFFE02020).withOpacity(0.04 * progress);
-    canvas.drawCircle(Offset(size.width * 0.2, size.height * 0.2), 200, paint);
+    paint.color = const Color(0xFFE02020).withOpacity(0.22 * progress);
+    canvas.drawCircle(Offset(size.width * 0.15, size.height * 0.15), 220, paint);
 
-    paint.color = const Color(0xFF0040FF).withOpacity(0.04 * progress);
-    canvas.drawCircle(Offset(size.width * 0.8, size.height * 0.8), 250, paint);
+    paint.color = const Color(0xFF0040FF).withOpacity(0.18 * progress);
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.85), 280, paint);
 
-    paint.color = const Color(0xFFE02020).withOpacity(0.02 * progress);
-    canvas.drawCircle(Offset(size.width * 0.9, size.height * 0.1), 150, paint);
+    paint.color = const Color(0xFFE02020).withOpacity(0.14 * progress);
+    canvas.drawCircle(Offset(size.width * 0.88, size.height * 0.12), 160, paint);
+
+    paint.color = const Color(0xFF0040FF).withOpacity(0.10 * progress);
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.8), 180, paint);
   }
 
   @override
