@@ -2,24 +2,32 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
+import '../widgets/back_handler.dart';
 
 class FileManagerScreen extends StatefulWidget {
-  const FileManagerScreen({super.key});
+  final String initialPath;
+  const FileManagerScreen({super.key, this.initialPath = '/userdata'});
 
   @override
   State<FileManagerScreen> createState() => _FileManagerScreenState();
 }
 
 class _FileManagerScreenState extends State<FileManagerScreen> {
-  String _currentPath = '/userdata';
+  late String _currentPath;
   List<_FileItem> _items = [];
   bool _loading = false;
   String? _error;
   String? _downloading;
   bool _uploading = false;
+  double _uploadProgress = 0.0;
+  String _uploadingFileName = '';
+  int _uploadCurrentFile = 0;
+  int _uploadTotalFiles = 0;
   final List<String> _breadcrumbs = ['/userdata'];
 
   // Sélection multiple
@@ -31,18 +39,39 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   bool _clipboardIsCut = false;
 
   static const _imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
-  static const _videoExts = ['mp4', 'mkv', 'avi', 'mov', 'webm'];
+  static const _videoExts = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'm4v'];
+  static const _pdfExts = ['pdf'];
   static const _textExts = ['txt', 'cfg', 'conf', 'ini', 'log', 'sh', 'xml', 'json', 'yaml', 'yml', 'md'];
   static const _editableExts = ['cfg', 'conf', 'ini', 'txt', 'sh', 'xml', 'json', 'yaml', 'yml', 'md'];
 
   @override
   void initState() {
     super.initState();
+    _currentPath = widget.initialPath;
+    TabBackHandler.register(5, _handleBack);
+    // Réinitialise l'état upload au démarrage
+    _uploading = false;
+    _uploadProgress = 0.0;
+    _uploadingFileName = '';
+    _uploadCurrentFile = 0;
+    _uploadTotalFiles = 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppState>().addListener(_onConnectionChange);
       final state = context.read<AppState>();
       if (state.isConnected) _loadDir(_currentPath);
     });
+  }
+
+  bool _handleBack() {
+    if (_selected.isNotEmpty) {
+      setState(() => _selected.clear());
+      return true;
+    }
+    if (_currentPath != '/userdata') {
+      Navigator.of(context).pop();
+      return true;
+    }
+    return false;
   }
 
   void _onConnectionChange() {
@@ -54,6 +83,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   @override
   void dispose() {
+    TabBackHandler.unregister(5);
     context.read<AppState>().removeListener(_onConnectionChange);
     super.dispose();
   }
@@ -89,22 +119,18 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   }
 
   void _navigate(String path) {
-    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
-    _breadcrumbs.clear();
-    _breadcrumbs.add('/userdata');
-    String built = '/userdata';
-    for (final p in parts.skip(1)) {
-      built += '/$p';
-      if (built != '/userdata') _breadcrumbs.add(built);
-    }
-    _loadDir(path);
+    if (path == _currentPath) return;
+    // Utilise Navigator.push pour que le bouton retour Android fonctionne naturellement
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => FileManagerScreen(initialPath: path),
+    ));
   }
 
   void _goUp() {
     if (_currentPath == '/userdata') return;
-    final parent = _currentPath.substring(0, _currentPath.lastIndexOf('/'));
-    _navigate(parent.isEmpty ? '/userdata' : parent);
+    Navigator.of(context).pop();
   }
+
 
   void _toggleSelect(_FileItem item) {
     setState(() {
@@ -268,33 +294,143 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   }
 
   Future<void> _uploadFile() async {
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true, withData: true);
+    // withData: false pour éviter OOM sur gros fichiers — on lit via path
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true, withData: false);
     if (result == null || result.files.isEmpty) return;
-    setState(() => _uploading = true);
     final state = context.read<AppState>();
     int success = 0;
-    for (final file in result.files) {
-      try {
-        final bytes = file.bytes;
-        if (bytes == null) continue;
-        await state.ssh.uploadFile('$_currentPath/${file.name}', bytes);
-        success++;
-      } catch (_) {}
+    final total = result.files.length;
+
+    setState(() {
+      _uploading = true;
+      _uploadProgress = 0.0;
+      _uploadTotalFiles = total;
+      _uploadCurrentFile = 0;
+    });
+
+    try {
+      for (int i = 0; i < result.files.length; i++) {
+        final file = result.files[i];
+        try {
+          final path = file.path;
+          if (path == null) continue;
+          setState(() {
+            _uploadCurrentFile = i + 1;
+            _uploadingFileName = file.name;
+            _uploadProgress = 0.0;
+          });
+          // Stream depuis le disque sans charger en RAM
+          await state.ssh.uploadFileFromPath(
+            path,
+            '$_currentPath/${file.name}',
+            onProgress: (sent, fileTotal) {
+              if (mounted) {
+                setState(() => _uploadProgress = fileTotal > 0 ? sent / fileTotal : 0.0);
+              }
+            },
+          );
+          success++;
+        } catch (_) {}
+      }
+    } finally {
+      _resetUploadState();
     }
-    setState(() => _uploading = false);
     await _loadDir(_currentPath);
     _showSnack('$success fichier(s) envoyé(s) !');
   }
 
+  void _resetUploadState() {
+    if (mounted) {
+      setState(() {
+        _uploading = false;
+        _uploadProgress = 0.0;
+        _uploadingFileName = '';
+        _uploadCurrentFile = 0;
+        _uploadTotalFiles = 0;
+      });
+    }
+  }
+
   Future<void> _openFile(_FileItem item) async {
+    final ext = _ext(item.name);
+    final state = context.read<AppState>();
+    final dir = await getTemporaryDirectory();
+    final localFile = File('${dir.path}/${item.name}');
+
+    if (_videoExts.contains(ext)) {
+      showDialog(
+        context: context,
+        useRootNavigator: true,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: Card(
+          child: Padding(padding: EdgeInsets.all(28),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.movie_rounded, color: Colors.purpleAccent, size: 32),
+              SizedBox(height: 16),
+              CircularProgressIndicator(color: Colors.purpleAccent),
+              SizedBox(height: 12),
+              Text('Chargement...', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ]),
+          ),
+        )),
+      );
+      try {
+        final sizeStr = await state.ssh.execute('stat -c%s "${item.fullPath}" 2>/dev/null');
+        final totalSize = int.tryParse(sizeStr.trim()) ?? 0;
+        await state.ssh.downloadFileToDisk(item.fullPath, localFile.path);
+        if (!mounted) return;
+
+        final controller = VideoPlayerController.file(localFile);
+        await controller.initialize();
+
+        if (!mounted) { controller.dispose(); return; }
+        Navigator.of(context, rootNavigator: true).pop();
+        Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+          builder: (_) => _FmVideoPlayer(filePath: localFile.path, title: item.name, preloadedController: controller),
+        ));
+      } catch (e) {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+          _showSnack('Erreur : $e', isError: true);
+        }
+      }
+      return;
+    }
+
     setState(() => _downloading = item.name);
     try {
-      final state = context.read<AppState>();
-      final bytes = await state.ssh.downloadFile(item.fullPath);
-      final dir = await getTemporaryDirectory();
-      final localFile = File('${dir.path}/${item.name}');
-      await localFile.writeAsBytes(bytes);
-      await OpenFilex.open(localFile.path);
+      if (_pdfExts.contains(ext)) {
+        await state.ssh.downloadFileToDisk(item.fullPath, localFile.path);
+      } else {
+        final bytes = await state.ssh.downloadFile(item.fullPath);
+        await localFile.writeAsBytes(bytes);
+      }
+      if (!mounted) return;
+
+      if (_imageExts.contains(ext)) {
+        final bytes = await localFile.readAsBytes();
+        if (!mounted) return;
+        Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+          builder: (_) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.black,
+              title: Text(item.name, style: const TextStyle(fontSize: 14)),
+            ),
+            body: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: Center(child: Image.memory(bytes, fit: BoxFit.contain)),
+            ),
+          ),
+        ));
+      } else if (_pdfExts.contains(ext)) {
+        Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+          builder: (_) => _FmPdfViewer(filePath: localFile.path, title: item.name),
+        ));
+      } else {
+        await OpenFilex.open(localFile.path);
+      }
     } catch (e) {
       _showSnack('Erreur : $e', isError: true);
     } finally {
@@ -497,7 +633,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 12, 8),
+              padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
               child: Row(
                 children: [
                   if (_selectionMode) ...[
@@ -518,16 +654,56 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                     Text('Fichiers', style: Theme.of(context).textTheme.headlineMedium),
                     const Spacer(),
                     if (_loading || _downloading != null || _uploading)
-                      Row(children: [
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Text(_uploading ? 'Envoi...' : 'Chargement...',
-                              style: TextStyle(color: accent, fontSize: 12)),
-                        ),
-                        SizedBox(width: 18, height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
-                        const SizedBox(width: 8),
-                      ])
+                      _uploading
+                        ? SizedBox(
+                            width: 160,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    if (_uploadTotalFiles > 1)
+                                      Text(
+                                        '$_uploadCurrentFile/$_uploadTotalFiles ',
+                                        style: TextStyle(color: accent, fontSize: 10),
+                                      ),
+                                    Flexible(
+                                      child: Text(
+                                        'Upload: $_uploadingFileName',
+                                        style: TextStyle(color: accent, fontSize: 10),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                LinearProgressIndicator(
+                                  value: _uploadProgress,
+                                  color: accent,
+                                  backgroundColor: accent.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  minHeight: 5,
+                                ),
+                                Text(
+                                  '${(_uploadProgress * 100).toInt()}%',
+                                  style: TextStyle(color: accent, fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Row(children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Text('Chargement...',
+                                  style: TextStyle(color: accent, fontSize: 12)),
+                            ),
+                            SizedBox(width: 18, height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
+                            const SizedBox(width: 8),
+                          ])
                     else ...[
                       IconButton(
                         icon: Icon(Icons.upload_rounded, color: Colors.white38, size: 20),
@@ -1107,5 +1283,156 @@ class _FileItem {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+  }
+}
+
+// ─── PDF Viewer ───────────────────────────────────────────────────────────────
+
+class _FmPdfViewer extends StatefulWidget {
+  final String filePath;
+  final String title;
+  const _FmPdfViewer({required this.filePath, required this.title});
+
+  @override
+  State<_FmPdfViewer> createState() => _FmPdfViewerState();
+}
+
+class _FmPdfViewerState extends State<_FmPdfViewer> {
+  int _total = 0;
+  int _current = 0;
+  bool _ready = false;
+  PDFViewController? _ctrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0F14),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF161A22),
+        elevation: 0,
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(widget.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+          if (_total > 0) Text('Page ${_current + 1} / $_total', style: const TextStyle(fontSize: 11, color: Colors.white38)),
+        ]),
+        actions: [
+          if (_total > 1) ...[
+            IconButton(icon: const Icon(Icons.arrow_back_ios_rounded, size: 18, color: Colors.white54),
+                onPressed: _current > 0 ? () => _ctrl?.setPage(_current - 1) : null),
+            IconButton(icon: const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Colors.white54),
+                onPressed: _current < _total - 1 ? () => _ctrl?.setPage(_current + 1) : null),
+          ],
+        ],
+      ),
+      body: Stack(children: [
+        PDFView(
+          filePath: widget.filePath,
+          enableSwipe: true,
+          fitPolicy: FitPolicy.BOTH,
+          onRender: (p) => setState(() { _total = p ?? 0; _ready = true; }),
+          onPageChanged: (p, t) => setState(() { _current = p ?? 0; _total = t ?? 0; }),
+          onViewCreated: (c) => _ctrl = c,
+        ),
+        if (!_ready) Center(child: CircularProgressIndicator(color: accent)),
+      ]),
+    );
+  }
+}
+
+// ─── Video Player ─────────────────────────────────────────────────────────────
+
+class _FmVideoPlayer extends StatefulWidget {
+  final String? filePath;
+  final String? streamUrl;
+  final String title;
+  final VideoPlayerController? preloadedController;
+  const _FmVideoPlayer({this.filePath, this.streamUrl, required this.title, this.preloadedController});
+
+  @override
+  State<_FmVideoPlayer> createState() => _FmVideoPlayerState();
+}
+
+class _FmVideoPlayerState extends State<_FmVideoPlayer> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.preloadedController != null) {
+      _controller = widget.preloadedController!;
+      _initialized = true;
+      _controller.play();
+    } else {
+      _controller = (widget.streamUrl != null
+          ? VideoPlayerController.networkUrl(Uri.parse(widget.streamUrl!))
+          : VideoPlayerController.file(File(widget.filePath!)))
+        ..initialize().then((_) {
+          if (mounted) { setState(() => _initialized = true); _controller.play(); }
+        });
+    }
+    _controller.setLooping(false);
+  }
+
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        title: Text(widget.title, style: const TextStyle(fontSize: 14)),
+      ),
+      body: _initialized
+          ? SafeArea(
+              child: Column(children: [
+                Expanded(
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: _controller.value.aspectRatio,
+                      child: VideoPlayer(_controller),
+                    ),
+                  ),
+                ),
+                VideoProgressIndicator(
+                  _controller,
+                  allowScrubbing: true,
+                  colors: VideoProgressColors(
+                    playedColor: accent,
+                    bufferedColor: Colors.white24,
+                    backgroundColor: Colors.white12,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.replay_10_rounded, color: Colors.white70, size: 28),
+                      onPressed: () => _controller.seekTo(_controller.value.position - const Duration(seconds: 10)),
+                    ),
+                    ValueListenableBuilder(
+                      valueListenable: _controller,
+                      builder: (_, value, __) => IconButton(
+                        iconSize: 44,
+                        icon: Icon(value.isPlaying ? Icons.pause_circle_rounded : Icons.play_circle_rounded, color: Colors.white),
+                        onPressed: () => value.isPlaying ? _controller.pause() : _controller.play(),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.forward_10_rounded, color: Colors.white70, size: 28),
+                      onPressed: () => _controller.seekTo(_controller.value.position + const Duration(seconds: 10)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ]),
+            )
+          : Center(child: CircularProgressIndicator(color: accent)),
+    );
   }
 }

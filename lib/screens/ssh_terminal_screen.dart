@@ -136,17 +136,10 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
               child: Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Terminal', style: Theme.of(context).textTheme.headlineMedium),
-                      Text('Commandes basiques uniquement',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11)),
-                    ],
-                  ),
+                  Text('Terminal', style: Theme.of(context).textTheme.headlineMedium),
                   const Spacer(),
                   IconButton(
                     icon: Icon(Icons.copy_rounded, color: Colors.white38, size: 20),

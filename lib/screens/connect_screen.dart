@@ -11,37 +11,40 @@ class ConnectScreen extends StatefulWidget {
 }
 
 class _ConnectScreenState extends State<ConnectScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _hostCtrl;
-  late TextEditingController _portCtrl;
-  late TextEditingController _userCtrl;
-  late TextEditingController _passCtrl;
-  bool _obscure = true;
+  final _ipCtrl = TextEditingController();
+  final _portCtrl = TextEditingController(text: '22');
+  final _userCtrl = TextEditingController(text: 'root');
+  final _passCtrl = TextEditingController(text: 'linux');
+  bool _obscurePass = true;
 
   @override
   void initState() {
     super.initState();
-    final s = context.read<AppState>();
-    _hostCtrl = TextEditingController(text: s.host);
-    _portCtrl = TextEditingController(text: s.port.toString());
-    _userCtrl = TextEditingController(text: s.username);
-    _passCtrl = TextEditingController(text: s.password);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = context.read<AppState>();
+      _ipCtrl.text = state.host;
+      _portCtrl.text = state.port.toString();
+      _userCtrl.text = state.username;
+      _passCtrl.text = state.password;
+    });
   }
 
   @override
   void dispose() {
-    _hostCtrl.dispose();
+    _ipCtrl.dispose();
     _portCtrl.dispose();
     _userCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _submit(AppState state) async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _connect(AppState state) async {
+    final ip = _ipCtrl.text.trim();
+    if (ip.isEmpty) return;
+    final port = int.tryParse(_portCtrl.text.trim()) ?? 22;
     await state.connect(
-      host: _hostCtrl.text.trim(),
-      port: int.tryParse(_portCtrl.text.trim()) ?? 22,
+      host: ip,
+      port: port,
       username: _userCtrl.text.trim(),
       password: _passCtrl.text,
     );
@@ -51,34 +54,25 @@ class _ConnectScreenState extends State<ConnectScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final accent = Theme.of(context).colorScheme.primary;
-    final connected = state.isConnected;
+    final isConnected = state.isConnected;
+    final isConnecting = state.status == ConnectionStatus.connecting;
 
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 16),
 
-              // Header avec logo PNG
+              // Header logo + titre
               Row(
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: accent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: accent.withOpacity(0.2)),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(13),
-                      child: Image.asset('assets/icon.png', fit: BoxFit.cover),
-                    ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.asset('assets/icon.png', width: 60, height: 60),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -90,195 +84,250 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
 
-              StatusBadge(status: state.status),
               const SizedBox(height: 24),
 
-              if (connected) ...[
-                _InfoCard(info: state.systemInfo),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () async => await state.disconnect(),
-                    icon: const Icon(Icons.link_off_rounded),
-                    label: const Text('Se déconnecter'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                      side: const BorderSide(color: Colors.redAccent),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
+              // Badge statut
+              StatusBadge(status: state.status),
+
+              if (state.errorMessage.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(state.errorMessage,
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
                 ),
-              ] else ...[
 
-                // Historique IP récentes
-                if (state.recentHosts.isNotEmpty) ...[
-                  Text('Récents', style: Theme.of(context).textTheme.bodyMedium),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: state.recentHosts.map((ip) => ActionChip(
-                      avatar: Icon(Icons.history_rounded, size: 14, color: accent),
-                      label: Text(ip),
-                      backgroundColor: const Color(0xFF1C2230),
-                      side: BorderSide(color: accent.withOpacity(0.3)),
-                      labelStyle: TextStyle(color: accent, fontSize: 13),
-                      onPressed: () => setState(() => _hostCtrl.text = ip),
-                    )).toList(),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+              const SizedBox(height: 24),
 
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Paramètres SSH',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 20),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: TextFormField(
-                                  controller: _hostCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Adresse IP',
-                                    hintText: '192.168.1.x',
-                                    prefixIcon: Icon(Icons.computer_rounded),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  validator: (v) =>
-                                      v == null || v.isEmpty ? 'Requis' : null,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 1,
-                                child: TextFormField(
-                                  controller: _portCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Port',
-                                    hintText: '22',
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-
-                          TextFormField(
-                            controller: _userCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Utilisateur',
-                              hintText: 'root',
-                              prefixIcon: Icon(Icons.person_rounded),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-
-                          TextFormField(
-                            controller: _passCtrl,
-                            obscureText: _obscure,
-                            decoration: InputDecoration(
-                              labelText: 'Mot de passe',
-                              hintText: 'linux',
-                              prefixIcon: const Icon(Icons.lock_rounded),
-                              suffixIcon: IconButton(
-                                icon: Icon(_obscure
-                                    ? Icons.visibility_rounded
-                                    : Icons.visibility_off_rounded),
-                                onPressed: () =>
-                                    setState(() => _obscure = !_obscure),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: state.status == ConnectionStatus.connecting
-                                  ? null
-                                  : () => _submit(state),
-                              icon: state.status == ConnectionStatus.connecting
-                                  ? const SizedBox(
-                                      width: 18, height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.link_rounded),
-                              label: Text(state.status == ConnectionStatus.connecting
-                                  ? 'Connexion...'
-                                  : 'Se connecter'),
-                            ),
-                          ),
-
-                          if (state.errorMessage.isNotEmpty) ...[
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                    color: Colors.redAccent.withOpacity(0.3)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.error_rounded,
-                                      color: Colors.redAccent, size: 18),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      state.errorMessage,
-                                      style: const TextStyle(
-                                          color: Colors.redAccent, fontSize: 13),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+              // Récents
+              if (state.recentHosts.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Text('Récents',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontSize: 13, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => state.clearRecentHosts(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: const Text('Vider',
+                            style: TextStyle(color: Colors.white38, fontSize: 11)),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline_rounded,
-                          size: 16, color: Colors.white.withOpacity(0.4)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Batocera: SSH activé par défaut. User: root / Pass: linux',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.white.withOpacity(0.4)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: state.recentHosts.map((host) {
+                    return GestureDetector(
+                      onTap: () {
+                        _ipCtrl.text = host;
+                        _connect(state);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: accent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: accent.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.history_rounded, color: accent, size: 14),
+                            const SizedBox(width: 6),
+                            Text(host,
+                                style: TextStyle(
+                                    color: accent,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                          ],
                         ),
                       ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Formulaire SSH — masqué si connecté
+              if (!isConnected) Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1C2230),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Paramètres SSH',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 20),
+
+                    // IP + Port
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _FieldBox(
+                            controller: _ipCtrl,
+                            label: 'Adresse IP',
+                            icon: Icons.computer_rounded,
+                            keyboardType: TextInputType.number,
+                            onSubmitted: (_) => _connect(state),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 80,
+                          child: _FieldBox(
+                            controller: _portCtrl,
+                            label: 'Port',
+                            keyboardType: TextInputType.number,
+                            onSubmitted: (_) => _connect(state),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Utilisateur
+                    _FieldBox(
+                      controller: _userCtrl,
+                      label: 'Utilisateur',
+                      icon: Icons.person_rounded,
+                      onSubmitted: (_) => _connect(state),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Mot de passe
+                    _FieldBox(
+                      controller: _passCtrl,
+                      label: 'Mot de passe',
+                      icon: Icons.lock_rounded,
+                      obscureText: _obscurePass,
+                      onSubmitted: (_) => _connect(state),
+                      suffix: IconButton(
+                        icon: Icon(
+                          _obscurePass ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                          color: Colors.white38, size: 20,
+                        ),
+                        onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Bouton connexion
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: isConnecting
+                            ? null
+                            : isConnected
+                                ? () => state.disconnect()
+                                : () => _connect(state),
+                        icon: isConnecting
+                            ? const SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : Icon(isConnected
+                                ? Icons.link_off_rounded
+                                : Icons.link_rounded),
+                        label: Text(isConnecting
+                            ? 'Connexion...'
+                            : isConnected
+                                ? 'Déconnecter'
+                                : 'Se connecter'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isConnected ? Colors.white12 : Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Bouton déconnecter (visible uniquement si connecté)
+              if (isConnected)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => state.disconnect(),
+                      icon: const Icon(Icons.link_off_rounded),
+                      label: const Text('Déconnecter'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Infos système
+              if (isConnected && state.systemInfo.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1C2230),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Icon(Icons.info_outline_rounded, color: Colors.white38, size: 14),
+                        const SizedBox(width: 6),
+                        Text('Informations système',
+                            style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1)),
+                      ]),
+                      const SizedBox(height: 10),
+                      Text(state.systemInfo,
+                          style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: Colors.white70,
+                              height: 1.6)),
                     ],
                   ),
                 ),
-              ],
+
+              const SizedBox(height: 16),
+
+              // Hint
+              Center(
+                child: Text(
+                  'Batocera : SSH activé par défaut · User root / linux',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
           ),
         ),
@@ -287,54 +336,52 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 }
 
-class _InfoCard extends StatelessWidget {
-  final String info;
-  const _InfoCard({required this.info});
+class _FieldBox extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData? icon;
+  final TextInputType? keyboardType;
+  final bool obscureText;
+  final void Function(String)? onSubmitted;
+  final Widget? suffix;
+
+  const _FieldBox({
+    required this.controller,
+    required this.label,
+    this.icon,
+    this.keyboardType,
+    this.obscureText = false,
+    this.onSubmitted,
+    this.suffix,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final lines = info.split('\n').where((l) => l.isNotEmpty).toList();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.info_rounded,
-                    color: Theme.of(context).colorScheme.primary, size: 18),
-                const SizedBox(width: 8),
-                Text('Informations système',
-                    style: Theme.of(context).textTheme.titleMedium),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...lines.map((line) {
-              final parts = line.split(': ');
-              if (parts.length >= 2) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Text('${parts[0]}: ',
-                          style: Theme.of(context).textTheme.bodyMedium),
-                      Expanded(
-                        child: Text(
-                          parts.sublist(1).join(': '),
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return Text(line, style: Theme.of(context).textTheme.bodyMedium);
-            }),
-          ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        obscureText: obscureText,
+        onSubmitted: onSubmitted,
+        style: const TextStyle(color: Colors.white, fontSize: 15),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+          prefixIcon: icon != null
+              ? Icon(icon, color: Colors.white38, size: 18)
+              : null,
+          suffixIcon: suffix,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.transparent,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );

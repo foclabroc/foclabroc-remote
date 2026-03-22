@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ssh_service.dart';
@@ -19,12 +21,11 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, String>> _roms = [];
   bool _loadingRoms = false;
   List<String> _recentHosts = [];
-  bool _skipReconnect = false;
-  DateTime? _skipReconnectUntil;
 
   ConnectionStatus get status => _status;
   String get errorMessage => _errorMessage;
   bool get isConnected => _status == ConnectionStatus.connected;
+  bool get isReconnecting => _status == ConnectionStatus.connecting && _host.isNotEmpty;
   String get host => _host;
   int get port => _port;
   String get username => _username;
@@ -35,11 +36,6 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool get loadingRoms => _loadingRoms;
   List<String> get recentHosts => _recentHosts;
   SshService get ssh => _ssh;
-
-  // Ignore reconnexion temporairement (ex: ouverture navigateur)
-  void pauseReconnect({int seconds = 10}) {
-    _skipReconnectUntil = DateTime.now().add(Duration(seconds: seconds));
-  }
 
   AppState() {
     _loadPrefs();
@@ -55,38 +51,54 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _checkAndReconnect();
+      // Reconnecte immédiatement sans délai
+      _silentReconnect();
+    } else if (state == AppLifecycleState.paused) {
+      // Envoie un keepalive avant de passer en arrière-plan
+      if (_status == ConnectionStatus.connected) {
+        _ssh.execute('echo bg').catchError((_) {});
+      }
     }
   }
 
-  Future<void> _checkAndReconnect() async {
+  Future<void> _silentReconnect() async {
+    if (_host.isEmpty) return;
     if (_status != ConnectionStatus.connected) return;
-    // Ignore si on vient d'ouvrir le navigateur
-    if (_skipReconnectUntil != null && DateTime.now().isBefore(_skipReconnectUntil!)) return;
-    // Vérifie si la connexion est toujours active
+
+    // Vérifie si la connexion est encore vivante
+    bool alive = false;
     try {
-      await _ssh.execute('echo ok');
-    } catch (_) {
-      // Connexion perdue, on reconnecte
-      _status = ConnectionStatus.connecting;
-      notifyListeners();
-      final ok = await _ssh.connect(
-        host: _host,
-        port: _port,
-        username: _username,
-        password: _password,
-      );
-      if (ok) {
-        _status = ConnectionStatus.connected;
-        await refreshSystemInfo();
-        await refreshVolume();
-      } else {
-        _status = ConnectionStatus.error;
-        _errorMessage = 'Connexion perdue — reconnexion impossible';
+      await _ssh.execute('echo ok').timeout(const Duration(seconds: 3));
+      alive = true;
+    } catch (_) {}
+
+    if (!alive) {
+      // Déconnecte proprement l'ancienne session
+      try { await _ssh.disconnect(); } catch (_) {}
+
+      // Reconnecte silencieusement
+      try {
+        final ok = await _ssh.connect(
+          host: _host,
+          port: _port,
+          username: _username,
+          password: _password,
+        );
+        if (ok) {
+          _status = ConnectionStatus.connected;
+          notifyListeners();
+        } else {
+          _status = ConnectionStatus.disconnected;
+          notifyListeners();
+        }
+      } catch (_) {
+        _status = ConnectionStatus.disconnected;
+        notifyListeners();
       }
-      notifyListeners();
     }
   }
+
+
 
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -95,6 +107,33 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     _username = prefs.getString('username') ?? 'root';
     _password = prefs.getString('password') ?? 'linux';
     _recentHosts = prefs.getStringList('recent_hosts') ?? [];
+    notifyListeners();
+
+    // Connexion automatique si on a une adresse sauvegardée
+    if (_host.isNotEmpty) {
+      _autoConnect();
+    }
+  }
+
+  Future<void> _autoConnect() async {
+    if (_status == ConnectionStatus.connecting || _status == ConnectionStatus.connected) return;
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+    try {
+      final ok = await _ssh.connect(
+        host: _host,
+        port: _port,
+        username: _username,
+        password: _password,
+      );
+      _status = ok ? ConnectionStatus.connected : ConnectionStatus.disconnected;
+      if (ok) {
+        await refreshSystemInfo();
+        await refreshVolume();
+      }
+    } catch (_) {
+      _status = ConnectionStatus.disconnected;
+    }
     notifyListeners();
   }
 
@@ -106,6 +145,13 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     await prefs.setString('password', _password);
     _recentHosts = [_host, ..._recentHosts.where((h) => h != _host)].take(3).toList();
     await prefs.setStringList('recent_hosts', _recentHosts);
+  }
+
+  Future<void> clearRecentHosts() async {
+    _recentHosts = [];
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('recent_hosts');
+    notifyListeners();
   }
 
   Future<void> connect({

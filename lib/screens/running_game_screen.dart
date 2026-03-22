@@ -204,8 +204,6 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
   Future<void> _openRetroAchievements() async {
     final id = _gameInfo['cheevosId'];
     if (id == null) return;
-    // Évite la déconnexion SSH quand on revient du navigateur
-    context.read<AppState>().pauseReconnect(seconds: 15);
     final url = Uri.parse('https://retroachievements.org/game/$id');
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
@@ -252,7 +250,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
               child: Row(
                 children: [
                   Column(
@@ -283,7 +281,8 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                   ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Non connecté')
                   : !hasGame
                       ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'Aucun jeu en cours')
-                      : Padding(
+                      : SingleChildScrollView(
+                          child: Padding(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                           child: Column(
                             children: [
@@ -438,6 +437,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                               ),
                             ],
                           ),
+                        ),
                         ),
             ),
           ],

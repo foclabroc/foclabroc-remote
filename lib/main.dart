@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'models/app_state.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Empêche la mise en veille tant que l'app est ouverte
+  await WakelockPlus.enable();
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState(),
@@ -18,87 +23,256 @@ class BatoceraRemoteApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Batocera Remote',
+      title: 'Foclabroc Remote',
       debugShowCheckedModeBanner: false,
-      theme: _buildTheme(),
-      home: const HomeScreen(),
-    );
-  }
-
-  ThemeData _buildTheme() {
-    const bg = Color(0xFF0D0F14);
-    const surface = Color(0xFF161A22);
-    const card = Color(0xFF1C2230);
-    const accent = Color(0xFFE02020);
-    const textPrimary = Color(0xFFE8EAF0);
-    const textSecondary = Color(0xFF7A849A);
-
-    return ThemeData(
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: bg,
-      colorScheme: const ColorScheme.dark(
-        primary: accent,
-        secondary: Color(0xFFFF4444),
-        surface: surface,
-        onPrimary: Colors.white,
-        onSecondary: textPrimary,
-        onSurface: textPrimary,
-      ),
-      cardTheme: CardThemeData(
-        color: card,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF2A3040)),
+      theme: ThemeData(
+        colorScheme: ColorScheme.dark(
+          primary: const Color(0xFFE02020),
+          surface: const Color(0xFF1C2230),
+          onSurface: Colors.white,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF2A3040)),
+        scaffoldBackgroundColor: const Color(0xFF0D0F14),
+        cardTheme: CardThemeData(
+          color: const Color(0xFF1C2230),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: accent, width: 1.5),
-        ),
-        labelStyle: const TextStyle(color: textSecondary),
-        hintStyle: const TextStyle(color: textSecondary),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: accent,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF161A22),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          elevation: 0,
+        ),
+        textTheme: const TextTheme(
+          headlineMedium: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+          ),
+          titleLarge: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+          titleMedium: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          bodyLarge: TextStyle(color: Colors.white70, fontSize: 14),
+          bodyMedium: TextStyle(color: Colors.white38, fontSize: 13),
+        ),
+        sliderTheme: SliderThemeData(
+          activeTrackColor: const Color(0xFFE02020),
+          thumbColor: const Color(0xFFE02020),
+          overlayColor: const Color(0xFFE02020).withOpacity(0.2),
+          inactiveTrackColor: Colors.white12,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFE02020),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
       ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? Colors.white : Colors.white54),
-        trackColor: WidgetStateProperty.resolveWith((s) =>
-            s.contains(WidgetState.selected) ? accent : const Color(0xFF2A3040)),
-      ),
-      sliderTheme: const SliderThemeData(
-        activeTrackColor: accent,
-        thumbColor: accent,
-        inactiveTrackColor: Color(0xFF2A3040),
-        overlayColor: Color(0x22E02020),
-      ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(color: textPrimary, fontSize: 28, fontWeight: FontWeight.w800),
-        headlineMedium: TextStyle(color: textPrimary, fontSize: 22, fontWeight: FontWeight.w700),
-        titleLarge: TextStyle(color: textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
-        titleMedium: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
-        bodyLarge: TextStyle(color: textPrimary, fontSize: 15),
-        bodyMedium: TextStyle(color: textSecondary, fontSize: 13),
-        labelLarge: TextStyle(color: textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-      ),
-      iconTheme: const IconThemeData(color: textSecondary, size: 22),
-      useMaterial3: true,
+      home: const SplashScreen(),
     );
   }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _logoScale;
+  late Animation<double> _logoOpacity;
+  late Animation<double> _textOpacity;
+  late Animation<Offset> _textSlide;
+  late Animation<double> _glowOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+
+    _logoScale = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.6, curve: Curves.elasticOut)));
+    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.4, curve: Curves.easeIn)));
+    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: const Interval(0.5, 0.9, curve: Curves.easeIn)));
+    _textSlide = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+      CurvedAnimation(parent: _ctrl, curve: const Interval(0.5, 0.9, curve: Curves.easeOut)));
+    _glowOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: const Interval(0.6, 1.0, curve: Curves.easeIn)));
+
+    _ctrl.forward();
+
+    // Navigate after animation + short pause
+    Future.delayed(const Duration(milliseconds: 2600), () {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 500),
+            pageBuilder: (_, __, ___) => const HomeScreen(),
+            transitionsBuilder: (_, anim, __, child) =>
+                FadeTransition(opacity: anim, child: child),
+          ),
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0F14),
+      body: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => Stack(
+          fit: StackFit.expand,
+          children: [
+            // Fond avec particules
+            CustomPaint(painter: _BackgroundPainter(_ctrl.value)),
+
+            // Contenu centré
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Logo avec glow
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Glow effect
+                      Opacity(
+                        opacity: _glowOpacity.value,
+                        child: Container(
+                          width: 220, height: 220,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFE02020).withOpacity(0.3),
+                                blurRadius: 80,
+                                spreadRadius: 20,
+                              ),
+                              BoxShadow(
+                                color: const Color(0xFF0040FF).withOpacity(0.2),
+                                blurRadius: 60,
+                                spreadRadius: 10,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Logo
+                      Opacity(
+                        opacity: _logoOpacity.value,
+                        child: Transform.scale(
+                          scale: _logoScale.value,
+                          child: Image.asset('assets/icon.png', width: 180, height: 180),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Texte
+                  FadeTransition(
+                    opacity: _textOpacity,
+                    child: SlideTransition(
+                      position: _textSlide,
+                      child: Column(children: [
+                        const Text('FOCLABROC',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 6,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFFE02020), Color(0xFFFF6060)],
+                          ).createShader(bounds),
+                          child: const Text('BATOCERA REMOTE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 4,
+                            ),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Barre de chargement en bas
+            Positioned(
+              bottom: 60,
+              left: 60, right: 60,
+              child: FadeTransition(
+                opacity: _textOpacity,
+                child: Column(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: _ctrl.value,
+                      backgroundColor: Colors.white12,
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFFE02020)),
+                      minHeight: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('by foclabroc',
+                    style: TextStyle(color: Colors.white24, fontSize: 11, letterSpacing: 2)),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BackgroundPainter extends CustomPainter {
+  final double progress;
+  _BackgroundPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    // Gradient background circles
+    paint.color = const Color(0xFFE02020).withOpacity(0.04 * progress);
+    canvas.drawCircle(Offset(size.width * 0.2, size.height * 0.2), 200, paint);
+
+    paint.color = const Color(0xFF0040FF).withOpacity(0.04 * progress);
+    canvas.drawCircle(Offset(size.width * 0.8, size.height * 0.8), 250, paint);
+
+    paint.color = const Color(0xFFE02020).withOpacity(0.02 * progress);
+    canvas.drawCircle(Offset(size.width * 0.9, size.height * 0.1), 150, paint);
+  }
+
+  @override
+  bool shouldRepaint(_BackgroundPainter old) => old.progress != progress;
 }

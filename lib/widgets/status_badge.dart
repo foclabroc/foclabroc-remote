@@ -9,7 +9,7 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, icon, label) = switch (status) {
       ConnectionStatus.connected => (
-          const Color(0xFF00E5FF),
+          Colors.green,
           Icons.link_rounded,
           'Connecté'
         ),

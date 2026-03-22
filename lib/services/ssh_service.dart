@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -6,9 +7,12 @@ import 'package:dartssh2/dartssh2.dart';
 class SshService {
   SSHClient? _client;
   bool _connected = false;
+  Timer? _keepAlive;
+  String _host = '';
 
   bool get isConnected => _connected;
   SSHClient? get client => _client;
+  String get host => _host;
 
   Future<bool> connect({
     required String host,
@@ -17,15 +21,23 @@ class SshService {
     required String password,
   }) async {
     try {
+      _host = host;
       final socket = await SSHSocket.connect(host, port,
-          timeout: const Duration(seconds: 10));
+          timeout: const Duration(seconds: 5)); // réduit de 10s à 5s
       _client = SSHClient(
         socket,
         username: username,
         onPasswordRequest: () => password,
+        // Algorithmes rapides en priorité
+        algorithms: SSHAlgorithms(
+          kex: [SSHKexType.x25519],
+          cipher: [SSHCipherType.aes128ctr, SSHCipherType.aes256ctr],
+          mac: [SSHMacType.hmacSha1, SSHMacType.hmacSha256],
+        ),
       );
       await _client!.authenticated;
       _connected = true;
+      _startKeepAlive();
       return true;
     } catch (e) {
       _connected = false;
@@ -34,9 +46,30 @@ class SshService {
   }
 
   Future<void> disconnect() async {
+    await stopTunnel();
+    _keepAlive?.cancel();
+    _keepAlive = null;
     _client?.close();
     _client = null;
     _connected = false;
+  }
+
+  void _startKeepAlive() {
+    _keepAlive?.cancel();
+    _keepAlive = Timer.periodic(const Duration(seconds: 15), (_) async {
+      if (_client == null || !_connected) {
+        _keepAlive?.cancel();
+        return;
+      }
+      try {
+        final session = await _client!.execute('echo ok');
+        await session.done;
+      } catch (_) {
+        // Connexion perdue
+        _connected = false;
+        _keepAlive?.cancel();
+      }
+    });
   }
 
   bool _isBannerLine(String line) {
@@ -209,18 +242,110 @@ class SshService {
     return result;
   }
 
+  // Stream direct vers disque (pour les gros fichiers)
+  Future<void> downloadFileToDisk(String remotePath, String localPath,
+      {void Function(int bytes)? onProgress}) async {
+    if (_client == null || !_connected) throw Exception('Non connecté');
+    final sftp = await _client!.sftp();
+    final remoteFile = await sftp.open(remotePath);
+    final localFile = File(localPath).openWrite();
+    int total = 0;
+    await for (final chunk in remoteFile.read()) {
+      localFile.add(chunk);
+      total += chunk.length;
+      onProgress?.call(total);
+      // Cède le contrôle à l'event loop tous les 512KB
+      if (total % (512 * 1024) < chunk.length) {
+        await Future.delayed(Duration.zero);
+      }
+    }
+    await localFile.flush();
+    await localFile.close();
+    await remoteFile.close();
+  }
+
+  // ─── Tunnel SSH local → Batocera:1234 ───────────────────────────────────────
+
+  ServerSocket? _tunnelServer;
+  int _tunnelPort = 0;
+
+  int get tunnelPort => _tunnelPort;
+  bool get hasTunnel => _tunnelServer != null;
+
+  Future<int> startTunnel() async {
+    if (_tunnelServer != null) return _tunnelPort;
+    if (_client == null || !_connected) throw Exception('Non connecté');
+
+    _tunnelServer = await ServerSocket.bind('127.0.0.1', 0);
+    _tunnelPort = _tunnelServer!.port;
+
+    _tunnelServer!.listen((socket) async {
+      try {
+        final forward = await _client!.forwardLocal('127.0.0.1', 1234);
+        socket.cast<List<int>>().pipe(forward.sink).catchError((_) {});
+        forward.stream.cast<List<int>>().pipe(socket).catchError((_) {});
+      } catch (_) {
+        socket.destroy();
+      }
+    });
+
+    return _tunnelPort;
+  }
+
+  Future<void> stopTunnel() async {
+    await _tunnelServer?.close();
+    _tunnelServer = null;
+    _tunnelPort = 0;
+  }
+
   // ─── Upload SFTP ─────────────────────────────────────────────────────────────
 
-  Future<void> uploadFile(String remotePath, Uint8List bytes) async {
+  Future<void> uploadFile(
+    String remotePath,
+    Uint8List bytes, {
+    void Function(int sent, int total)? onProgress,
+  }) async {
+    throw UnimplementedError('Use uploadFileFromPath instead');
+  }
+
+  // Upload depuis un chemin local — stream par chunks sans tout charger en RAM
+  Future<void> uploadFileFromPath(
+    String localPath,
+    String remotePath, {
+    void Function(int sent, int total)? onProgress,
+  }) async {
     if (_client == null || !_connected) {
       throw Exception('Non connecté');
     }
+    final ioFile = File(localPath);
+    final total = await ioFile.length();
     final sftp = await _client!.sftp();
-    final file = await sftp.open(
+    final remoteFile = await sftp.open(
       remotePath,
       mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate,
     );
-    await file.write(Stream.value(bytes));
-    await file.close();
+
+    const chunkSize = 256 * 1024; // 256KB par chunk
+    int sent = 0;
+    final controller = StreamController<Uint8List>();
+    final writeFuture = remoteFile.write(controller.stream);
+
+    final reader = ioFile.openRead();
+    await for (final chunk in reader) {
+      // Découpe les chunks trop grands
+      int offset = 0;
+      while (offset < chunk.length) {
+        final end = (offset + chunkSize).clamp(0, chunk.length);
+        controller.add(Uint8List.fromList(chunk.sublist(offset, end)));
+        sent += end - offset;
+        offset = end;
+        onProgress?.call(sent, total);
+        await Future.delayed(Duration.zero);
+      }
+    }
+
+    await controller.close();
+    await writeFuture;
+    await remoteFile.close();
   }
 }

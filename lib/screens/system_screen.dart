@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/app_state.dart';
@@ -14,11 +16,10 @@ class SystemScreen extends StatelessWidget {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 8),
               Text('Système', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 24),
 
@@ -40,9 +41,7 @@ class SystemScreen extends StatelessWidget {
                       Expanded(
                         child: Slider(
                           value: state.volume.toDouble(),
-                          min: 0,
-                          max: 100,
-                          divisions: 20,
+                          min: 0, max: 100, divisions: 20,
                           activeColor: accent,
                           inactiveColor: Colors.white.withOpacity(0.1),
                           onChanged: (v) => state.setVolume(v.round()),
@@ -50,14 +49,9 @@ class SystemScreen extends StatelessWidget {
                       ),
                       SizedBox(
                         width: 40,
-                        child: Text(
-                          '${state.volume}%',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                          textAlign: TextAlign.right,
-                        ),
+                        child: Text('${state.volume}%',
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+                            textAlign: TextAlign.right),
                       ),
                     ],
                   ),
@@ -72,60 +66,49 @@ class SystemScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.refresh_rounded,
-                        label: 'Actualiser',
-                        subtitle: 'Jeux ES',
-                        color: Colors.blueAccent,
-                        onTap: () => _confirmAction(
-                          context,
-                          title: 'Actualiser la liste des jeux ?',
-                          body: 'EmulationStation va redémarrer.',
-                          onConfirm: () async {
-                            await state.ssh.execute('batocera-es-swissknife --restart');
-                          },
-                        ),
+                    Expanded(child: _ActionCard(
+                      icon: Icons.refresh_rounded,
+                      label: 'Actualiser',
+                      subtitle: 'Jeux ES',
+                      color: Colors.blueAccent,
+                      onTap: () => _confirmAction(context,
+                        title: 'Actualiser la liste des jeux ?',
+                        body: 'EmulationStation va redémarrer.',
+                        onConfirm: () async => await state.ssh.execute('batocera-es-swissknife --restart'),
                       ),
-                    ),
+                    )),
                     const SizedBox(width: 10),
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.restart_alt_rounded,
-                        label: 'Reboot',
-                        subtitle: 'Redémarrer',
-                        color: Colors.amberAccent,
-                        onTap: () => _confirmAction(
-                          context,
-                          title: 'Redémarrer ?',
-                          body: 'Batocera va redémarrer.',
-                          onConfirm: () async {
-                            await state.ssh.reboot();
-                            if (context.mounted) await state.disconnect();
-                          },
-                          dangerous: true,
-                        ),
+                    Expanded(child: _ActionCard(
+                      icon: Icons.restart_alt_rounded,
+                      label: 'Reboot',
+                      subtitle: 'Redémarrer',
+                      color: Colors.amberAccent,
+                      onTap: () => _confirmAction(context,
+                        title: 'Redémarrer ?',
+                        body: 'Batocera va redémarrer.',
+                        dangerous: true,
+                        onConfirm: () async {
+                          await state.ssh.reboot();
+                          if (context.mounted) await state.disconnect();
+                        },
                       ),
-                    ),
+                    )),
                     const SizedBox(width: 10),
-                    Expanded(
-                      child: _ActionCard(
-                        icon: Icons.power_off_rounded,
-                        label: 'Éteindre',
-                        subtitle: 'Arrêt',
-                        color: Colors.redAccent,
-                        onTap: () => _confirmAction(
-                          context,
-                          title: 'Éteindre ?',
-                          body: 'Batocera va s\'arrêter.',
-                          onConfirm: () async {
-                            await state.ssh.execute('batocera-es-swissknife --shutdown');
-                            if (context.mounted) await state.disconnect();
-                          },
-                          dangerous: true,
-                        ),
+                    Expanded(child: _ActionCard(
+                      icon: Icons.power_off_rounded,
+                      label: 'Éteindre',
+                      subtitle: 'Arrêt',
+                      color: Colors.redAccent,
+                      onTap: () => _confirmAction(context,
+                        title: 'Éteindre ?',
+                        body: "Batocera va s'arrêter.",
+                        dangerous: true,
+                        onConfirm: () async {
+                          await state.ssh.execute('batocera-es-swissknife --shutdown');
+                          if (context.mounted) await state.disconnect();
+                        },
                       ),
-                    ),
+                    )),
                   ],
                 ),
               ),
@@ -136,27 +119,164 @@ class SystemScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(
-                    child: _LogButton(
-                      label: 'stderr',
-                      icon: Icons.error_outline_rounded,
-                      color: Colors.orangeAccent,
-                      filename: 'es_launch_stderr.log',
-                      ssh: state.ssh,
-                    ),
-                  ),
+                  Expanded(child: _LogButton(
+                    label: 'stderr',
+                    icon: Icons.error_outline_rounded,
+                    color: Colors.orangeAccent,
+                    filename: 'es_launch_stderr.log',
+                    ssh: state.ssh,
+                  )),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: _LogButton(
-                      label: 'stdout',
-                      icon: Icons.output_rounded,
-                      color: Colors.greenAccent,
-                      filename: 'es_launch_stdout.log',
-                      ssh: state.ssh,
-                    ),
-                  ),
+                  Expanded(child: _LogButton(
+                    label: 'stdout',
+                    icon: Icons.output_rounded,
+                    color: Colors.greenAccent,
+                    filename: 'es_launch_stdout.log',
+                    ssh: state.ssh,
+                  )),
                 ],
               ),
+
+              const SizedBox(height: 24),
+
+              _SectionHeader(label: 'Gestion', icon: Icons.tune_rounded),
+              const SizedBox(height: 12),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Quitter proprement
+                    Expanded(
+                      child: Card(
+                        child: InkWell(
+                          onTap: () => _confirmAction(context,
+                            title: 'Quitter le jeu ?',
+                            body: 'Le jeu va être quitté proprement.',
+                            dangerous: false,
+                            onConfirm: () async => await state.ssh.execute('hotkeygen --send exit'),
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 36, height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueAccent.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  child: const Icon(Icons.exit_to_app_rounded, color: Colors.blueAccent, size: 20),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text('Quitter', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                const Text('Arrêt propre', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // Tuer forcer
+                    Expanded(
+                      child: Card(
+                        child: InkWell(
+                          onTap: () => _confirmAction(context,
+                            title: 'Forcer l\'arrêt ?',
+                            body: "L'émulateur va être tué.",
+                            dangerous: true,
+                            onConfirm: () async => await state.ssh.execute('curl http://127.0.0.1:1234/emukill'),
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 36, height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  child: const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: 20),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text('Tuer', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                const Text('Force kill', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              _PowerModeSelector(ssh: state.ssh),
+
+              const SizedBox(height: 16),
+
+              _SectionHeader(label: 'Application', icon: Icons.phone_android_rounded),
+              const SizedBox(height: 12),
+              Card(
+                child: InkWell(
+                  onTap: () => _confirmAction(context,
+                    title: 'Vider le cache ?',
+                    body: 'Les images et vidéos mises en cache seront supprimées. Elles seront re-téléchargées à la prochaine utilisation.',
+                    dangerous: false,
+                    onConfirm: () async {
+                      try {
+                        final dir = await getTemporaryDirectory();
+                        final cacheFolder = Directory('${dir.path}/batocera_img_cache');
+                        if (await cacheFolder.exists()) {
+                          await cacheFolder.delete(recursive: true);
+                        }
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Cache vidé !', style: TextStyle(color: Colors.white)),
+                          backgroundColor: Color(0xFF1C2230),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      } catch (e) {
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
+                          backgroundColor: Colors.redAccent,
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
+                    },
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(children: [
+                      Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.orangeAccent.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: const Icon(Icons.cleaning_services_rounded, color: Colors.orangeAccent, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Vider le cache', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text('Images et vidéos mises en cache', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                        ],
+                      )),
+                    ]),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -174,30 +294,137 @@ class SystemScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       useRootNavigator: true,
-      builder: (dialogCtx) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
         title: Text(title),
         content: Text(body),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogCtx, rootNavigator: true).pop(false),
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(dialogCtx, rootNavigator: true).pop(true),
-            style: dangerous
-                ? ElevatedButton.styleFrom(backgroundColor: Colors.redAccent)
-                : null,
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+            style: dangerous ? ElevatedButton.styleFrom(backgroundColor: Colors.redAccent) : null,
             child: const Text('Confirmer'),
           ),
         ],
       ),
     );
-    if (confirmed == true) {
-      await onConfirm();
-    }
+    if (confirmed == true) await onConfirm();
   }
 }
+
+// ─── Power Mode Selector ─────────────────────────────────────────────────────
+
+class _PowerModeSelector extends StatefulWidget {
+  final dynamic ssh;
+  const _PowerModeSelector({required this.ssh});
+
+  @override
+  State<_PowerModeSelector> createState() => _PowerModeSelectorState();
+}
+
+class _PowerModeSelectorState extends State<_PowerModeSelector> {
+  String _current = '';
+  String _selectedMode = 'balanced';
+  bool _loading = false;
+
+  static const _modes = [
+    ('highperformance', 'Performance'),
+    ('balanced', 'Équilibré'),
+    ('powersaver', 'Économie'),
+  ];
+
+  String _modeLabel(String mode) {
+    for (final m in _modes) {
+      if (m.$1 == mode) return m.$2;
+    }
+    return mode;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGovernor();
+  }
+
+  Future<void> _loadGovernor() async {
+    try {
+      final g = await widget.ssh.readFile('/sys/devices/system/cpu/cpufreq/policy0/scaling_governor');
+      if (mounted) setState(() => _current = g.trim());
+    } catch (_) {}
+  }
+
+  Future<void> _setMode(String mode) async {
+    setState(() { _loading = true; _selectedMode = mode; });
+    try {
+      await widget.ssh.execute('batocera-power-mode $mode');
+      await Future.delayed(const Duration(milliseconds: 800));
+      await _loadGovernor();
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(
+                color: Colors.amberAccent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: const Icon(Icons.bolt_rounded, color: Colors.amberAccent, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Alimentation',
+                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              if (_current.isNotEmpty)
+                Text(_current, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            ]),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: accent.withOpacity(0.25)),
+              ),
+              child: DropdownButton<String>(
+                value: _modes.any((m) => m.$1 == _selectedMode) ? _selectedMode : null,
+                underline: const SizedBox(),
+                dropdownColor: const Color(0xFF1C2230),
+                hint: Text('Mode', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                icon: _loading
+                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.5, color: accent))
+                    : Icon(Icons.keyboard_arrow_down_rounded, color: accent, size: 16),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                onChanged: _loading ? null : (v) { if (v != null) _setMode(v); },
+                items: _modes.map((m) => DropdownMenuItem(
+                  value: m.$1,
+                  child: Text(m.$2, style: TextStyle(
+                    color: m.$1 == _selectedMode ? accent : Colors.white70,
+                    fontWeight: m.$1 == _selectedMode ? FontWeight.w700 : FontWeight.w400,
+                    fontSize: 12,
+                  )),
+                )).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Log Button ───────────────────────────────────────────────────────────────
 
 class _LogButton extends StatefulWidget {
   final String label;
@@ -207,11 +434,8 @@ class _LogButton extends StatefulWidget {
   final dynamic ssh;
 
   const _LogButton({
-    required this.label,
-    required this.filename,
-    required this.icon,
-    required this.color,
-    required this.ssh,
+    required this.label, required this.filename,
+    required this.icon, required this.color, required this.ssh,
   });
 
   @override
@@ -242,23 +466,16 @@ class _LogButtonState extends State<_LogButton> {
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1C2230),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sheetCtx) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        maxChildSize: 0.95,
-        minChildSize: 0.4,
+        initialChildSize: 0.75, maxChildSize: 0.95, minChildSize: 0.4,
         expand: false,
         builder: (_, scrollCtrl) => Column(
           children: [
             Container(
               margin: const EdgeInsets.symmetric(vertical: 10),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
-              ),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 8, 12),
@@ -266,50 +483,26 @@ class _LogButtonState extends State<_LogButton> {
                 children: [
                   Icon(widget.icon, color: widget.color, size: 18),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      capturedFilename,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  Expanded(child: Text(capturedFilename,
+                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600))),
+                  IconButton(
+                    icon: const Icon(Icons.share_rounded, color: Colors.white54, size: 20),
+                    onPressed: () => Share.share(capturedContent, subject: capturedFilename),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.share_rounded,
-                        color: Colors.white54, size: 20),
-                    tooltip: 'Partager',
-                    onPressed: () => Share.share(
-                      capturedContent,
-                      subject: capturedFilename,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        color: Colors.white38, size: 20),
-                    onPressed: () =>
-                        Navigator.of(sheetCtx, rootNavigator: true).pop(),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
+                    onPressed: () => Navigator.of(sheetCtx, rootNavigator: true).pop(),
                   ),
                 ],
               ),
             ),
             const Divider(color: Colors.white10, height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: scrollCtrl,
-                padding: const EdgeInsets.all(16),
-                child: SelectableText(
-                  capturedContent,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: Colors.white70,
-                    height: 1.6,
-                  ),
-                ),
-              ),
-            ),
+            Expanded(child: SingleChildScrollView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.all(16),
+              child: SelectableText(capturedContent,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.white70, height: 1.6)),
+            )),
           ],
         ),
       ),
@@ -328,22 +521,13 @@ class _LogButtonState extends State<_LogButton> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (_loading)
-                SizedBox(
-                  width: 16, height: 16,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 1.5, color: widget.color),
-                )
+                SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 1.5, color: widget.color))
               else
                 Icon(widget.icon, color: widget.color, size: 16),
               const SizedBox(width: 8),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: widget.color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(widget.label, style: TextStyle(
+                  color: widget.color, fontSize: 13, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -363,15 +547,10 @@ class _SectionHeader extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: Colors.white.withOpacity(0.4)),
         const SizedBox(width: 8),
-        Text(
-          label.toUpperCase(),
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.4),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-          ),
-        ),
+        Text(label.toUpperCase(), style: TextStyle(
+          color: Colors.white.withOpacity(0.4),
+          fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2,
+        )),
       ],
     );
   }
@@ -385,11 +564,8 @@ class _ActionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ActionCard({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.color,
-    required this.onTap,
+    required this.icon, required this.label,
+    required this.subtitle, required this.color, required this.onTap,
   });
 
   @override
@@ -404,8 +580,7 @@ class _ActionCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 36, height: 36,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(9),
@@ -413,17 +588,9 @@ class _ActionCard extends StatelessWidget {
                 child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(height: 10),
-              Text(label,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontSize: 13)),
+              Text(label, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 13)),
               const SizedBox(height: 2),
-              Text(subtitle,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(fontSize: 11)),
+              Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11)),
             ],
           ),
         ),

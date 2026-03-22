@@ -1,6 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
+import 'game_detail_screen.dart';
 
 class GamesScreen extends StatefulWidget {
   const GamesScreen({super.key});
@@ -10,31 +16,151 @@ class GamesScreen extends StatefulWidget {
 }
 
 class _GamesScreenState extends State<GamesScreen> {
-  String _filter = '';
-  String? _selectedSystem;
-
-  static const Map<String, IconData> _systemIcons = {
-    'nes': Icons.gamepad_rounded,
-    'snes': Icons.gamepad_rounded,
-    'megadrive': Icons.sports_esports_rounded,
-    'gba': Icons.phone_android_rounded,
-    'psx': Icons.album_rounded,
-    'n64': Icons.sports_esports_rounded,
-    'gb': Icons.phone_android_rounded,
-    'gbc': Icons.phone_android_rounded,
-    'mame': Icons.videogame_asset_rounded,
-    'arcade': Icons.videogame_asset_rounded,
-  };
+  List<Map<String, dynamic>> _systems = [];
+  bool _loadingSystems = false;
+  final Map<String, Uint8List> _logoCache = {};
+  final TextEditingController _globalSearchCtrl = TextEditingController();
+  String _globalSearch = '';
+  List<Map<String, dynamic>> _allGames = [];
+  bool _loadingAllGames = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = context.read<AppState>();
-      if (state.isConnected && state.roms.isEmpty) {
-        state.loadRoms();
-      }
+      state.addListener(_onConnectionChange);
+      if (state.isConnected && _systems.isEmpty) _loadSystems();
     });
+  }
+
+  void _onConnectionChange() {
+    final state = context.read<AppState>();
+    if (state.isConnected && _systems.isEmpty && !_loadingSystems) _loadSystems();
+  }
+
+  @override
+  void dispose() {
+    context.read<AppState>().removeListener(_onConnectionChange);
+    _globalSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<String> _execDirect(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute(cmd);
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      return utf8.decode(bytes).trim();
+    } catch (_) { return ''; }
+  }
+
+  Future<Uint8List?> _fetchImage(String path) async {
+    try {
+      final cacheDir = await getTemporaryDirectory();
+      final cacheFolder = Directory('${cacheDir.path}/batocera_img_cache');
+      if (!await cacheFolder.exists()) await cacheFolder.create(recursive: true);
+      final key = md5.convert(utf8.encode(path)).toString();
+      final cacheFile = File('${cacheFolder.path}/$key');
+      if (await cacheFile.exists()) return await cacheFile.readAsBytes();
+
+      final state = context.read<AppState>();
+      final url = 'http://127.0.0.1:1234$path';
+      // Lit curl directement depuis stdout SSH — pas de fichier tmp
+      final session = await state.ssh.client!.execute('curl -s "$url"');
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      final result = Uint8List.fromList(bytes);
+      if (result.isNotEmpty) {
+        await cacheFile.writeAsBytes(result);
+        return result;
+      }
+      return null;
+    } catch (_) { return null; }
+  }
+
+  Future<void> _loadSystems() async {
+    setState(() => _loadingSystems = true);
+    try {
+      final raw = await _execDirect('curl -s http://127.0.0.1:1234/systems');
+      final list = jsonDecode(raw) as List;
+      final systems = list
+          .map((s) => s as Map<String, dynamic>)
+          .where((s) => s['visible'] == 'true' && s['name'] != 'all')
+          .toList();
+      systems.sort((a, b) => (a['fullname'] ?? '').toString()
+          .compareTo((b['fullname'] ?? '').toString()));
+      setState(() { _systems = systems; _loadingSystems = false; });
+      _loadLogos(systems);
+    } catch (_) {
+      setState(() => _loadingSystems = false);
+    }
+  }
+
+  Future<File> _getCacheFile() async {
+    final dir = await getTemporaryDirectory();
+    return File('${dir.path}/batocera_all_games_cache.json');
+  }
+
+  Future<void> _loadAllGames() async {
+    if (_loadingAllGames || _allGames.isNotEmpty) return;
+    setState(() => _loadingAllGames = true);
+
+    // Essaie de charger depuis le cache d'abord
+    try {
+      final cacheFile = await _getCacheFile();
+      if (await cacheFile.exists()) {
+        final cached = jsonDecode(await cacheFile.readAsString()) as List;
+        if (cached.isNotEmpty) {
+          final games = cached.map((g) => g as Map<String, dynamic>).toList();
+          if (mounted) setState(() { _allGames = games; _loadingAllGames = false; });
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Pas de cache — charge depuis l'API
+    final all = <Map<String, dynamic>>[];
+    for (final sys in _systems) {
+      if (!mounted) break;
+      try {
+        final raw = await _execDirect('curl -s http://127.0.0.1:1234/systems/${sys['name']}/games');
+        final list = (jsonDecode(raw) as List)
+            .map((g) => g as Map<String, dynamic>)
+            .where((g) => g['hidden'] != 'true')
+            .map((g) => {...g, '_systemName': sys['name'], '_systemFullname': sys['fullname'] ?? sys['name']})
+            .toList();
+        all.addAll(list);
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    all.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
+
+    // Sauvegarde le cache
+    try {
+      final cacheFile = await _getCacheFile();
+      await cacheFile.writeAsString(jsonEncode(all));
+    } catch (_) {}
+
+    if (mounted) setState(() { _allGames = all; _loadingAllGames = false; });
+  }
+
+  Future<void> _loadLogos(List<Map<String, dynamic>> systems) async {
+    const batchSize = 5;
+    for (int i = 0; i < systems.length; i += batchSize) {
+      if (!mounted) return;
+      final batch = systems.skip(i).take(batchSize).toList();
+      await Future.wait(batch.map((sys) async {
+        final logoPath = sys['logo']?.toString();
+        if (logoPath == null || logoPath.isEmpty) return;
+        final sysName = sys['name'].toString();
+        if (_logoCache.containsKey(sysName)) return;
+        final bytes = await _fetchImage(logoPath);
+        if (mounted && bytes != null) setState(() => _logoCache[sysName] = bytes);
+      }));
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
   }
 
   @override
@@ -42,112 +168,455 @@ class _GamesScreenState extends State<GamesScreen> {
     final state = context.watch<AppState>();
     final accent = Theme.of(context).colorScheme.primary;
 
-    final systems = state.roms.map((r) => r['system']!).toSet().toList()..sort();
-    final filtered = state.roms.where((r) {
-      final matchFilter =
-          _filter.isEmpty || r['name']!.toLowerCase().contains(_filter.toLowerCase());
-      final matchSystem = _selectedSystem == null || r['system'] == _selectedSystem;
-      return matchFilter && matchSystem;
-    }).toList();
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: Row(
+                children: [
+                  Text('Bibliothèque', style: Theme.of(context).textTheme.headlineMedium),
+                  const Spacer(),
+                  if (_loadingSystems)
+                    SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: accent))
+                  else
+                    IconButton(
+                      icon: Icon(Icons.refresh_rounded, color: Colors.white38, size: 20),
+                      onPressed: state.isConnected ? () async {
+                        // Vide le cache jeux avant de recharger
+                        try { final f = await _getCacheFile(); if (await f.exists()) await f.delete(); } catch (_) {}
+                        setState(() => _allGames = []);
+                        _loadSystems();
+                      } : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
+              ),
+            ),
+            // Barre de recherche globale
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TextField(
+                  controller: _globalSearchCtrl,
+                  onChanged: (v) {
+                    setState(() => _globalSearch = v);
+                    if (v.isNotEmpty && _allGames.isEmpty) _loadAllGames();
+                  },
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher dans tous les jeux...',
+                    hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 18),
+                    suffixIcon: _globalSearch.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, color: Colors.white38, size: 18),
+                            onPressed: () { _globalSearchCtrl.clear(); setState(() => _globalSearch = ''); })
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: !state.isConnected
+                  ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.wifi_off_rounded, size: 48, color: Colors.white.withOpacity(0.1)),
+                      const SizedBox(height: 12),
+                      Text('Non connecté', style: Theme.of(context).textTheme.bodyMedium),
+                    ]))
+                  : _globalSearch.isNotEmpty
+                      ? _buildGlobalResults(accent)
+                  : _loadingSystems && _systems.isEmpty
+                      ? Center(child: CircularProgressIndicator(color: accent))
+                      : _systems.isEmpty
+                          ? Center(child: ElevatedButton.icon(
+                              onPressed: _loadSystems,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Charger les systèmes'),
+                            ))
+                          : GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 1.2,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemCount: _systems.length,
+                              itemBuilder: (_, i) {
+                                final sys = _systems[i];
+                                final sysName = sys['name'].toString();
+                                return _SystemCard(
+                                  key: ValueKey(sysName),
+                                  system: sys,
+                                  logo: _logoCache[sysName],
+                                  accent: accent,
+                                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (_) => _GamesListScreen(
+                                      systemName: sysName,
+                                      fullname: sys['fullname'] ?? sysName,
+                                      fetchImage: _fetchImage,
+                                      execDirect: _execDirect,
+                                    ),
+                                  )),
+                                );
+                              },
+                            ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlobalResults(Color accent) {
+    if (_loadingAllGames && _allGames.isEmpty) {
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        CircularProgressIndicator(color: accent),
+        const SizedBox(height: 12),
+        const Text('Chargement de tous les jeux...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+      ]));
+    }
+    final q = _globalSearch.toLowerCase();
+    final results = _allGames.where((g) =>
+        (g['name'] ?? '').toString().toLowerCase().contains(q)).toList();
+    if (results.isEmpty) return Center(child: Text('Aucun résultat pour "$_globalSearch"',
+        style: Theme.of(context).textTheme.bodyMedium));
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      itemCount: results.length,
+      itemBuilder: (_, i) {
+        final game = results[i];
+        final sysFull = game['_systemFullname']?.toString() ?? '';
+        final isFav = game['favorite'] == 'true';
+        final hasAch = game['cheevosId'] != null && game['cheevosId'].toString().isNotEmpty && game['cheevosId'].toString() != '0';
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+          child: InkWell(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => GameDetailScreen(game: game, fetchImage: _fetchImage),
+            )),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(game['name']?.toString() ?? '',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                      overflow: TextOverflow.ellipsis),
+                  Row(children: [
+                    Text(sysFull, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                    if (isFav) ...[const SizedBox(width: 6), const Icon(Icons.star_rounded, color: Colors.amberAccent, size: 11)],
+                    if (hasAch) ...[const SizedBox(width: 4), const Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 11)],
+                  ]),
+                ])),
+                GestureDetector(
+                  onTap: () async {
+                    final running = await _execDirect('curl -s http://127.0.0.1:1234/runningGame');
+                    if (running.isNotEmpty && !running.contains('"msg"')) {
+                      await _execDirect('curl -s http://127.0.0.1:1234/emukill');
+                      await Future.delayed(const Duration(seconds: 2));
+                    }
+                    final state = context.read<AppState>();
+                    final session = await state.ssh.client!.execute('curl -s -X POST http://127.0.0.1:1234/launch -d "${game['path'] ?? ''}"');
+                    await session.done;
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(color: accent.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                    child: Icon(Icons.play_arrow_rounded, color: accent, size: 18),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── System Card ──────────────────────────────────────────────────────────────
+
+class _SystemCard extends StatelessWidget {
+  final Map<String, dynamic> system;
+  final Uint8List? logo;
+  final VoidCallback onTap;
+  final Color accent;
+
+  const _SystemCard({
+    super.key,
+    required this.system,
+    required this.logo,
+    required this.onTap,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = system['fullname'] ?? system['name'] ?? '';
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Center(
+            child: logo != null
+                ? Image.memory(logo!, fit: BoxFit.contain)
+                : Text(
+                    name.toString().toUpperCase(),
+                    style: TextStyle(color: accent, fontSize: 10,
+                        fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Liste des jeux ───────────────────────────────────────────────────────────
+
+class _GamesListScreen extends StatefulWidget {
+  final String systemName;
+  final String fullname;
+  final Future<Uint8List?> Function(String) fetchImage;
+  final Future<String> Function(String) execDirect;
+
+  const _GamesListScreen({
+    required this.systemName,
+    required this.fullname,
+    required this.fetchImage,
+    required this.execDirect,
+  });
+
+  @override
+  State<_GamesListScreen> createState() => _GamesListScreenState();
+}
+
+class _GamesListScreenState extends State<_GamesListScreen> {
+  List<Map<String, dynamic>> _games = [];
+  bool _loading = true;
+  String _search = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGames();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadGames() async {
+    setState(() => _loading = true);
+    try {
+      final raw = await widget.execDirect(
+          'curl -s http://127.0.0.1:1234/systems/${widget.systemName}/games');
+      final list = jsonDecode(raw) as List;
+      final games = list
+          .map((g) => g as Map<String, dynamic>)
+          .where((g) => g['hidden'] != 'true')
+          .toList();
+      games.sort((a, b) => (a['name'] ?? '').toString()
+          .compareTo((b['name'] ?? '').toString()));
+      setState(() { _games = games; _loading = false; });
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _launchGame(String path) async {
+    try {
+      final running = await widget.execDirect('curl -s http://127.0.0.1:1234/runningGame');
+      if (running.isNotEmpty && !running.contains('"msg"')) {
+        await widget.execDirect('curl -s http://127.0.0.1:1234/emukill');
+        await Future.delayed(const Duration(seconds: 2));
+      }
+      // Utilise client SSH direct pour éviter les problèmes de quoting
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute('curl -s -X POST http://127.0.0.1:1234/launch -d "$path"');
+      await session.done;
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Lancement du jeu...', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF1C2230),
+        behavior: SnackBarBehavior.floating,
+      ));
+    } catch (_) {}
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_search.isEmpty) return _games;
+    return _games.where((g) =>
+        (g['name'] ?? '').toString().toLowerCase()
+            .contains(_search.toLowerCase())).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    final games = _filtered;
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Jeux', style: Theme.of(context).textTheme.headlineMedium),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(widget.fullname,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20),
+                    overflow: TextOverflow.ellipsis)),
+                if (_loading)
+                  SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: accent))
+                else
                   IconButton(
-                    icon: Icon(Icons.refresh_rounded, color: accent),
-                    onPressed: state.loadingRoms ? null : () => state.loadRoms(),
-                    tooltip: 'Rafraîchir',
+                    icon: Icon(Icons.refresh_rounded, color: Colors.white38, size: 20),
+                    onPressed: _loadGames,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                ],
-              ),
+              ]),
             ),
-
-            // Search
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Rechercher un jeu...',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _filter.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded),
-                          onPressed: () => setState(() => _filter = ''),
-                        )
-                      : null,
-                ),
-                onChanged: (v) => setState(() => _filter = v),
-              ),
-            ),
-
-            // System filter chips
-            if (systems.isNotEmpty)
-              SizedBox(
-                height: 52,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
-                  children: [
-                    _SystemChip(
-                      label: 'Tous',
-                      selected: _selectedSystem == null,
-                      onTap: () => setState(() => _selectedSystem = null),
+            if (_games.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _search = v),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher...',
+                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 18),
+                      suffixIcon: _search.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, color: Colors.white38, size: 18),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _search = '');
+                              })
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
-                    ...systems.map((s) => Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: _SystemChip(
-                            label: s.toUpperCase(),
-                            selected: _selectedSystem == s,
-                            onTap: () => setState(() => _selectedSystem = s),
-                          ),
-                        )),
-                  ],
+                  ),
                 ),
               ),
-
-            const SizedBox(height: 12),
-
-            // Content
+            const SizedBox(height: 8),
             Expanded(
-              child: state.loadingRoms
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: accent),
-                          const SizedBox(height: 14),
-                          Text('Chargement des ROMs...',
-                              style: Theme.of(context).textTheme.bodyMedium),
-                        ],
-                      ),
-                    )
-                  : filtered.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.inbox_rounded,
-                                  size: 56,
-                                  color: Colors.white.withOpacity(0.15)),
-                              const SizedBox(height: 12),
-                              Text('Aucun jeu trouvé',
-                                  style: Theme.of(context).textTheme.bodyMedium),
-                            ],
-                          ),
-                        )
+              child: _loading && _games.isEmpty
+                  ? Center(child: CircularProgressIndicator(color: accent))
+                  : games.isEmpty
+                      ? Center(child: Text(
+                          _search.isNotEmpty ? 'Aucun résultat' : 'Aucun jeu',
+                          style: Theme.of(context).textTheme.bodyMedium))
                       : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                          itemCount: filtered.length,
-                          itemBuilder: (ctx, i) {
-                            final rom = filtered[i];
-                            return _RomTile(rom: rom);
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                          itemCount: games.length,
+                          itemBuilder: (_, i) {
+                            final game = games[i];
+                            final name = game['name']?.toString() ?? '';
+                            final isFav = game['favorite'] == 'true';
+                            final hasAchievements = game['cheevosId'] != null &&
+                                game['cheevosId'].toString().isNotEmpty &&
+                                game['cheevosId'].toString() != '0';
+                            final playcount = int.tryParse(
+                                game['playcount']?.toString() ?? '0') ?? 0;
+                            return Card(
+                              margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+                              child: InkWell(
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => GameDetailScreen(
+                                      game: game,
+                                      fetchImage: widget.fetchImage,
+                                    ),
+                                  ),
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                  child: Row(children: [
+                                    Expanded(child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(name,
+                                            style: const TextStyle(
+                                                color: Colors.white, fontSize: 14,
+                                                fontWeight: FontWeight.w500),
+                                            overflow: TextOverflow.ellipsis),
+                                        Row(children: [
+                                            if (isFav) ...[
+                                              const Icon(Icons.star_rounded, color: Colors.amberAccent, size: 11),
+                                              const SizedBox(width: 3),
+                                            ],
+                                            if (hasAchievements) ...[
+                                              const Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 11),
+                                              const SizedBox(width: 3),
+                                            ],
+                                            if ((game['manual'] ?? '').toString().isNotEmpty) ...[
+                                              const Icon(Icons.menu_book_rounded, color: Colors.blueAccent, size: 11),
+                                              const SizedBox(width: 3),
+                                            ],
+                                            if ((game['map'] ?? '').toString().isNotEmpty) ...[
+                                              const Icon(Icons.map_rounded, color: Colors.greenAccent, size: 11),
+                                              const SizedBox(width: 3),
+                                            ],
+                                            if (playcount > 0)
+                                              Text('Joué $playcount fois',
+                                                  style: const TextStyle(color: Colors.white24, fontSize: 10)),
+                                          ]),
+                                      ],
+                                    )),
+                                    GestureDetector(
+                                      onTap: () => _launchGame(game['path'] ?? ''),
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Container(
+                                        width: 32, height: 32,
+                                        decoration: BoxDecoration(
+                                          color: accent.withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Icon(Icons.play_arrow_rounded,
+                                            color: accent, size: 18),
+                                      ),
+                                    ),
+                                  ]),
+                                ),
+                              ),
+                            );
                           },
                         ),
             ),
@@ -155,123 +624,5 @@ class _GamesScreenState extends State<GamesScreen> {
         ),
       ),
     );
-  }
-}
-
-class _SystemChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _SystemChip(
-      {required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(0.15) : const Color(0xFF1C2230),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? accent : Colors.white.withOpacity(0.1),
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? accent : Colors.white.withOpacity(0.6),
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RomTile extends StatelessWidget {
-  final Map<String, String> rom;
-  const _RomTile({required this.rom});
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    final state = context.read<AppState>();
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-      child: ListTile(
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: accent.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(Icons.sports_esports_rounded, color: accent, size: 20),
-        ),
-        title: Text(rom['name'] ?? '',
-            style: Theme.of(context).textTheme.titleMedium),
-        subtitle: Text(
-          (rom['system'] ?? '').toUpperCase(),
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(fontSize: 11, letterSpacing: 0.5),
-        ),
-        trailing: IconButton(
-          icon: Icon(Icons.play_circle_rounded, color: accent, size: 30),
-          onPressed: () => _launch(context, state, rom['path']!),
-          tooltip: 'Lancer',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _launch(
-      BuildContext context, AppState state, String path) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Lancer le jeu ?'),
-        content: Text(rom['name'] ?? path),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Lancer')),
-        ],
-      ),
-    );
-    if (confirm == true) {
-      try {
-        await state.ssh.launchGame(path);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Lancement : ${rom['name']}'),
-              backgroundColor: const Color(0xFF1C2230),
-            ),
-          );
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur : $e'),
-              backgroundColor: Colors.redAccent.withOpacity(0.8),
-            ),
-          );
-        }
-      }
-    }
   }
 }
