@@ -12,6 +12,8 @@
 
 [![Download APK](https://img.shields.io/badge/Download-APK-red?style=for-the-badge&logo=android)](https://github.com/foclabroc/foclabroc-remote/releases)
 
+Version Francaise disponible
+English version available
 ---
 
 ## ✨ Fonctionnalités
