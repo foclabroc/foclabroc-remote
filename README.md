@@ -2,7 +2,7 @@
 
 **Télécommande Android pour Batocera Linux**
 
-[![Voir la démo](https://img.youtube.com/vi/iw04C1K-Yio/0.jpg)](https://youtube.com/shorts/iw04C1K-Yio?feature=share)
+[![Voir la démo](https://img.youtube.com/vi/OkYvSxjOg3c/maxresdefault.jpg)](https://youtu.be/OkYvSxjOg3c)
 
 > *Cliquez sur l'image pour voir la vidéo de présentation*
 
