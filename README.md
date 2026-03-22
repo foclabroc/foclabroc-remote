@@ -19,7 +19,7 @@ English version available
 ## ✨ Fonctionnalités
 
 ### 🔗 Connexion SSH
-- Connexion WiFi via SSH à ta machine Batocera
+- Connexion WiFi via SSH à ta machine Batocera (possibilité de nommer les IP)
 - **Connexion automatique** à la dernière IP utilisée au démarrage
 - Reconnexion silencieuse automatique si la connexion est perdue
 - Indicateur "Reconnexion..." visible sur tous les onglets
