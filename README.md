@@ -1,6 +1,8 @@
 # Foclabroc Remote 🎮
 
 **Télécommande Android pour Batocera Linux**
+- POUR BATOCERA V43+. Certaines fonctionnalité comme la capture video, peuvent ne pas fonctionner avec les versions precedente
+
 
 [![Voir la démo](https://img.youtube.com/vi/OkYvSxjOg3c/maxresdefault.jpg)](https://youtu.be/OkYvSxjOg3c)
 
@@ -15,7 +17,6 @@
 Version Francaise disponible
 English version available
 ---
-
 ## ✨ Fonctionnalités
 
 ### 🔗 Connexion SSH
