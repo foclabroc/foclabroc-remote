@@ -177,9 +177,9 @@ class SystemScreen extends StatelessWidget {
                                   child: const Icon(Icons.exit_to_app_rounded, color: Colors.blueAccent, size: 20),
                                 ),
                                 const SizedBox(height: 10),
-                                const Text('Quit', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                const Text('Quit Game', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
-                                const Text('Clean shutdown', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                                const Text('Clean stop', style: TextStyle(color: Colors.white38, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -251,7 +251,7 @@ class SystemScreen extends StatelessWidget {
                         ));
                       } catch (e) {
                         if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+                          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
                           backgroundColor: Colors.redAccent,
                           behavior: SnackBarBehavior.floating,
                         ));
@@ -461,7 +461,7 @@ class _LogButtonState extends State<_LogButton> {
     try {
       logContent = await widget.ssh.readLog(widget.filename);
     } catch (e) {
-      logContent = 'Error: $e';
+      logContent = 'Erreur : $e';
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -509,7 +509,7 @@ class _LogButtonState extends State<_LogButton> {
             const Divider(color: Colors.white10, height: 1),
             Expanded(child: SingleChildScrollView(
               controller: scrollCtrl,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(sheetCtx).padding.bottom),
               child: SelectableText(capturedContent,
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.white70, height: 1.6)),
             )),

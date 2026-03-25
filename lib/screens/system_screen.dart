@@ -509,7 +509,7 @@ class _LogButtonState extends State<_LogButton> {
             const Divider(color: Colors.white10, height: 1),
             Expanded(child: SingleChildScrollView(
               controller: scrollCtrl,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(sheetCtx).padding.bottom),
               child: SelectableText(capturedContent,
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.white70, height: 1.6)),
             )),

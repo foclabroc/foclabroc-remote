@@ -651,7 +651,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                       tooltip: 'Tout sélectionner',
                     ),
                   ] else ...[
-                    Text('Fichiers', style: Theme.of(context).textTheme.headlineMedium),
+                    Text('Files', style: Theme.of(context).textTheme.headlineMedium),
                     const Spacer(),
                     if (_loading || _downloading != null || _uploading)
                       _uploading

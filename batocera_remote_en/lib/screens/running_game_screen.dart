@@ -25,6 +25,13 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
   Timer? _autoRefresh;
   Timer? _timeRefresh;
 
+  // Stats système
+  double _cpuTemp = 0;
+  double _cpuUsage = 0;
+  int _ramUsed = 0;
+  int _ramTotal = 0;
+  List<int> _prevCpu = [];
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +47,58 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
         _fetchPlayTime();
       }
     });
+    // Stats CPU/RAM toutes les 3s
+    Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && context.read<AppState>().isConnected) _fetchStats();
+    });
+  }
+
+  Future<void> _fetchStats() async {
+    await Future.wait([_fetchCpuTemp(), _fetchCpuUsage(), _fetchRam()]);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _fetchCpuTemp() async {
+    final raw = await _execDirect(
+      'cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0');
+    final numLine = raw.split('\n').lastWhere(
+        (l) => RegExp(r'^\d+$').hasMatch(l.trim()), orElse: () => '0');
+    final val = int.tryParse(numLine.trim()) ?? 0;
+    _cpuTemp = val > 1000 ? val / 1000.0 : val.toDouble();
+  }
+
+  Future<void> _fetchCpuUsage() async {
+    final raw = await _execDirect('cat /proc/stat');
+    final cpuLine = raw.split('\n').firstWhere(
+        (l) => l.startsWith('cpu '), orElse: () => '');
+    if (cpuLine.isEmpty) return;
+    final parts = cpuLine.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    if (parts.length < 5) return;
+    try {
+      final values = parts.skip(1).map(int.parse).toList();
+      final idle = values[3] + (values.length > 4 ? values[4] : 0);
+      final total = values.reduce((a, b) => a + b);
+      if (_prevCpu.length == 2) {
+        final diffTotal = total - _prevCpu[0];
+        final diffIdle  = idle  - _prevCpu[1];
+        if (diffTotal > 0) _cpuUsage = ((diffTotal - diffIdle) / diffTotal * 100).clamp(0.0, 100.0);
+      }
+      _prevCpu = [total, idle];
+    } catch (_) {}
+  }
+
+  Future<void> _fetchRam() async {
+    final raw = await _execDirect('cat /proc/meminfo');
+    int total = 0, available = 0;
+    for (final line in raw.split('\n')) {
+      final parts = line.split(RegExp(r'\s+'));
+      if (parts.length < 2) continue;
+      final val = int.tryParse(parts[1]) ?? 0;
+      if (line.startsWith('MemTotal')) total = val;
+      if (line.startsWith('MemAvailable')) available = val;
+    }
+    _ramTotal = total ~/ 1024;
+    _ramUsed  = (total - available) ~/ 1024;
   }
 
   @override
@@ -100,7 +159,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       final info = <String, String>{};
       try {
         final json = jsonDecode(raw) as Map<String, dynamic>;
-        for (final f in ['name', 'systemName', 'emulator', 'core', 'image', 'wheel', 'manual', 'cheevosId']) {
+        for (final f in ['name', 'systemName', 'emulator', 'core', 'image', 'wheel', 'manual', 'cheevosId', 'developer', 'players', 'rating', 'genre']) {
           final v = json[f];
           if (v != null && v.toString().isNotEmpty && v.toString() != 'null') {
             info[f] = v.toString();
@@ -194,7 +253,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -219,7 +278,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
@@ -278,7 +337,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
             Expanded(
               child: !state.isConnected
-                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Not connected')
+                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Non connecté')
                   : !hasGame
                       ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'No game running')
                       : SingleChildScrollView(
@@ -356,6 +415,26 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                           if (_gameInfo['systemName'] != null)
                                             Text(_gameInfo['systemName']!.toUpperCase(),
                                                 style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                                          if (_gameInfo['developer'] != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Row(children: [
+                                                Icon(Icons.code_rounded, size: 11, color: Colors.white38),
+                                                const SizedBox(width: 4),
+                                                Text(_gameInfo['developer']!,
+                                                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                                              ]),
+                                            ),
+                                          if (_gameInfo['genre'] != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2),
+                                              child: Row(children: [
+                                                Icon(Icons.category_rounded, size: 11, color: Colors.white38),
+                                                const SizedBox(width: 4),
+                                                Text(_gameInfo['genre']!,
+                                                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                                              ]),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -367,6 +446,22 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                             Icon(Icons.timer_rounded, size: 12, color: Colors.greenAccent),
                                             const SizedBox(width: 4),
                                             Text(_playTime, style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.w600)),
+                                          ]),
+                                        if (_gameInfo['rating'] != null)
+                                          Row(children: [
+                                            Icon(Icons.star_rounded, size: 12, color: Colors.amberAccent),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${((double.tryParse(_gameInfo['rating']!) ?? 0) * 100).toStringAsFixed(0)}%',
+                                              style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w600),
+                                            ),
+                                          ]),
+                                        if (_gameInfo['players'] != null)
+                                          Row(children: [
+                                            Icon(Icons.people_rounded, size: 12, color: Colors.white38),
+                                            const SizedBox(width: 4),
+                                            Text('${_gameInfo['players']} player(s)',
+                                                style: const TextStyle(color: Colors.white38, fontSize: 11)),
                                           ]),
                                         if (_gameInfo['emulator'] != null)
                                           Text(_gameInfo['emulator']!, style: const TextStyle(color: Colors.white38, fontSize: 11)),
@@ -435,6 +530,39 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                   ),
                                 ],
                               ),
+
+                              // ── Stats CPU / RAM ───────────────────────────
+                              if (_cpuTemp > 0 || _cpuUsage > 0 || _ramTotal > 0) ...[
+                                const SizedBox(height: 12),
+                                Row(children: [
+                                  if (_cpuTemp > 0)
+                                    Expanded(child: _StatChip(
+                                      icon: Icons.thermostat_rounded,
+                                      label: '${_cpuTemp.toStringAsFixed(1)}°C',
+                                      color: _cpuTemp < 60 ? const Color(0xFF50FA7B)
+                                           : _cpuTemp < 80 ? Colors.orangeAccent
+                                           : Colors.redAccent,
+                                    )),
+                                  if (_cpuTemp > 0 && _cpuUsage > 0) const SizedBox(width: 8),
+                                  if (_cpuUsage > 0)
+                                    Expanded(child: _StatChip(
+                                      icon: Icons.developer_board_rounded,
+                                      label: 'CPU ${_cpuUsage.toStringAsFixed(0)}%',
+                                      color: _cpuUsage < 60 ? const Color(0xFF50FA7B)
+                                           : _cpuUsage < 85 ? Colors.orangeAccent
+                                           : Colors.redAccent,
+                                    )),
+                                ]),
+                                if (_ramTotal > 0) ...[
+                                  const SizedBox(height: 8),
+                                  _StatChip(
+                                    icon: Icons.storage_rounded,
+                                    label: '$_ramUsed Mo / $_ramTotal Mo',
+                                    color: Colors.cyanAccent,
+                                    fullWidth: true,
+                                  ),
+                                ],
+                              ],
                             ],
                           ),
                         ),
@@ -511,7 +639,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
             onPageChanged: (page, total) => setState(() { _currentPage = page ?? 0; _totalPages = total ?? 0; }),
             onViewCreated: (controller) => _controller = controller,
             onError: (error) => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('PDF error: $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
+              SnackBar(content: Text('Erreur PDF : $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
             ),
           ),
           if (!_isReady)
@@ -520,6 +648,32 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
       ),
     );
   }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool fullWidth;
+  const _StatChip({required this.icon, required this.label, required this.color, this.fullWidth = false});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: fullWidth ? double.infinity : null,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 5),
+        Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+      ]),
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {
