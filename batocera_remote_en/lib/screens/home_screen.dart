@@ -22,13 +22,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   static const _tabs = [
-    _TabInfo(icon: Icons.wifi_rounded, label: 'Connexion'),
-    _TabInfo(icon: Icons.sports_esports_rounded, label: 'Jeu en cours'),
-    _TabInfo(icon: Icons.library_books_rounded, label: 'Bibliothèque'),
+    _TabInfo(icon: Icons.wifi_rounded, label: 'Connect'),
+    _TabInfo(icon: Icons.sports_esports_rounded, label: 'Running game'),
+    _TabInfo(icon: Icons.library_books_rounded, label: 'Library'),
     _TabInfo(icon: Icons.camera_alt_rounded, label: 'Capture'),
-    _TabInfo(icon: Icons.terminal_rounded, label: 'Terminal SSH'),
-    _TabInfo(icon: Icons.folder_rounded, label: 'Fichiers'),
-    _TabInfo(icon: Icons.settings_rounded, label: 'Système'),
+    _TabInfo(icon: Icons.terminal_rounded, label: 'SSH Terminal'),
+    _TabInfo(icon: Icons.folder_rounded, label: 'Files'),
+    _TabInfo(icon: Icons.settings_rounded, label: 'System'),
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = List.generate(
@@ -135,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text('Foclabroc Remote',
                       style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                   Text(
-                    connected ? (state.ssh.host.isNotEmpty ? state.ssh.host : 'Connecté') : 'Non connecté',
+                    connected ? (state.ssh.host.isNotEmpty ? state.ssh.host : 'Connected') : 'Not connected',
                     style: TextStyle(
                       color: connected ? const Color(0xFF50FA7B) : Colors.white38,
                       fontSize: 11,

@@ -20,7 +20,7 @@ class SystemScreen extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(64, 8, 24, 0),
-              child: Text('Système', style: Theme.of(context).textTheme.headlineMedium),
+              child: Text('System', style: Theme.of(context).textTheme.headlineMedium),
             ),
             const SizedBox(height: 16),
             Expanded(
@@ -67,7 +67,7 @@ class SystemScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              _SectionHeader(label: 'Contrôles', icon: Icons.settings_remote_rounded),
+              _SectionHeader(label: 'Controls', icon: Icons.settings_remote_rounded),
               const SizedBox(height: 12),
               IntrinsicHeight(
                 child: Row(
@@ -75,12 +75,12 @@ class SystemScreen extends StatelessWidget {
                   children: [
                     Expanded(child: _ActionCard(
                       icon: Icons.refresh_rounded,
-                      label: 'Actualiser',
-                      subtitle: 'Jeux ES',
+                      label: 'Refresh',
+                      subtitle: 'ES games',
                       color: Colors.blueAccent,
                       onTap: () => _confirmAction(context,
-                        title: 'Actualiser la liste des jeux ?',
-                        body: 'EmulationStation va redémarrer.',
+                        title: 'Refresh game list?',
+                        body: 'EmulationStation will restart.',
                         onConfirm: () async => await state.ssh.execute('batocera-es-swissknife --restart'),
                       ),
                     )),
@@ -88,11 +88,11 @@ class SystemScreen extends StatelessWidget {
                     Expanded(child: _ActionCard(
                       icon: Icons.restart_alt_rounded,
                       label: 'Reboot',
-                      subtitle: 'Redémarrer',
+                      subtitle: 'Restart',
                       color: Colors.amberAccent,
                       onTap: () => _confirmAction(context,
-                        title: 'Redémarrer ?',
-                        body: 'Batocera va redémarrer.',
+                        title: 'Restart?',
+                        body: 'Batocera will restart.',
                         dangerous: true,
                         onConfirm: () async {
                           await state.ssh.reboot();
@@ -103,12 +103,12 @@ class SystemScreen extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(child: _ActionCard(
                       icon: Icons.power_off_rounded,
-                      label: 'Éteindre',
-                      subtitle: 'Arrêt',
+                      label: 'Shutdown',
+                      subtitle: 'Shutdown',
                       color: Colors.redAccent,
                       onTap: () => _confirmAction(context,
-                        title: 'Éteindre ?',
-                        body: "Batocera va s'arrêter.",
+                        title: 'Shutdown?',
+                        body: "Batocera will shut down.",
                         dangerous: true,
                         onConfirm: () async {
                           await state.ssh.execute('batocera-es-swissknife --shutdown');
@@ -157,8 +157,8 @@ class SystemScreen extends StatelessWidget {
                       child: Card(
                         child: InkWell(
                           onTap: () => _confirmAction(context,
-                            title: 'Quitter le jeu ?',
-                            body: 'Le jeu va être quitté proprement.',
+                            title: 'Quit the game?',
+                            body: 'The game will be stopped cleanly.',
                             dangerous: false,
                             onConfirm: () async => await state.ssh.execute('hotkeygen --send exit'),
                           ),
@@ -177,9 +177,9 @@ class SystemScreen extends StatelessWidget {
                                   child: const Icon(Icons.exit_to_app_rounded, color: Colors.blueAccent, size: 20),
                                 ),
                                 const SizedBox(height: 10),
-                                const Text('Quitter', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                const Text('Quit', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
-                                const Text('Arrêt propre', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                                const Text('Clean shutdown', style: TextStyle(color: Colors.white38, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -192,8 +192,8 @@ class SystemScreen extends StatelessWidget {
                       child: Card(
                         child: InkWell(
                           onTap: () => _confirmAction(context,
-                            title: 'Forcer l\'arrêt ?',
-                            body: "L'émulateur va être tué.",
+                            title: 'Force kill?',
+                            body: "The emulator will be force killed.",
                             dangerous: true,
                             onConfirm: () async => await state.ssh.execute('curl http://127.0.0.1:1234/emukill'),
                           ),
@@ -212,7 +212,7 @@ class SystemScreen extends StatelessWidget {
                                   child: const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: 20),
                                 ),
                                 const SizedBox(height: 10),
-                                const Text('Tuer', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                const Text('Force kill', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 2),
                                 const Text('Force kill', style: TextStyle(color: Colors.white38, fontSize: 11)),
                               ],
@@ -234,8 +234,8 @@ class SystemScreen extends StatelessWidget {
               Card(
                 child: InkWell(
                   onTap: () => _confirmAction(context,
-                    title: 'Vider le cache ?',
-                    body: 'Les images et vidéos mises en cache seront supprimées. Elles seront re-téléchargées à la prochaine utilisation.',
+                    title: 'Clear cache?',
+                    body: 'Cached images and videos will be deleted. They will be re-downloaded on next use.',
                     dangerous: false,
                     onConfirm: () async {
                       try {
@@ -245,13 +245,13 @@ class SystemScreen extends StatelessWidget {
                           await cacheFolder.delete(recursive: true);
                         }
                         if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Cache vidé !', style: TextStyle(color: Colors.white)),
+                          content: Text('Cache cleared!', style: TextStyle(color: Colors.white)),
                           backgroundColor: Color(0xFF1C2230),
                           behavior: SnackBarBehavior.floating,
                         ));
                       } catch (e) {
                         if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
+                          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
                           backgroundColor: Colors.redAccent,
                           behavior: SnackBarBehavior.floating,
                         ));
@@ -274,8 +274,8 @@ class SystemScreen extends StatelessWidget {
                       const Expanded(child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Vider le cache', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                          Text('Images et vidéos mises en cache', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                          Text('Clear cache', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text('Cached images and videos', style: TextStyle(color: Colors.white38, fontSize: 11)),
                         ],
                       )),
                     ]),
@@ -311,12 +311,12 @@ class SystemScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: dangerous ? ElevatedButton.styleFrom(backgroundColor: Colors.redAccent) : null,
-            child: const Text('Confirmer'),
+            child: const Text('Confirm'),
           ),
         ],
       ),
@@ -342,8 +342,8 @@ class _PowerModeSelectorState extends State<_PowerModeSelector> {
 
   static const _modes = [
     ('highperformance', 'Performance'),
-    ('balanced', 'Équilibré'),
-    ('powersaver', 'Économie'),
+    ('balanced', 'Balanced'),
+    ('powersaver', 'Economy'),
   ];
 
   String _modeLabel(String mode) {
@@ -394,7 +394,7 @@ class _PowerModeSelectorState extends State<_PowerModeSelector> {
             ),
             const SizedBox(width: 12),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Alimentation',
+              const Text('Power',
                   style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
               if (_current.isNotEmpty)
                 Text(_current, style: const TextStyle(color: Colors.white38, fontSize: 11)),
@@ -461,7 +461,7 @@ class _LogButtonState extends State<_LogButton> {
     try {
       logContent = await widget.ssh.readLog(widget.filename);
     } catch (e) {
-      logContent = 'Erreur : $e';
+      logContent = 'Error: $e';
     } finally {
       if (mounted) setState(() => _loading = false);
     }

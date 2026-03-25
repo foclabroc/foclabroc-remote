@@ -159,7 +159,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Chargement du manuel...'),
+                Text('Loading manual...'),
               ],
             ),
           ),
@@ -174,7 +174,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
       if (bytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Impossible de charger le manuel', style: TextStyle(color: Colors.white)),
+          content: Text('Failed to load manual', style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
         return;
@@ -187,14 +187,14 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
-          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manuel'),
+          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manual'),
         ),
       );
     } catch (e) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -214,17 +214,17 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Arrêter le jeu ?'),
-        content: const Text('Le jeu en cours va être fermé.'),
+        title: const Text('Stop the game?'),
+        content: const Text('The current game will be closed.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Arrêter'),
+            child: const Text('Stop'),
           ),
         ],
       ),
@@ -256,7 +256,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Jeu en cours', style: Theme.of(context).textTheme.headlineMedium),
+                      Text('Running game', style: Theme.of(context).textTheme.headlineMedium),
                       Text('Auto 5s', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10)),
                     ],
                   ),
@@ -278,9 +278,9 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
             Expanded(
               child: !state.isConnected
-                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Non connecté')
+                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Not connected')
                   : !hasGame
-                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'Aucun jeu en cours')
+                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'No game running')
                       : SingleChildScrollView(
                           child: Padding(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -347,7 +347,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                _gameInfo['name'] ?? 'Jeu inconnu',
+                                                _gameInfo['name'] ?? 'Unknown game',
                                                 style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -390,7 +390,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                         child: OutlinedButton.icon(
                                           onPressed: _showManual,
                                           icon: const Icon(Icons.picture_as_pdf_rounded, size: 14),
-                                          label: const Text('Manuel', style: TextStyle(fontSize: 12)),
+                                          label: const Text('Manual', style: TextStyle(fontSize: 12)),
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: Colors.blueAccent,
                                             side: const BorderSide(color: Colors.blueAccent),
@@ -423,7 +423,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                       child: OutlinedButton.icon(
                                         onPressed: () => _stopGame(state),
                                         icon: const Icon(Icons.stop_circle_rounded, size: 14),
-                                        label: const Text('Arrêter', style: TextStyle(fontSize: 12)),
+                                        label: const Text('Stop', style: TextStyle(fontSize: 12)),
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.redAccent,
                                           side: const BorderSide(color: Colors.redAccent),
@@ -511,7 +511,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
             onPageChanged: (page, total) => setState(() { _currentPage = page ?? 0; _totalPages = total ?? 0; }),
             onViewCreated: (controller) => _controller = controller,
             onError: (error) => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur PDF : $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
+              SnackBar(content: Text('PDF error: $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
             ),
           ),
           if (!_isReady)

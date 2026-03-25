@@ -30,7 +30,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   ];
 
   static const _audios = [
-    ('auto', 'Système (défaut)'),
+    ('auto', 'System (default)'),
     ('mic', 'Microphone'),
     ('none', 'Sans audio'),
   ];
@@ -94,9 +94,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
     setState(() => _loadingScreenshot = true);
     try {
       await state.ssh.screenshot();
-      if (mounted) _showSuccess('Screenshot enregistré dans : /userdata/screenshots');
+      if (mounted) _showSuccess('Screenshot saved to: /userdata/screenshots');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError('Error: $e');
     } finally {
       if (mounted) setState(() => _loadingScreenshot = false);
     }
@@ -114,7 +114,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         });
       }
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError('Error: $e');
       setState(() => _loadingRecord = false);
     }
   }
@@ -126,9 +126,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
       _stopTimer();
       final duration = _timerLabel;
       setState(() { _recording = false; _seconds = 0; _loadingRecord = false; });
-      if (mounted) _showSuccess('Capture enregistrée dans : /userdata/recordings - Durée : $duration');
+      if (mounted) _showSuccess('Recording saved to: /userdata/recordings - Duration: $duration');
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError('Error: $e');
       setState(() => _loadingRecord = false);
     }
   }
@@ -195,7 +195,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Prend une capture d\'écran de Batocera et la sauvegarde dans /userdata/screenshots.',
+                        'Takes a screenshot of Batocera and saves it to /userdata/screenshots.',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 20),
@@ -207,7 +207,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               ? const SizedBox(width: 18, height: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                               : const Icon(Icons.camera_alt_rounded),
-                          label: Text(_loadingScreenshot ? 'Capture en cours...' : 'Prendre un screenshot'),
+                          label: Text(_loadingScreenshot ? 'Capturing...' : 'Take screenshot'),
                         ),
                       ),
                     ],
@@ -218,7 +218,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
               const SizedBox(height: 28),
 
               // ── Capture vidéo ─────────────────────────────────────────────
-              _SectionLabel(label: 'Capture vidéo', icon: Icons.videocam_rounded),
+              _SectionLabel(label: 'Video capture', icon: Icons.videocam_rounded),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
@@ -226,7 +226,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Enregistre une vidéo de Batocera via batocera-record.',
+                      Text('Records a video of Batocera via batocera-record.',
                           style: Theme.of(context).textTheme.bodyMedium),
                       const SizedBox(height: 20),
 
@@ -235,7 +235,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         children: [
                           Expanded(
                             child: _DropdownOption(
-                              label: 'Qualité',
+                              label: 'Quality',
                               icon: Icons.high_quality_rounded,
                               options: _qualities.map((q) => q.$1).toList(),
                               labels: _qualities.map((q) => q.$2).toList(),
@@ -319,8 +319,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               _recording
                                   ? _auto30
                                       ? 'Auto-stop dans ${30 - _seconds} seconde${(30 - _seconds) > 1 ? 's' : ''}...'
-                                      : 'Enregistrement en cours...'
-                                  : 'Prêt',
+                                      : 'Recording...'
+                                  : 'Ready',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: _recording
