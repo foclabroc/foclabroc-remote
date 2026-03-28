@@ -89,6 +89,14 @@ English version available
 
 ### 🔧 Foclabroc Tools
 - **NES3D** — installe le pack NES 3D (détection automatique de la version Batocera V40/41/42/43+)
+- **Pack Kodi** — installe la configuration Kodi de Foclabroc (Vstream, IPTV...) avec remplacement complet du dossier `.kodi`
+- **Pack Music** — ajoute 39 musiques OST dans `/userdata/music` pour la lecture aléatoire dans EmulationStation
+- **Jeux Windows** — installe 21 fangames & remakes gratuits directement depuis GitHub :
+  - Celeste 64, Celeste pico8, Crash Bandicoot bit, Donkey Kong Advanced, TMNT Rescue Palooza
+  - Spelunky, Sonic Triple Trouble, Pokemon Uranium, MiniDoom 2, AM2R, Megaman X II
+  - Super Tux Kart, Streets of Rage R 5.2, Megaman 2.5D, Sonic Smackdown, Maldita Castilla
+  - Super Smash Crusade, Rayman Redemption, Power Bomberman, Mushroom Kingdom Fusion, Dr. Robotnik's Racers
+  - Téléchargement avec progression, mise à jour automatique du gamelist (images, vidéo, métadonnées)
 
 ---
 

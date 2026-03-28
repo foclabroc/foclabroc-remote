@@ -336,7 +336,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       _resetUploadState();
     }
     await _loadDir(_currentPath);
-    _showSnack('$success fichier(s) envoyé(s) !');
+    _showSnack('$success file(s) uploaded!');
   }
 
   void _resetUploadState() {
@@ -369,7 +369,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               SizedBox(height: 16),
               CircularProgressIndicator(color: Colors.purpleAccent),
               SizedBox(height: 12),
-              Text('Chargement...', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              Text('Loading...', style: TextStyle(fontSize: 12, color: Colors.white70)),
             ]),
           ),
         )),
@@ -651,7 +651,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                       tooltip: 'Tout sélectionner',
                     ),
                   ] else ...[
-                    Text('Fichiers', style: Theme.of(context).textTheme.headlineMedium),
+                    Text('Files', style: Theme.of(context).textTheme.headlineMedium),
                     const Spacer(),
                     if (_loading || _downloading != null || _uploading)
                       _uploading
@@ -697,7 +697,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                         : Row(children: [
                             Padding(
                               padding: const EdgeInsets.only(right: 8),
-                              child: Text('Chargement...',
+                              child: Text('Loading...',
                                   style: TextStyle(color: accent, fontSize: 12)),
                             ),
                             SizedBox(width: 18, height: 18,
@@ -708,7 +708,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                       IconButton(
                         icon: Icon(Icons.upload_rounded, color: Colors.white38, size: 20),
                         onPressed: state.isConnected ? _uploadFile : null,
-                        tooltip: 'Envoyer un fichier',
+                        tooltip: 'Upload file',
                       ),
                       IconButton(
                         icon: Icon(Icons.refresh_rounded, color: Colors.white38, size: 20),
@@ -846,33 +846,33 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                 children: [
                     _ActionBtn(
                       icon: Icons.copy_rounded,
-                      label: 'Copier',
+                      label: 'Copy',
                       color: Colors.blueAccent,
                       onTap: _copySelected,
                     ),
                     _ActionBtn(
                       icon: Icons.content_cut_rounded,
-                      label: 'Couper',
+                      label: 'Cut',
                       color: Colors.orangeAccent,
                       onTap: _cutSelected,
                     ),
                     if (_clipboard.isNotEmpty)
                       _ActionBtn(
                         icon: Icons.content_paste_rounded,
-                        label: 'Coller',
+                        label: 'Paste',
                         color: Colors.greenAccent,
                         onTap: _paste,
                       ),
                     if (selCount == 1)
                       _ActionBtn(
                         icon: Icons.drive_file_rename_outline_rounded,
-                        label: 'Renommer',
+                        label: 'Rename',
                         color: Colors.amberAccent,
                         onTap: _renameSelected,
                       ),
                     _ActionBtn(
                       icon: Icons.delete_rounded,
-                      label: 'Supprimer',
+                      label: 'Delete',
                       color: Colors.redAccent,
                       onTap: _deleteSelected,
                     ),
@@ -893,19 +893,19 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${_clipboard.length} élément(s) ${_clipboardIsCut ? "coupé(s)" : "copié(s)"}',
+                            '${_clipboard.length} item(s) ${_clipboardIsCut ? "cut" : "copied"}',
                             style: const TextStyle(color: Colors.white54, fontSize: 12),
                           ),
                         ),
                         TextButton.icon(
                           onPressed: _paste,
                           icon: const Icon(Icons.content_paste_rounded, size: 16),
-                          label: const Text('Coller ici'),
+                          label: const Text('Paste here'),
                           style: TextButton.styleFrom(foregroundColor: Colors.greenAccent),
                         ),
                         TextButton(
                           onPressed: () => setState(() => _clipboard.clear()),
-                          child: const Text('Annuler', style: TextStyle(color: Colors.white38)),
+                          child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
                         ),
                       ],
                     ),

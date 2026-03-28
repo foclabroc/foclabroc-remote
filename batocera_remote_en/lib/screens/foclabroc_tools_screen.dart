@@ -27,10 +27,40 @@ class FoclabroctoolsScreen extends StatelessWidget {
                   _FoclabrocToolCard(
                     icon: Icons.view_in_ar_rounded,
                     title: 'NES3D',
-                    subtitle: 'Installe le pack NES 3D\n(détection automatique V40/41/42/43)',
+                    subtitle: 'Install the NES 3D pack\n(auto-detects V40/41/42/43)',
                     color: Colors.tealAccent,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const _Nes3dInstallScreen(),
+                    )),
+                  ),
+                  const SizedBox(height: 12),
+                  _FoclabrocToolCard(
+                    icon: Icons.tv_rounded,
+                    title: 'Pack Kodi',
+                    subtitle: 'Install the Foclabroc Kodi pack\n(Vstream, IPTV...)',
+                    color: Colors.deepPurpleAccent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const _KodiInstallScreen(),
+                    )),
+                  ),
+                  const SizedBox(height: 12),
+                  _FoclabrocToolCard(
+                    icon: Icons.music_note_rounded,
+                    title: 'Pack Music',
+                    subtitle: '39 OST tracks for EmulationStation\n(random play)',
+                    color: Colors.pinkAccent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const _MusicPackInstallScreen(),
+                    )),
+                  ),
+                  const SizedBox(height: 12),
+                  _FoclabrocToolCard(
+                    icon: Icons.videogame_asset_rounded,
+                    title: 'Windows Games',
+                    subtitle: '21 free fangames & remakes\nfor Batocera Windows',
+                    color: Colors.orangeAccent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const _WindowsGamesScreen(),
                     )),
                   ),
                 ],
@@ -130,14 +160,14 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
         title: const Row(children: [
           Icon(Icons.view_in_ar_rounded, color: Colors.tealAccent, size: 22),
           SizedBox(width: 10),
-          Flexible(child: Text('Installer NES3D ?', overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text('Install NES3D?', overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Télécharge et installe le pack NES3D adapté à votre version de Batocera.',
+              'Downloads and installs the NES3D pack for your Batocera version.',
               style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
             ),
             const SizedBox(height: 10),
@@ -152,7 +182,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
                 Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 14),
                 SizedBox(width: 6),
                 Expanded(child: Text(
-                  'Espace requis : ~3.8 Go. Les anciens fichiers NES3D seront supprimés.',
+                  'Required space: ~3.8 GB. Old NES3D files will be deleted.',
                   style: TextStyle(color: Colors.orangeAccent, fontSize: 11),
                 )),
               ]),
@@ -162,12 +192,12 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Annuler')),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.tealAccent, foregroundColor: Colors.black),
-            child: const Text('Installer'),
+            child: const Text('Install'),
           ),
         ],
       ),
@@ -177,16 +207,16 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
     setState(() { _running = true; _log = ''; });
 
     // 1. Détecter la version
-    _appendLog('🔍 Détection de la version de Batocera...');
+    _appendLog('🔍 Detecting Batocera version...');
     final versionRaw = await _exec(
         "batocera-es-swissknife --version | awk '{print \$1}' | sed -E 's/^([0-9]+).*/\\1/'");
     final version = int.tryParse(versionRaw.trim()) ?? 0;
     if (version == 0) {
-      _appendLog('❌ Impossible de détecter la version de Batocera.');
+      _appendLog('❌ Unable to detect Batocera version.');
       setState(() => _running = false);
       return;
     }
-    _appendLog("✅ Batocera V$version détecté.");
+    _appendLog("✅ Batocera V$version detected.");
 
     // 2. URL selon version
     String archiveUrl;
@@ -203,19 +233,19 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
     _appendLog("📦 Archive : $archiveName");
 
     // 3. Espace disque
-    _appendLog('\n💾 Vérification espace disque...');
+    _appendLog('\n💾 Checking disk space...');
     final freeRaw = await _exec("df -m /userdata | awk 'NR==2 {print \$4}'");
     final freeMb = int.tryParse(freeRaw.trim()) ?? 0;
     const requiredMb = 3800;
     if (freeMb < requiredMb) {
-      _appendLog("❌ Espace insuffisant : $freeMb Mo / $requiredMb Mo requis.");
+      _appendLog("❌ Not enough space: $freeMb MB / $requiredMb MB required.");
       setState(() => _running = false);
       return;
     }
-    _appendLog("✅ Espace OK : $freeMb Mo disponibles.");
+    _appendLog("✅ Enough space: $freeMb MB available.");
 
     // 4. Suppression anciens fichiers
-    _appendLog('\n🗑️ Suppression des anciens fichiers NES3D...');
+    _appendLog('\n🗑️ Removing old NES3D files...');
     await _exec(
       'rm -f /userdata/system/configs/evmapy/3dnes.keys '
       '/userdata/system/configs/emulationstation/es_features_3dnes.cfg '
@@ -224,10 +254,10 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
       '/userdata/roms/nes3d /userdata/system/wine-bottles/3dnes '
       '/userdata/system/wine-bottles/nes3d',
     );
-    _appendLog('✅ Anciens fichiers supprimés.');
+    _appendLog('✅ Old files removed.');
 
     // 5. Téléchargement
-    _appendLog("\n⬇️ Téléchargement de $archiveName...");
+    _appendLog("\n⬇️ Downloading $archiveName...");
     _appendLog('  (peut prendre plusieurs minutes)');
 
     // Lance wget en background + flag quand terminé
@@ -268,28 +298,28 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
     final sizeRaw = await _exec('stat -c%s "/userdata/$archiveName" 2>/dev/null || echo 0');
     final size = int.tryParse(sizeRaw.trim()) ?? 0;
     if (size < 1000000) {
-      _appendLog('❌ Téléchargement échoué.');
+      _appendLog('❌ Download failed.');
       await _exec('rm -f "/userdata/$archiveName"');
       setState(() => _running = false);
       return;
     }
-    _appendLog("✅ Téléchargement terminé (${(size / 1024 / 1024).toStringAsFixed(0)} Mo).");
+    _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
 
     // 6. Extraction
-    _appendLog('\n📦 Extraction en cours...');
+    _appendLog('\n📦 Extracting...');
     await _exec('unzip -o "/userdata/$archiveName" -d "/userdata/" 2>&1');
     if (!mounted) return;
-    _appendLog('✅ Extraction terminée.');
+    _appendLog('✅ Extraction complete.');
 
     // 7. Nettoyage
-    _appendLog('\n🧹 Nettoyage...');
+    _appendLog('\n🧹 Cleaning up...');
     await _exec('rm -f "/userdata/$archiveName"');
 
     // 8. Rechargement
-    _appendLog('🔄 Rechargement de la liste des jeux...');
+    _appendLog('🔄 Reloading game list...');
     await _exec('curl -s http://127.0.0.1:1234/reloadgames');
 
-    _appendLog('\n✅ Installation NES3D terminée !');
+    _appendLog('\n✅ NES3D installation complete!');
     setState(() => _running = false);
 
     if (mounted) {
@@ -300,10 +330,10 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
           title: const Row(children: [
             Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
             SizedBox(width: 10),
-            Flexible(child: Text('NES3D installé !')),
+            Flexible(child: Text('NES3D installed!')),
           ]),
           content: const Text(
-            'Le pack NES3D a été installé avec succès.\nLa liste des jeux a été rechargée.',
+            'NES3D pack installed successfully.\nGame list has been reloaded.',
             style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
           actions: [
@@ -353,7 +383,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
                     ]),
                     const SizedBox(height: 10),
                     const Text(
-                      'Détecte automatiquement votre version de Batocera et télécharge le pack correspondant.',
+                      'Automatically detects your Batocera version and downloads the matching pack.',
                       style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
                     ),
                     const SizedBox(height: 8),
@@ -382,7 +412,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
                       child: const Row(children: [
                         Icon(Icons.storage_rounded, color: Colors.orangeAccent, size: 14),
                         SizedBox(width: 6),
-                        Text('Espace requis : ~3.8 Go',
+                        Text('Required space: ~3.8 GB',
                             style: TextStyle(color: Colors.orangeAccent, fontSize: 11)),
                       ]),
                     ),
@@ -402,7 +432,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.black))
                             : const Icon(Icons.download_rounded),
-                        label: Text(_running ? 'Installation en cours...' : 'Installer NES3D'),
+                        label: Text(_running ? 'Installing...' : 'Install NES3D'),
                       ),
                     ),
                   ]),
@@ -447,6 +477,1080 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
               ),
             ] else
               const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Kodi Install ─────────────────────────────────────────────────────────────
+
+class _KodiInstallScreen extends StatefulWidget {
+  const _KodiInstallScreen();
+
+  @override
+  State<_KodiInstallScreen> createState() => _KodiInstallScreenState();
+}
+
+class _KodiInstallScreenState extends State<_KodiInstallScreen> {
+  bool _running = false;
+  String _log = '';
+
+  static const _zipUrl =
+      'https://github.com/foclabroc/toolbox/releases/download/Fichiers/kodi.zip';
+  static const _kodiDir = '/userdata/system/.kodi';
+  static const _tmpZip = '/tmp/kodi_pack.zip';
+
+  Future<String> _exec(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute(cmd);
+      final bytes =
+          await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      return String.fromCharCodes(bytes).trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _appendLog(String msg) => setState(() => _log += '$msg\n');
+
+  Future<void> _launch() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.tv_rounded, color: Colors.deepPurpleAccent, size: 22),
+          SizedBox(width: 10),
+          Flexible(child: Text('Install Kodi pack?',
+              overflow: TextOverflow.ellipsis)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Installs the Foclabroc Kodi pack (Vstream, IPTV...).',
+              style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: Colors.redAccent, size: 14),
+                SizedBox(width: 6),
+                Expanded(child: Text(
+                  'The .kodi folder will be completely deleted and replaced.',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 11),
+                )),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurpleAccent,
+                foregroundColor: Colors.white),
+            child: const Text('Install'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() { _running = true; _log = ''; });
+
+    // 1. Suppression ancien dossier
+    _appendLog('🗑️ Removing $_kodiDir...');
+    await _exec('rm -rf "$_kodiDir"');
+    _appendLog('✅ Folder removed.');
+
+    // 2. Téléchargement avec progression
+    _appendLog('\n⬇️ Downloading Kodi pack...');
+    _appendLog('  (peut prendre plusieurs minutes)');
+
+    await _exec('rm -f $_tmpZip /tmp/_kodi_wget_done');
+    await _exec('wget -q --tries=3 --timeout=120 -O "$_tmpZip" "$_zipUrl" && touch /tmp/_kodi_wget_done || touch /tmp/_kodi_wget_done &');
+
+    final totalRaw = await _exec(
+        'wget --spider "$_zipUrl" 2>&1 | grep "Content-Length" | awk \'{print \$2}\' | tail -1');
+    final totalBytes = int.tryParse(totalRaw.trim()) ?? 0;
+    final totalMb = totalBytes > 0 ? (totalBytes / 1024 / 1024).toStringAsFixed(0) : '?';
+
+    while (true) {
+      if (!mounted) break;
+      await Future.delayed(const Duration(seconds: 1));
+      final sizeNowRaw = await _exec('stat -c%s "$_tmpZip" 2>/dev/null || echo 0');
+      final sizeNow = int.tryParse(sizeNowRaw.trim()) ?? 0;
+      final nowMb = (sizeNow / 1024 / 1024).toStringAsFixed(1);
+      final pct = totalBytes > 0 ? (sizeNow * 100 ~/ totalBytes) : 0;
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb Mo';
+      setState(() {
+        final lines = _log.split('\n');
+        if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
+          lines[lines.length - 2] = '  ↓ $nowMb / $totalMb Mo  [$bar]';
+          _log = lines.join('\n');
+        } else {
+          _log += '  ↓ $nowMb / $totalMb Mo  [$bar]\n';
+        }
+      });
+      final done = await _exec('[ -f /tmp/_kodi_wget_done ] && echo yes || echo no');
+      if (done.trim() == 'yes') break;
+    }
+    await _exec('rm -f /tmp/_kodi_wget_done');
+    if (!mounted) return;
+
+    final sizeRaw = await _exec('stat -c%s "$_tmpZip" 2>/dev/null || echo 0');
+    final size = int.tryParse(sizeRaw.trim()) ?? 0;
+    if (size < 100000) {
+      _appendLog('❌ Download failed.');
+      await _exec('rm -f "$_tmpZip"');
+      setState(() => _running = false);
+      return;
+    }
+    _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
+
+    // 3. Extraction
+    _appendLog('\n📦 Extracting...');
+    await _exec('unzip -o "$_tmpZip" -d /userdata/system/ 2>&1');
+    if (!mounted) return;
+    _appendLog('✅ Extraction complete.');
+
+    // 4. Nettoyage
+    _appendLog('\n🧹 Cleaning up...');
+    await _exec('rm -f "$_tmpZip"');
+
+    _appendLog('\n✅ Kodi pack installed successfully!');
+    setState(() => _running = false);
+
+    if (mounted) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
+            SizedBox(width: 10),
+            Flexible(child: Text('Kodi pack installed!')),
+          ]),
+          content: const Text(
+            'The Kodi pack was installed successfully.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          actions: [
+            ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK')),
+          ],
+        ),
+      );
+      if (mounted) setState(() => _log = '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(Icons.arrow_back_rounded,
+                      color: Colors.white54),
+                ),
+                const SizedBox(width: 12),
+                Text('Pack Kodi',
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineMedium
+                        ?.copyWith(fontSize: 22)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const Row(children: [
+                      Icon(Icons.tv_rounded,
+                          color: Colors.deepPurpleAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text('Pack Kodi Foclabroc',
+                          style: TextStyle(
+                              color: Colors.deepPurpleAccent,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15)),
+                    ]),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Installs Foclabroc\'s Kodi configuration with Vstream, IPTV and other pre-configured add-ons.',
+                      style: TextStyle(
+                          color: Colors.white54, fontSize: 12, height: 1.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final e in ['Vstream', 'IPTV', 'Extensions'])
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurpleAccent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color:
+                                    Colors.deepPurpleAccent.withOpacity(0.25)),
+                          ),
+                          child: Text(e,
+                              style: const TextStyle(
+                                  color: Colors.deepPurpleAccent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                    ]),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(6),
+                        border:
+                            Border.all(color: Colors.redAccent.withOpacity(0.2)),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.warning_amber_rounded,
+                            color: Colors.redAccent, size: 14),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Completely replaces the existing .kodi folder',
+                            style: TextStyle(
+                                color: Colors.redAccent, fontSize: 11),
+                          ),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _running ? null : _launch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurpleAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          disabledBackgroundColor: Colors.white12,
+                        ),
+                        icon: _running
+                            ? const SizedBox(
+                                width: 16, height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.download_rounded),
+                        label: Text(_running
+                            ? 'Installing...'
+                            : 'Install Kodi pack'),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+            if (_running) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: const LinearProgressIndicator(
+                    backgroundColor: Color(0x14FFFFFF),
+                    valueColor:
+                        AlwaysStoppedAnimation(Colors.deepPurpleAccent),
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+            ],
+            if (_log.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0C10),
+                      borderRadius: BorderRadius.circular(10),
+                      border:
+                          Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      child: Text(_log,
+                          style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              color: Colors.white70,
+                              height: 1.5)),
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Music Pack Install ───────────────────────────────────────────────────────
+
+class _MusicPackInstallScreen extends StatefulWidget {
+  const _MusicPackInstallScreen();
+
+  @override
+  State<_MusicPackInstallScreen> createState() => _MusicPackInstallScreenState();
+}
+
+class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
+  bool _running = false;
+  String _log = '';
+
+  static const _zipUrl =
+      'https://github.com/foclabroc/toolbox/releases/download/Fichiers/ost-pack.zip';
+  static const _tmpZip = '/tmp/ost-pack.zip';
+  static const _destDir = '/userdata';
+  static const _installDir = '/userdata/music';
+
+  Future<String> _exec(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute(cmd);
+      final bytes =
+          await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      return String.fromCharCodes(bytes).trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _appendLog(String msg) => setState(() => _log += '$msg\n');
+
+  Future<void> _launch() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.music_note_rounded, color: Colors.pinkAccent, size: 22),
+          SizedBox(width: 10),
+          Flexible(child: Text('Install Music Pack?',
+              overflow: TextOverflow.ellipsis)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Adds 39 video game tracks to /userdata/music for random playback in EmulationStation.',
+              style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.pinkAccent.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.pinkAccent.withOpacity(0.2)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.info_rounded, color: Colors.pinkAccent, size: 14),
+                SizedBox(width: 6),
+                Expanded(child: Text(
+                  'Existing music in /userdata/music will not be deleted.',
+                  style: TextStyle(color: Colors.pinkAccent, fontSize: 11),
+                )),
+              ]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.pinkAccent,
+                foregroundColor: Colors.white),
+            child: const Text('Install'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() { _running = true; _log = ''; });
+
+    // 1. Téléchargement avec progression
+    _appendLog('⬇️ Downloading Music Pack...');
+    _appendLog('  (39 titres OST)');
+
+    await _exec('rm -f $_tmpZip /tmp/_music_wget_done');
+    await _exec('wget -q --tries=3 --timeout=120 -O "$_tmpZip" "$_zipUrl" && touch /tmp/_music_wget_done || touch /tmp/_music_wget_done &');
+
+    final totalRaw = await _exec(
+        'wget --spider "$_zipUrl" 2>&1 | grep "Content-Length" | awk \'{print \$2}\' | tail -1');
+    final totalBytes = int.tryParse(totalRaw.trim()) ?? 0;
+    final totalMb = totalBytes > 0 ? (totalBytes / 1024 / 1024).toStringAsFixed(0) : '?';
+
+    while (true) {
+      if (!mounted) break;
+      await Future.delayed(const Duration(seconds: 1));
+      final sizeNowRaw = await _exec('stat -c%s "$_tmpZip" 2>/dev/null || echo 0');
+      final sizeNow = int.tryParse(sizeNowRaw.trim()) ?? 0;
+      final nowMb = (sizeNow / 1024 / 1024).toStringAsFixed(1);
+      final pct = totalBytes > 0 ? (sizeNow * 100 ~/ totalBytes) : 0;
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb Mo';
+      setState(() {
+        final lines = _log.split('\n');
+        if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
+          lines[lines.length - 2] = '  ↓ $nowMb / $totalMb Mo  [$bar]';
+          _log = lines.join('\n');
+        } else {
+          _log += '  ↓ $nowMb / $totalMb Mo  [$bar]\n';
+        }
+      });
+      final done = await _exec('[ -f /tmp/_music_wget_done ] && echo yes || echo no');
+      if (done.trim() == 'yes') break;
+    }
+    await _exec('rm -f /tmp/_music_wget_done');
+    if (!mounted) return;
+
+    final sizeRaw = await _exec('stat -c%s "$_tmpZip" 2>/dev/null || echo 0');
+    final size = int.tryParse(sizeRaw.trim()) ?? 0;
+    if (size < 100000) {
+      _appendLog('❌ Download failed.');
+      await _exec('rm -f "$_tmpZip"');
+      setState(() => _running = false);
+      return;
+    }
+    _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
+
+    // 2. Extraction
+    _appendLog('\n📦 Extracting to $_installDir...');
+    await _exec('unzip -o "$_tmpZip" -d "$_destDir" 2>&1');
+    if (!mounted) return;
+    _appendLog('✅ Extraction complete.');
+
+    // 3. Nettoyage
+    _appendLog('\n🧹 Cleaning up...');
+    await _exec('rm -f "$_tmpZip"');
+
+    // 4. Rechargement
+    _appendLog('🔄 Reloading game list...');
+    await _exec('curl -s http://127.0.0.1:1234/reloadgames');
+
+    _appendLog('\n✅ Music Pack installed successfully!');
+    setState(() => _running = false);
+
+    if (mounted) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
+            SizedBox(width: 10),
+            Flexible(child: Text('Music Pack installed!')),
+          ]),
+          content: const Text(
+            'Music Pack installed successfully.\n39 tracks available in EmulationStation.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          actions: [
+            ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK')),
+          ],
+        ),
+      );
+      if (mounted) setState(() => _log = '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(Icons.arrow_back_rounded,
+                      color: Colors.white54),
+                ),
+                const SizedBox(width: 12),
+                Text('Pack Music',
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineMedium
+                        ?.copyWith(fontSize: 22)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const Row(children: [
+                      Icon(Icons.music_note_rounded,
+                          color: Colors.pinkAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text('Pack Music Foclabroc',
+                          style: TextStyle(
+                              color: Colors.pinkAccent,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15)),
+                    ]),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Pack of 39 video game tracks for EmulationStation.\nRandom playback in the main menu.',
+                      style: TextStyle(
+                          color: Colors.white54, fontSize: 12, height: 1.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final e in ['39 OST tracks', 'EmulationStation', 'Random play'])
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.pinkAccent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.pinkAccent.withOpacity(0.25)),
+                          ),
+                          child: Text(e,
+                              style: const TextStyle(
+                                  color: Colors.pinkAccent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                    ]),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.pinkAccent.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: Colors.pinkAccent.withOpacity(0.2)),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.folder_rounded,
+                            color: Colors.pinkAccent, size: 14),
+                        SizedBox(width: 6),
+                        Text('Destination : /userdata/music',
+                            style: TextStyle(
+                                color: Colors.pinkAccent, fontSize: 11, fontFamily: 'monospace')),
+                      ]),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _running ? null : _launch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.pinkAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          disabledBackgroundColor: Colors.white12,
+                        ),
+                        icon: _running
+                            ? const SizedBox(
+                                width: 16, height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.download_rounded),
+                        label: Text(_running
+                            ? 'Installing...'
+                            : 'Install Music Pack'),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+            if (_running) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: const LinearProgressIndicator(
+                    backgroundColor: Color(0x14FFFFFF),
+                    valueColor: AlwaysStoppedAnimation(Colors.pinkAccent),
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+            ],
+            if (_log.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0C10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      child: Text(_log,
+                          style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 10,
+                              color: Colors.white70,
+                              height: 1.5)),
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Windows Games ────────────────────────────────────────────────────────────
+
+class _WindowsGamesScreen extends StatefulWidget {
+  const _WindowsGamesScreen();
+  @override
+  State<_WindowsGamesScreen> createState() => _WindowsGamesScreenState();
+}
+
+class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
+  bool _installing = false;
+  String? _installingGame;
+  String _log = '';
+
+  static const _baseUrl =
+      'https://raw.githubusercontent.com/foclabroc/toolbox/refs/heads/main/windows';
+
+  static const _baseImgUrl =
+      'https://raw.githubusercontent.com/foclabroc/toolbox/refs/heads/main/_images';
+  static const _winDir = '/userdata/roms/windows';
+
+  static const _games = [
+    {'name': 'Celeste 64',             'desc': 'Madeline\'s return but in 3D.',                                 'size': '39.8 MB',  'git': 'c64',          'script': 'c64.sh'},
+    {'name': 'Celeste pico8',          'desc': 'Help Madeline survive Celeste Mountain.',                        'size': '14.8 MB',  'git': 'celeste',      'script': 'celeste.sh'},
+    {'name': 'Crash Bandicoot bit',    'desc': 'Fan-Made with custom stage editor.',                      'size': '230 MB',   'git': 'cbit',         'script': 'cbit.sh'},
+    {'name': 'Donkey Kong Advanced',   'desc': 'A remake of the classic arcade game.',                            'size': '19.4 MB',  'git': 'dka',          'script': 'dka.sh'},
+    {'name': 'TMNT Rescue Palooza',    'desc': 'Beat-em-up in the TMNT universe.',                    'size': '168 MB',   'git': 'tmntrp',       'script': 'tmntrp.sh'},
+    {'name': 'Spelunky',               'desc': '2D platformer, play as a spelunker.',                'size': '24.2 MB',  'git': 'spelunky',     'script': 'spelunky.sh'},
+    {'name': 'Sonic Triple Trouble',   'desc': 'Fangame of the Game Gear title Sonic Triple Trouble.',                    'size': '115 MB',   'git': 'stt',          'script': 'stt.sh'},
+    {'name': 'Pokemon Uranium',        'desc': 'Pokemon fangame set in the Tandor region.',                         'size': '332 MB',   'git': 'pokeura',      'script': 'pokeura.sh'},
+    {'name': 'MiniDoom 2',             'desc': 'DOOM transformed into an action platformer.',                 'size': '114 MB',   'git': 'minidoom2',    'script': 'minidoom2.sh'},
+    {'name': 'AM2R',                   'desc': 'Another Metroid 2 Remake, unofficial remake.',                    'size': '85.6 MB',  'git': 'am2r',         'script': 'am2r.sh'},
+    {'name': 'Megaman X II',           'desc': 'Mega Man X Innocent Impulse FanGame, 8-bit style.',                  'size': '354 MB',   'git': 'mmxii',        'script': 'mmxii.sh'},
+    {'name': 'Super Tux Kart',         'desc': 'Open source Mario Kart-like with online mode.',                     'size': '662 MB',   'git': 'supertuxkart', 'script': 'supertuxkart.sh'},
+    {'name': 'Streets of Rage R 5.2',  'desc': 'Remake of Streets of Rage 1/2/3 for Windows.',                     'size': '331 MB',   'git': 'sorr52',       'script': 'sorr52.sh'},
+    {'name': 'Megaman 2.5D',           'desc': 'Mega Man fangame in 2.5D for Windows.',                        'size': '855 MB',   'git': 'megaman25',    'script': 'megaman25.sh'},
+    {'name': 'Sonic Smackdown',        'desc': 'Fighting fangame in the Sonic universe.',                        'size': '1.6 GB',   'git': 'sonicsmash',   'script': 'sonicsmash.sh'},
+    {'name': 'Maldita Castilla',       'desc': 'Fanmade in the style of Ghouls\'n Ghosts.',                      'size': '60.2 MB',  'git': 'maldita',      'script': 'maldita.sh'},
+    {'name': 'Super Smash Crusade',    'desc': 'Super Smash Bros Crusade fangame.',                                 'size': '1.45 GB',  'git': 'supersc',      'script': 'supersc.sh'},
+    {'name': 'Rayman Redemption',      'desc': 'Rayman Redemption fangame.',                                        'size': '976 MB',   'git': 'raymanr',      'script': 'raymanr.sh'},
+    {'name': 'Power Bomberman',        'desc': 'Bomberman fangame.',                                             'size': '616 MB',   'git': 'powerb',       'script': 'powerb.sh'},
+    {'name': 'Mushroom Kingdom Fusion','desc': 'Mario fangame crossed with many other franchises.',               'size': '962 MB',   'git': 'mushkf',       'script': 'mushkf.sh'},
+    {'name': 'Dr. Robotnik\'s Racers','desc': 'Mario Kart-like fangame in the Sonic universe.',               'size': '698 MB',   'git': 'drrobo',       'script': 'drrobo.sh'},
+  ];
+
+  Future<String> _exec(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute(cmd);
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      return String.fromCharCodes(bytes).trim();
+    } catch (_) { return ''; }
+  }
+
+  Future<String> _execStream(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute('stdbuf -oL $cmd');
+      String pending = '';
+      await for (final chunk in session.stdout) {
+        final text = String.fromCharCodes(chunk);
+        pending += text;
+        final lines = pending.split('\n');
+        pending = lines.removeLast();
+        for (final line in lines) {
+          final t = line.trim();
+          if (t.isNotEmpty && mounted) setState(() => _log += '  $t\n');
+        }
+      }
+      if (pending.trim().isNotEmpty && mounted) {
+        setState(() => _log += '  ${pending.trim()}\n');
+      }
+      await session.done;
+      return '';
+    } catch (_) { return ''; }
+  }
+
+  void _appendLog(String msg) => setState(() => _log += '$msg\n');
+
+  Future<void> _installGame(Map<String, String> game) async {
+    final name = game['name']!;
+    final size = game['size']!;
+    final git  = game['git']!;
+    final script = game['script']!;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: Row(children: [
+          const Icon(Icons.videogame_asset_rounded, color: Colors.orangeAccent, size: 22),
+          const SizedBox(width: 10),
+          Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(game['desc']!,
+              style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orangeAccent.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.orangeAccent.withOpacity(0.2)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.storage_rounded, color: Colors.orangeAccent, size: 14),
+              const SizedBox(width: 6),
+              Text('Size: $size', style: const TextStyle(color: Colors.orangeAccent, fontSize: 11)),
+            ]),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent, foregroundColor: Colors.black),
+            child: const Text('Install'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() { _installing = true; _installingGame = name; _log = ''; });
+
+    // 1. Récupère l'URL de téléchargement depuis le script bash
+    _appendLog('🔍 Fetching URL...');
+    final scriptUrl = '$_baseUrl/$script';
+    final urlRaw = await _exec(
+      'curl -sL "$scriptUrl" | grep -m1 \'URL_TELECHARGEMENT=\' | head -1 | sed \'s/.*URL_TELECHARGEMENT="\\(.*\\)"/\\1/\''
+    );
+    final fileUrl = urlRaw.trim();
+    if (fileUrl.isEmpty || !fileUrl.startsWith('http')) {
+      _appendLog('❌ Unable to fetch URL from script.');
+      setState(() { _installing = false; _installingGame = null; });
+      return;
+    }
+    _appendLog('✅ URL : $fileUrl');
+
+    // Récupère aussi l'URL du fichier .keys si présent
+    final keyUrlRaw = await _exec(
+      'curl -sL "$scriptUrl" | grep -m1 \'URL_TELECHARGEMENT_KEY=\' | head -1 | sed \'s/.*URL_TELECHARGEMENT_KEY="\\(.*\\)"/\\1/\''
+    );
+    final keyUrl = keyUrlRaw.trim();
+
+    final fileName = fileUrl.split('/').last;
+    final destFile = '$_winDir/$fileName';
+    final ext = fileName.contains('.wsquashfs') ? 'wsquashfs' : 'zip';
+
+    // 2. Supprime l'ancien fichier si existant
+    _appendLog('🗑️ Removing old version...');
+    await _exec('rm -f "$destFile" "$_winDir/$git" 2>/dev/null; rm -rf "$_winDir/${git}_dir" 2>/dev/null');
+
+    // 2. Téléchargement avec progression
+    _appendLog("\n⬇️ Downloading $name...");
+    _appendLog('  ($size)');
+
+    await _exec('rm -f /tmp/_wgame_done');
+    await _exec('curl -sL --retry 3 --max-time 600 -o "$destFile" "$fileUrl" && touch /tmp/_wgame_done || touch /tmp/_wgame_done &');
+
+    final totalRaw = await _exec(
+        'curl -sIL "$fileUrl" | grep -i content-length | tail -1 | awk \'{print \$2}\' | tr -d \$\'\\r\'');
+    final totalBytes = int.tryParse(totalRaw.trim()) ?? 0;
+    final totalMb = totalBytes > 0 ? (totalBytes / 1024 / 1024).toStringAsFixed(0) : '?';
+
+    while (true) {
+      if (!mounted) break;
+      await Future.delayed(const Duration(seconds: 1));
+      final sizeNowRaw = await _exec('stat -c%s "$destFile" 2>/dev/null || echo 0');
+      final sizeNow = int.tryParse(sizeNowRaw.trim()) ?? 0;
+      final nowMb = (sizeNow / 1024 / 1024).toStringAsFixed(1);
+      final pct = totalBytes > 0 ? (sizeNow * 100 ~/ totalBytes) : 0;
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb Mo';
+      setState(() {
+        final lines = _log.split('\n');
+        if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
+          lines[lines.length - 2] = '  ↓ $nowMb / $totalMb Mo  [$bar]';
+          _log = lines.join('\n');
+        } else {
+          _log += '  ↓ $nowMb / $totalMb Mo  [$bar]\n';
+        }
+      });
+      final done = await _exec('[ -f /tmp/_wgame_done ] && echo yes || echo no');
+      if (done.trim() == 'yes') break;
+    }
+    await _exec('rm -f /tmp/_wgame_done');
+    if (!mounted) return;
+
+    final szRaw = await _exec('stat -c%s "$destFile" 2>/dev/null || echo 0');
+    final sz = int.tryParse(szRaw.trim()) ?? 0;
+    if (sz < 100000) {
+      _appendLog('❌ Download failed.');
+      await _exec('rm -f "$destFile"');
+      setState(() { _installing = false; _installingGame = null; });
+      return;
+    }
+    _appendLog("✅ Download complete (\${(sz / 1024 / 1024).toStringAsFixed(0)} MB).");
+
+    // 3. Extraction si zip
+    if (ext == 'zip') {
+      _appendLog('\n📦 Extracting...');
+      await _exec('unzip -o "$destFile" -d "$_winDir/" 2>&1 && rm -f "$destFile"');
+      if (!mounted) return;
+      _appendLog('✅ Extraction complete.');
+    }
+
+    // 4. Téléchargement du fichier .keys si présent
+    if (keyUrl.isNotEmpty && keyUrl.startsWith('http')) {
+      _appendLog('\n🔑 Downloading .keys file...');
+      final keyFileName = keyUrl.split('/').last;
+      await _exec('curl -sL "$keyUrl" -o "$_winDir/$keyFileName"');
+      _appendLog('✅ .keys file downloaded.');
+    }
+
+    // 5. Téléchargement images + vidéo gamelist
+    _appendLog('\n🖼️ Downloading images...');
+    final imgDir = '$_winDir/images';
+    final vidDir = '$_winDir/videos';
+    await _exec('mkdir -p "$imgDir" "$vidDir"');
+    await _exec('curl -sL -o "$imgDir/$git-s.png" "$_baseImgUrl/$git-s.png" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$git-w.png" "$_baseImgUrl/$git-w.png" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$git-b.png" "$_baseImgUrl/$git-b.png" 2>/dev/null');
+    await _exec('curl -sL -o "$vidDir/$git-v.mp4" "$_baseImgUrl/$git-v.mp4" 2>/dev/null');
+    if (!mounted) return;
+
+    // 5. Mise à jour gamelist
+    _appendLog('📋 Updating gamelist...');
+    final gamelistFile = '$_winDir/gamelist.xml';
+    final xmlBin = '/userdata/system/pro/extra/xmlstarlet';
+    final xmlLink = '/usr/bin/xmlstarlet';
+    // Crée le gamelist si absent
+    await _exec('[ -f "$gamelistFile" ] || echo \'<?xml version="1.0" encoding="UTF-8"?><gameList></gameList>\' > "$gamelistFile"');
+    // Installe xmlstarlet si absent
+    await _exec('[ -f "$xmlBin" ] || (mkdir -p "\$(dirname $xmlBin)" && curl -sL "https://github.com/foclabroc/toolbox/raw/refs/heads/main/app/xmlstarlet" -o "$xmlBin" && chmod +x "$xmlBin" && ln -sf "$xmlBin" "$xmlLink")');
+    await _exec('[ -L "$xmlLink" ] || ln -sf "$xmlBin" "$xmlLink"');
+    // Supprime l'entrée existante et recrée
+    final gameFinal = ext == 'zip' ? './$git' : './$fileName';
+    await _exec('xmlstarlet ed -L -d "/gameList/game[path=\\"$gameFinal\\"]" "$gamelistFile" 2>/dev/null; xmlstarlet ed -L -s "/gameList" -t elem -n "game" -v "" -s "/gameList/game[last()]" -t elem -n "path" -v "$gameFinal" -s "/gameList/game[last()]" -t elem -n "name" -v "$name" -s "/gameList/game[last()]" -t elem -n "image" -v "./images/$git-s.png" -s "/gameList/game[last()]" -t elem -n "video" -v "./videos/$git-v.mp4" -s "/gameList/game[last()]" -t elem -n "marquee" -v "./images/$git-w.png" -s "/gameList/game[last()]" -t elem -n "thumbnail" -v "./images/$git-b.png" -s "/gameList/game[last()]" -t elem -n "rating" -v "1.00" -s "/gameList/game[last()]" -t elem -n "lang" -v "fr" -s "/gameList/game[last()]" -t elem -n "region" -v "eu" "$gamelistFile" 2>/dev/null || true');
+
+    // 6. Rechargement
+    _appendLog('🔄 Reloading game list...');
+    await _exec('curl -s http://127.0.0.1:1234/reloadgames');
+
+    _appendLog("\n✅ $name installed successfully!");
+    setState(() { _installing = false; _installingGame = null; });
+
+    if (mounted) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
+            SizedBox(width: 10),
+            Flexible(child: Text('Installation complete!')),
+          ]),
+          content: Text('$name installed successfully.',
+              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          actions: [
+            ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      if (mounted) setState(() => _log = '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
+                ),
+                const SizedBox(width: 12),
+                Text('Windows Games',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 20)),
+                const Spacer(),
+                if (_installing)
+                  const SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orangeAccent)),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              child: Text('${_games.length} games available',
+                  style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            ),
+            Expanded(
+              child: Column(children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    itemCount: _games.length,
+                    itemBuilder: (_, i) {
+                      final g = _games[i];
+                      final isInstalling = _installingGame == g['name'];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: _installing ? null : () => _installGame(g),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            child: Row(children: [
+                              Container(
+                                width: 38, height: 38,
+                                decoration: BoxDecoration(
+                                  color: Colors.orangeAccent.withOpacity(0.10),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: isInstalling
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(9),
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orangeAccent))
+                                    : const Icon(Icons.videogame_asset_rounded,
+                                        color: Colors.orangeAccent, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(g['name']!,
+                                    style: TextStyle(
+                                        color: _installing && !isInstalling ? Colors.white38 : Colors.white,
+                                        fontSize: 13, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text(g['desc']!,
+                                    style: const TextStyle(color: Colors.white38, fontSize: 10),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ])),
+                              const SizedBox(width: 8),
+                              Text(g['size']!,
+                                  style: const TextStyle(color: Colors.orangeAccent, fontSize: 10,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.download_rounded, size: 16, color: Colors.white24),
+                            ]),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (_installing) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: const LinearProgressIndicator(
+                        backgroundColor: Color(0x14FFFFFF),
+                        valueColor: AlwaysStoppedAnimation(Colors.orangeAccent),
+                        minHeight: 4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                if (_log.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(maxHeight: 130),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0A0C10),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      ),
+                      child: SingleChildScrollView(
+                        reverse: true,
+                        child: Text(_log,
+                            style: const TextStyle(fontFamily: 'monospace',
+                                fontSize: 10, color: Colors.white70, height: 1.5)),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
           ],
         ),
       ),

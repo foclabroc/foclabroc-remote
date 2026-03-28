@@ -70,7 +70,7 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
       });
     } catch (e) {
       setState(() {
-        _lines.add(_TermLine(text: 'Erreur : $e', type: _LineType.error));
+        _lines.add(_TermLine(text: 'Error: $e', type: _LineType.error));
         _running = false;
       });
     }
@@ -115,7 +115,7 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
     Clipboard.setData(ClipboardData(text: outputs.last.text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Copié dans le presse-papiers',
+        content: const Text('Copied to clipboard',
             style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF1C2230),
         behavior: SnackBarBehavior.floating,
@@ -144,12 +144,12 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
                   IconButton(
                     icon: Icon(Icons.copy_rounded, color: Colors.white38, size: 20),
                     onPressed: _copyLastOutput,
-                    tooltip: 'Copier dernier output',
+                    tooltip: 'Copy last output',
                   ),
                   IconButton(
                     icon: Icon(Icons.delete_sweep_rounded, color: Colors.white38, size: 20),
                     onPressed: _clearTerminal,
-                    tooltip: 'Effacer',
+                    tooltip: 'Clear',
                   ),
                 ],
               ),
@@ -167,7 +167,7 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
                 child: _lines.isEmpty
                     ? Center(
                         child: Text(
-                          'Tape une commande...',
+                          'Type a command...',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.2),
                             fontFamily: 'monospace',
@@ -211,13 +211,13 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
                     _HistoryBtn(
                       icon: Icons.arrow_upward_rounded,
                       onTap: _historyUp,
-                      tooltip: 'Commande précédente',
+                      tooltip: 'Previous command',
                     ),
                     const SizedBox(width: 8),
                     _HistoryBtn(
                       icon: Icons.arrow_downward_rounded,
                       onTap: _historyDown,
-                      tooltip: 'Commande suivante',
+                      tooltip: 'Next command',
                     ),
                     const SizedBox(width: 8),
                     if (_running)
@@ -258,7 +258,7 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
                         color: Colors.white,
                       ),
                       decoration: InputDecoration(
-                        hintText: 'commande...',
+                        hintText: 'command...',
                         hintStyle: TextStyle(
                           color: Colors.white.withOpacity(0.2),
                           fontFamily: 'monospace',
