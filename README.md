@@ -16,7 +16,9 @@
 
 Version Francaise disponible
 English version available
+
 ---
+
 ## ✨ Fonctionnalités
 
 ### 🔗 Connexion SSH
@@ -74,6 +76,19 @@ English version available
 - Redémarrage EmulationStation, reboot, arrêt
 - Logs `stderr` et `stdout` partageables
 - **Vider le cache** images et vidéos de l'application
+
+### 🍷 Wine Tools
+- **.PC Converter** — convertit un dossier `.pc` en `.wine` avec compression optionnelle
+- **Decompressor** — décompresse `.wtgz` / `.wsquashfs` → `.wine`
+- **Compressor** — compresse `.wine` → `.wtgz` ou `.wsquashfs`
+- **Téléchargement Runner** — télécharge et installe des runners Wine depuis GitHub :
+  - Wine GE-Custom, Wine Vanilla, Wine TKG-Staging, GE-Proton, GE-Custom V40
+  - **Runner Manager** — liste et supprime les runners installés
+- **Wine Bottle Manager** — liste et supprime les bouteilles Wine
+- **Winetricks** — installe des dépendances Windows (VC++, DirectX...) dans une bouteille
+
+### 🔧 Foclabroc Tools
+- **NES3D** — installe le pack NES 3D (détection automatique de la version Batocera V40/41/42/43+)
 
 ---
 
