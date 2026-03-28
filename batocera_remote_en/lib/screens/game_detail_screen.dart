@@ -124,7 +124,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
             SizedBox(height: 16),
             CircularProgressIndicator(color: Colors.purpleAccent),
             SizedBox(height: 12),
-            Text('Loading...', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text('Chargement...', style: TextStyle(fontSize: 12, color: Colors.white70)),
           ]),
         ),
       )),
@@ -160,7 +160,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -170,7 +170,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
   Future<void> _openManual() async {
     final path = widget.game['manual']?.toString();
     if (path == null || path.isEmpty) return;
-    await _openFileViewer(path, 'Manual - ${widget.game['name'] ?? ''}');
+    await _openFileViewer(path, 'Manuel - ${widget.game['name'] ?? ''}');
   }
 
   Future<void> _openMap() async {
@@ -189,7 +189,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Loading...'),
+            Text('Chargement...'),
           ]),
         ),
       )),
@@ -202,7 +202,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
 
       if (bytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to load file', style: TextStyle(color: Colors.white)),
+          content: Text('Impossible de charger le fichier', style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
         return;
@@ -239,7 +239,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -250,7 +250,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     final game = widget.game;
-    final name = game['name'] ?? 'Unknown game';
+    final name = game['name'] ?? 'Jeu inconnu';
     final cheevosId = game['cheevosId']?.toString();
     final hasRA = cheevosId != null && cheevosId != 'null' && cheevosId.isNotEmpty;
     final hasManual = game['manual'] != null && game['manual'].toString().isNotEmpty;
@@ -269,7 +269,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
             IconButton(
               icon: const Icon(Icons.casino_rounded, color: Colors.white54, size: 20),
               onPressed: _pickRandom,
-              tooltip: 'Random game',
+              tooltip: 'Jeu aléatoire',
             ),
           if (hasRA)
             IconButton(
@@ -369,10 +369,10 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                     if (game['releasedate'] != null && game['releasedate'].toString().length >= 4)
                       _InfoChip(label: game['releasedate'].toString().substring(0, 4), icon: Icons.calendar_today_rounded),
                     if (game['favorite'] == 'true')
-                      _InfoChip(label: 'Favorite', icon: Icons.star_rounded, color: Colors.amberAccent),
+                      _InfoChip(label: 'Favori', icon: Icons.star_rounded, color: Colors.amberAccent),
                     _InfoChip(
                       label: int.tryParse(game['playcount']?.toString() ?? '0') == 0
-                          ? 'Never played' : 'Played ${game['playcount']} times',
+                          ? 'Jamais joué' : 'Joué ${game['playcount']} fois',
                       icon: Icons.play_circle_rounded,
                     ),
                   ]),
@@ -403,13 +403,13 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                             await session.done;
                           } catch (_) {}
                           if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('Launching...', style: TextStyle(color: Colors.white)),
+                            content: Text('Lancement...', style: TextStyle(color: Colors.white)),
                             backgroundColor: Color(0xFF1C2230),
                             behavior: SnackBarBehavior.floating,
                           ));
                         },
                         icon: const Icon(Icons.play_arrow_rounded, size: 22),
-                        label: const Text('Launch', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                        label: const Text('Lancer', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: accent,
                           foregroundColor: Colors.white,
@@ -424,7 +424,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _openManual,
                           icon: const Icon(Icons.menu_book_rounded, size: 16),
-                          label: const Text('Manual'),
+                          label: const Text('Manuel'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.blueAccent,
                             side: const BorderSide(color: Colors.blueAccent),
@@ -460,7 +460,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _openVideo,
                         icon: const Icon(Icons.play_circle_outline_rounded, size: 18, color: Colors.purpleAccent),
-                        label: const Text('Watch video', style: TextStyle(color: Colors.purpleAccent)),
+                        label: const Text('Voir la vidéo', style: TextStyle(color: Colors.purpleAccent)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.purpleAccent,
                           side: const BorderSide(color: Colors.purpleAccent),
@@ -481,7 +481,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                           mode: LaunchMode.externalApplication,
                         ),
                         icon: const Icon(Icons.emoji_events_rounded, size: 18, color: Colors.amberAccent),
-                        label: const Text('View on RetroAchievements',
+                        label: const Text('Voir sur RetroAchievements',
                             style: TextStyle(color: Colors.amberAccent)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.amberAccent,

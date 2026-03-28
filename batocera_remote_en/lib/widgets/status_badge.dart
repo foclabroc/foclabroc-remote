@@ -11,22 +11,22 @@ class StatusBadge extends StatelessWidget {
       ConnectionStatus.connected => (
           Colors.green,
           Icons.link_rounded,
-          'Connected'
+          'Connecté'
         ),
       ConnectionStatus.connecting => (
           Colors.amberAccent,
           Icons.sync_rounded,
-          'Connecting...'
+          'Connexion...'
         ),
       ConnectionStatus.error => (
           Colors.redAccent,
           Icons.link_off_rounded,
-          'Error'
+          'Erreur'
         ),
       ConnectionStatus.disconnected => (
           Colors.white38,
           Icons.link_off_rounded,
-          'Disconnected'
+          'Déconnecté'
         ),
     };
 

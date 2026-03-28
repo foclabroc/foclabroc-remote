@@ -58,7 +58,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             autofocus: true,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'Name (e.g. Living room, Office...)',
+              hintText: 'Nom (ex: Salon, Bureau...)',
               hintStyle: const TextStyle(color: Colors.white38),
               filled: true,
               fillColor: Colors.white.withOpacity(0.06),
@@ -74,7 +74,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   Navigator.pop(ctx);
                 },
                 icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
-                label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                label: const Text('Supprimer', style: TextStyle(color: Colors.redAccent)),
                 style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent)),
               ),
             ),
@@ -85,7 +85,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                   state.renameRecentHost(entry, nameCtrl.text);
                   Navigator.pop(ctx);
                 },
-                child: const Text('Save'),
+                child: const Text('Sauvegarder'),
               ),
             ),
           ]),
@@ -162,7 +162,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
               if (state.recentHosts.isNotEmpty) ...[
                 Row(
                   children: [
-                    Text('Recent',
+                    Text('Récents',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontSize: 13, fontWeight: FontWeight.w600)),
                     const Spacer(),
@@ -175,7 +175,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.white12),
                         ),
-                        child: const Text('Clear',
+                        child: const Text('Vider',
                             style: TextStyle(color: Colors.white38, fontSize: 11)),
                       ),
                     ),
@@ -242,14 +242,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('SSH settings',
+                    Text('Paramètres SSH',
                         style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 20),
 
                     // IP + Port
                     _FieldBox(
                       controller: _nameCtrl,
-                      label: 'Name (optional)',
+                      label: 'Nom (optionnel)',
                       icon: Icons.label_outline_rounded,
                       onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                     ),
@@ -259,7 +259,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                         Expanded(
                           child: _FieldBox(
                             controller: _ipCtrl,
-                            label: 'IP address',
+                            label: 'Adresse IP',
                             icon: Icons.computer_rounded,
                             keyboardType: TextInputType.number,
                             onSubmitted: (_) => _connect(state),
@@ -280,10 +280,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
                     const SizedBox(height: 12),
 
-                    // Username
+                    // Utilisateur
                     _FieldBox(
                       controller: _userCtrl,
-                      label: 'Username',
+                      label: 'Utilisateur',
                       icon: Icons.person_rounded,
                       onSubmitted: (_) => _connect(state),
                     ),
@@ -293,7 +293,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     // Mot de passe
                     _FieldBox(
                       controller: _passCtrl,
-                      label: 'Password',
+                      label: 'Mot de passe',
                       icon: Icons.lock_rounded,
                       obscureText: _obscurePass,
                       onSubmitted: (_) => _connect(state),
@@ -327,10 +327,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
                                 ? Icons.link_off_rounded
                                 : Icons.link_rounded),
                         label: Text(isConnecting
-                            ? 'Connecting...'
+                            ? 'Connexion...'
                             : isConnected
-                                ? 'Disconnect'
-                                : 'Connect'),
+                                ? 'Déconnecter'
+                                : 'Se connecter'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isConnected ? Colors.white12 : Colors.green.shade600,
                           foregroundColor: Colors.white,
@@ -355,7 +355,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () => state.disconnect(),
                       icon: const Icon(Icons.link_off_rounded),
-                      label: const Text('Disconnect'),
+                      label: const Text('Déconnecter'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent.shade700,
                         foregroundColor: Colors.white,
@@ -382,7 +382,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       Row(children: [
                         Icon(Icons.info_outline_rounded, color: Colors.white38, size: 14),
                         const SizedBox(width: 6),
-                        Text('System info',
+                        Text('Informations système',
                             style: TextStyle(
                                 color: Colors.white38,
                                 fontSize: 11,
@@ -405,7 +405,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
               // Hint
               Center(
                 child: Text(
-                  'Batocera: SSH enabled by default · User root / linux',
+                  'Batocera : SSH activé par défaut · User root / linux',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 11),
                   textAlign: TextAlign.center,
                 ),

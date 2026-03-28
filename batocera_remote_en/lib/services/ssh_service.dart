@@ -90,7 +90,7 @@ class SshService {
 
   // ─── Exécution brute (sans bash -l) pour le terminal interactif ────────────
   Future<String> executeRaw(String command) async {
-    if (_client == null || !_connected) throw Exception('Not connected');
+    if (_client == null || !_connected) throw Exception('Non connecté');
     try {
       final session = await _client!.execute(
         'bash -c \'$command\' </dev/null 2>&1',
@@ -100,13 +100,13 @@ class SshService {
       await session.done;
       return utf8.decode(stdoutBytes).trim();
     } catch (e) {
-      throw Exception('Command error: $e');
+      throw Exception('Erreur commande: $e');
     }
   }
 
   Future<String> execute(String command) async {
     if (_client == null || !_connected) {
-      throw Exception('Not connected');
+      throw Exception('Non connecté');
     }
     try {
       // </dev/null évite le /dev/tty, 2>/dev/null supprime stderr
@@ -122,7 +122,7 @@ class SshService {
           .join('\n');
       return output.trim();
     } catch (e) {
-      throw Exception('Command error: $e');
+      throw Exception('Erreur commande: $e');
     }
   }
 
@@ -217,7 +217,7 @@ class SshService {
   // ─── Logs & fichiers (sans bash -l pour éviter le banner) ───────────────────
 
   Future<String> readLog(String filename) async {
-    if (_client == null || !_connected) throw Exception('Not connected');
+    if (_client == null || !_connected) throw Exception('Non connecté');
     final session = await _client!.execute(
       'cat /userdata/system/logs/$filename',
     );
@@ -228,7 +228,7 @@ class SshService {
   }
 
   Future<String> readFile(String remotePath) async {
-    if (_client == null || !_connected) throw Exception('Not connected');
+    if (_client == null || !_connected) throw Exception('Non connecté');
     final session = await _client!.execute('cat "$remotePath"');
     final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
     await session.done;
@@ -239,7 +239,7 @@ class SshService {
 
   Future<Uint8List> downloadFile(String remotePath) async {
     if (_client == null || !_connected) {
-      throw Exception('Not connected');
+      throw Exception('Non connecté');
     }
     final sftp = await _client!.sftp();
     final file = await sftp.open(remotePath);
@@ -261,7 +261,7 @@ class SshService {
   // Stream direct vers disque (pour les gros fichiers)
   Future<void> downloadFileToDisk(String remotePath, String localPath,
       {void Function(int bytes)? onProgress}) async {
-    if (_client == null || !_connected) throw Exception('Not connected');
+    if (_client == null || !_connected) throw Exception('Non connecté');
     final sftp = await _client!.sftp();
     final remoteFile = await sftp.open(remotePath);
     final localFile = File(localPath).openWrite();
@@ -290,7 +290,7 @@ class SshService {
 
   Future<int> startTunnel() async {
     if (_tunnelServer != null) return _tunnelPort;
-    if (_client == null || !_connected) throw Exception('Not connected');
+    if (_client == null || !_connected) throw Exception('Non connecté');
 
     _tunnelServer = await ServerSocket.bind('127.0.0.1', 0);
     _tunnelPort = _tunnelServer!.port;
@@ -331,7 +331,7 @@ class SshService {
     void Function(int sent, int total)? onProgress,
   }) async {
     if (_client == null || !_connected) {
-      throw Exception('Not connected');
+      throw Exception('Non connecté');
     }
     final ioFile = File(localPath);
     final total = await ioFile.length();

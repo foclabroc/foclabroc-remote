@@ -28,7 +28,7 @@ class WineToolsScreen extends StatelessWidget {
                   ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.wifi_off_rounded, size: 48, color: Colors.white.withOpacity(0.1)),
                       const SizedBox(height: 12),
-                      Text('Not connected', style: Theme.of(context).textTheme.bodyMedium),
+                      Text('Non connecté', style: Theme.of(context).textTheme.bodyMedium),
                     ]))
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -36,7 +36,7 @@ class WineToolsScreen extends StatelessWidget {
                         _ToolCard(
                           icon: Icons.transform_rounded,
                           title: '.PC Converter',
-                          subtitle: 'Converts a .pc folder to .wine\nwith optional compression',
+                          subtitle: 'Convertit un dossier .pc en .wine\navec compression optionnelle',
                           color: accent,
                           onTap: () => Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const _PcConverterScreen(),
@@ -47,7 +47,7 @@ class WineToolsScreen extends StatelessWidget {
                         _ToolCard(
                           icon: Icons.unarchive_rounded,
                           title: 'Decompressor',
-                          subtitle: 'Decompresses a .wtgz or .wsquashfs file\nto a .wine folder',
+                          subtitle: 'Décompresse un fichier .wtgz ou .wsquashfs\nen dossier .wine',
                           color: Colors.purpleAccent,
                           onTap: () => Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const _DecompressorScreen(),
@@ -57,7 +57,7 @@ class WineToolsScreen extends StatelessWidget {
                         _ToolCard(
                           icon: Icons.archive_rounded,
                           title: 'Compressor',
-                          subtitle: 'Compresses a .wine folder\nto .wtgz or .wsquashfs',
+                          subtitle: 'Compresse un dossier .wine\nen .wtgz ou .wsquashfs',
                           color: Colors.orangeAccent,
                           onTap: () => Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const _CompressorScreen(),
@@ -66,8 +66,8 @@ class WineToolsScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         _ToolCard(
                           icon: Icons.download_rounded,
-                          title: 'Download Runner',
-                          subtitle: 'Download and install Wine runners\n(GE-Custom, Proton...)',
+                          title: 'Téléchargement Runner',
+                          subtitle: 'Télécharge et installe des runners Wine\n(GE-Custom, Proton...)',
                           color: Colors.tealAccent,
                           onTap: () => Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const _DownloadRunnerScreen(),
@@ -77,7 +77,7 @@ class WineToolsScreen extends StatelessWidget {
                         _ToolCard(
                           icon: Icons.delete_sweep_rounded,
                           title: 'Wine Bottle Manager',
-                          subtitle: 'List and delete Wine bottles\nfrom /system/wine-bottles/windows',
+                          subtitle: 'Liste et supprime les bouteilles Wine\nde /system/wine-bottles/windows',
                           color: Colors.redAccent,
                           onTap: () => Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const _WineBottleManagerScreen(),
@@ -87,7 +87,7 @@ class WineToolsScreen extends StatelessWidget {
                         _ToolCard(
                           icon: Icons.extension_rounded,
                           title: 'Winetricks',
-                          subtitle: 'Install Windows dependencies\n(VC++, DirectX, etc.) in a bottle',
+                          subtitle: 'Installe des dépendances Windows\n(VC++, DirectX, etc.) dans une bouteille',
                           color: Colors.purpleAccent,
                           onTap: () => Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const _WinetricksScreen(),
@@ -244,7 +244,7 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
           Flexible(child: Text(title)),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
           const SizedBox(height: 6),
           Container(
             width: double.maxFinite,
@@ -289,12 +289,12 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
         backgroundColor: const Color(0xFF1C2230),
         title: const Text('Confirmation'),
         content: Text(
-          "Copy data from:\n\n$_selectedWine\n\nto:\n\n$_selectedPc\n\nthen delete the Wine bottle and rename the .pc folder to .wine.",
+          'Copier les données depuis :\n\n$_selectedWine\n\nvers :\n\n$_selectedPc\n\npuis supprimer la bouteille Wine et renommer le dossier .pc en .wine.',
           style: const TextStyle(fontSize: 12, color: Colors.white70),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continuer')),
         ],
       ),
     );
@@ -302,17 +302,17 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
 
     setState(() { _converting = true; _log = ''; });
 
-    _appendLog('⏳ Copying Wine data...');
+    _appendLog('⏳ Copie des données Wine...');
     _appendLog('\$ cp -a "$_selectedWine"/. "$_selectedPc"/');
-    setState(() => _step = 'Copying...');
+    setState(() => _step = 'Copie en cours...');
     await _exec('cp -a "$_selectedWine"/. "$_selectedPc"/');
-    _appendLog('✅ Copy complete.');
+    _appendLog('✅ Copie terminée.');
 
-    _appendLog('🗑️ Deleting Wine bottle...');
+    _appendLog('🗑️ Suppression de la bouteille Wine...');
     _appendLog('\$ rm -rf "$_selectedWine"');
-    setState(() => _step = 'Deleting...');
+    setState(() => _step = 'Suppression...');
     await _exec('rm -rf "$_selectedWine"');
-    _appendLog('✅ Wine bottle deleted.');
+    _appendLog('✅ Bouteille Wine supprimée.');
 
     final baseName = _selectedPc!.split('/').last;
     final newName = baseName.replaceAll(RegExp(r'\.pc$'), '.wine');
@@ -321,38 +321,38 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
 
     _appendLog('✏️ Renommage en $newName...');
     _appendLog('\$ mv "$_selectedPc" "$newPath"');
-    setState(() => _step = 'Renaming...');
+    setState(() => _step = 'Renommage...');
     await _exec('mv "$_selectedPc" "$newPath"');
-    _appendLog("✅ Conversion complete!\n📁 $newPath");
-    setState(() { _step = 'Done!'; _selectedPc = null; _selectedWine = null; });
+    _appendLog('✅ Conversion terminée !\n📁 $newPath');
+    setState(() { _step = 'Terminé !'; _selectedPc = null; _selectedWine = null; });
     if (!mounted) return;
 
-    await _showSuccessDialog('Conversion successful!', newPath);
+    await _showSuccessDialog('Conversion réussie !', newPath);
     if (!mounted) return;
 
     final compress = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Compression (optional)'),
+        title: const Text('Compression (optionnel)'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Do you want to compress the .wine folder?',
+          const Text('Souhaitez-vous compresser le dossier .wine ?',
               style: TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 16),
           _CompressionOption(
-            title: '.wtgz (TGZ)', subtitle: 'Small games with many writes',
+            title: '.wtgz (TGZ)', subtitle: 'Petits jeux avec nombreuses écritures',
             icon: Icons.archive_rounded, color: Colors.blueAccent,
             onTap: () => Navigator.pop(ctx, 'wtgz'),
           ),
           const SizedBox(height: 8),
           _CompressionOption(
-            title: '.wsquashfs (SquashFS)', subtitle: 'Large games with few writes',
+            title: '.wsquashfs (SquashFS)', subtitle: "Gros jeux avec peu d'écritures",
             icon: Icons.compress_rounded, color: Colors.purpleAccent,
             onTap: () => Navigator.pop(ctx, 'wsquashfs'),
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('No thanks')),
+          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Non merci')),
         ],
       ),
     );
@@ -374,7 +374,7 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
     final finalOut = '$parentDir/$baseName.$type';
     _appendLog('\n⏳ Compression en $type... (peut prendre plusieurs minutes)');
     _appendLog('\$ $cmd');
-    setState(() { _step = "Compressing $type..."; _progress = 0; });
+    setState(() { _step = 'Compression $type...'; _progress = 0; });
     await _execStream(cmd, _logScrollCtrl);
     // Cherche le fichier créé quel que soit le nom exact
     final foundRaw = await _exec(
@@ -383,33 +383,33 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
     if (found.isNotEmpty && found != finalOut) {
       await _exec('mv "$found" "$finalOut"');
     }
-    _appendLog("✅ Compression complete!\n📦 $finalOut");
-    setState(() => _step = 'Compression done!');
+    _appendLog('✅ Compression terminée !\n📦 $finalOut');
+    setState(() => _step = 'Compression terminée !');
     if (!mounted) return;
 
-    await _showSuccessDialog('Compression successful!', finalOut);
+    await _showSuccessDialog('Compression réussie !', finalOut);
     if (!mounted) return;
 
     final del = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Delete .wine folder?'),
+        title: const Text('Supprimer le dossier .wine ?'),
         content: Text('Supprimer :\n$path',
             style: const TextStyle(fontSize: 12, color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Delete'),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
     );
     if (del == true) {
       await _exec('rm -rf "$path"');
-      _appendLog('🗑️ .wine folder deleted.');
+      _appendLog('🗑️ Dossier .wine supprimé.');
     }
     setState(() => _converting = false);
     await _loadFolders();
@@ -462,27 +462,27 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
                       Icon(Icons.info_rounded, color: Colors.blueAccent, size: 16),
                       SizedBox(width: 8),
                       Expanded(child: Text(
-                        'Launch the .pc game at least once so Batocera generates the .wine bottle.',
+                        'Lance le jeu .pc au moins une fois avant de continuer pour que Batocera génère la bouteille .wine.',
                         style: TextStyle(color: Colors.white60, fontSize: 11),
                       )),
                     ]),
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel(label: 'FOLDER .PC', icon: Icons.folder_rounded, accent: accent),
+                  _SectionLabel(label: 'DOSSIER .PC', icon: Icons.folder_rounded, accent: accent),
                   const SizedBox(height: 8),
                   _pcFolders.isEmpty
-                      ? _EmptyHint('No .pc folder found in /userdata/roms/windows')
+                      ? _EmptyHint('Aucun dossier .pc trouvé dans /userdata/roms/windows')
                       : _DropdownCard(
-                          hint: 'Select a .pc folder',
+                          hint: 'Sélectionner un dossier .pc',
                           value: _selectedPc, items: _pcFolders,
                           onChanged: (v) => setState(() => _selectedPc = v), accent: accent),
                   const SizedBox(height: 16),
-                  _SectionLabel(label: '.WINE BOTTLE', icon: Icons.wine_bar_rounded, accent: accent),
+                  _SectionLabel(label: 'BOUTEILLE .WINE', icon: Icons.wine_bar_rounded, accent: accent),
                   const SizedBox(height: 8),
                   _wineFolders.isEmpty
-                      ? _EmptyHint('No .wine bottle found in /userdata/system/wine-bottles')
+                      ? _EmptyHint('Aucune bouteille .wine trouvée dans /userdata/system/wine-bottles')
                       : _DropdownCard(
-                          hint: 'Select a .wine bottle',
+                          hint: 'Sélectionner une bouteille .wine',
                           value: _selectedWine, items: _wineFolders,
                           onChanged: (v) => setState(() => _selectedWine = v), accent: accent),
                   const SizedBox(height: 24),
@@ -496,7 +496,7 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.transform_rounded),
                       label: Text(_converting
-                          ? (_step.isNotEmpty ? _step : 'Converting...') : 'Convert'),
+                          ? (_step.isNotEmpty ? _step : 'Conversion...') : 'Convertir'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: accent, foregroundColor: Colors.white,
@@ -734,7 +734,7 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
           Flexible(child: Text(title)),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
           const SizedBox(height: 6),
           Container(
             width: double.maxFinite,
@@ -773,7 +773,7 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
 
     final ext = _selected!.split('.').last.toLowerCase();
     if (ext != 'wtgz' && ext != 'wsquashfs') {
-      _appendLog("❌ Unsupported extension: $ext");
+      _appendLog('❌ Extension non supportée : $ext');
       return;
     }
 
@@ -784,14 +784,14 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
         .replaceAll(RegExp(r'\.(wtgz|WTGZ|wsquashfs|WSQUASHFS)$', caseSensitive: false), '');
     final finalDir = '/userdata/roms/windows/$baseName.wine';
 
-    _appendLog('🗑️ Removing existing folder...');
-    setState(() => _step = 'Preparing...');
+    _appendLog('🗑️ Suppression du dossier existant...');
+    setState(() => _step = 'Préparation...');
     await _exec('rm -rf "$finalDir" && mkdir -p "$finalDir"');
 
     if (ext == 'wtgz') {
-      _appendLog('⏳ Decompressing TGZ...');
+      _appendLog('⏳ Décompression TGZ...');
       _appendLog('\$ tar -xzf "$_selected" -C "$finalDir"');
-      setState(() { _step = 'Decompressing TGZ...'; _progress = 0; });
+      setState(() { _step = 'Décompression TGZ...'; _progress = 0; });
       _startProgress(finalDir);
       final result = await _exec('tar -xzf "$_selected" -C "$finalDir" 2>&1');
       _stopProgress();
@@ -801,9 +801,9 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
         return;
       }
     } else {
-      _appendLog('⏳ Decompressing SquashFS...');
+      _appendLog('⏳ Décompression SquashFS...');
       _appendLog('\$ unsquashfs -d "$finalDir" "$_selected"');
-      setState(() { _step = 'Decompressing SquashFS...'; _progress = 0; });
+      setState(() { _step = 'Décompression SquashFS...'; _progress = 0; });
       _startProgress(finalDir);
       final result = await _exec('unsquashfs -d "$finalDir" "$_selected" 2>&1');
       _stopProgress();
@@ -814,11 +814,11 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
       }
     }
 
-    _appendLog("✅ Decompression complete!\n📁 $finalDir");
-    setState(() => _step = 'Done!');
+    _appendLog('✅ Décompression terminée !\n📁 $finalDir');
+    setState(() => _step = 'Terminé !');
     if (!mounted) return;
 
-    await _showSuccessDialog('Decompression successful!', finalDir);
+    await _showSuccessDialog('Décompression réussie !', finalDir);
     if (!mounted) return;
 
     // Proposer suppression du fichier source
@@ -826,15 +826,15 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Delete compressed file?'),
+        title: const Text('Supprimer le fichier compressé ?'),
         content: Text('Supprimer :\n$_selected',
             style: const TextStyle(fontSize: 12, color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Delete'),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
@@ -842,7 +842,7 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
 
     if (del == true) {
       await _exec('rm -f "$_selected"');
-      _appendLog('🗑️ Source file deleted.');
+      _appendLog('🗑️ Fichier source supprimé.');
     }
 
     setState(() { _processing = false; _selected = null; });
@@ -885,12 +885,12 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _SectionLabel(label: 'COMPRESSED FILE', icon: Icons.archive_rounded, accent: accent),
+                  _SectionLabel(label: 'FICHIER COMPRESSÉ', icon: Icons.archive_rounded, accent: accent),
                   const SizedBox(height: 8),
                   _files.isEmpty
-                      ? _EmptyHint('No .wtgz or .wsquashfs file found in /userdata/roms/windows')
+                      ? _EmptyHint('Aucun fichier .wtgz ou .wsquashfs trouvé dans /userdata/roms/windows')
                       : _DropdownCard(
-                          hint: 'Select a file',
+                          hint: 'Sélectionner un fichier',
                           value: _selected, items: _files,
                           onChanged: (v) => setState(() => _selected = v),
                           accent: accent),
@@ -904,7 +904,7 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.unarchive_rounded),
                       label: Text(_processing
-                          ? (_step.isNotEmpty ? _step : 'Decompressing...') : 'Decompress'),
+                          ? (_step.isNotEmpty ? _step : 'Décompression...') : 'Décompresser'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: accent, foregroundColor: Colors.white,
@@ -1037,7 +1037,7 @@ class _CompressorScreenState extends State<_CompressorScreen> {
           Flexible(child: Text(title)),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
           const SizedBox(height: 6),
           Container(
             width: double.maxFinite,
@@ -1099,27 +1099,27 @@ class _CompressorScreenState extends State<_CompressorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Compression type'),
+        title: const Text('Type de compression'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Choose compression method:',
+          const Text('Choisissez la méthode de compression :',
               style: TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 16),
           _CompressionOption(
             title: '.wtgz (TGZ)',
-            subtitle: 'Small games with many writes',
+            subtitle: 'Petits jeux avec nombreuses écritures',
             icon: Icons.archive_rounded, color: Colors.blueAccent,
             onTap: () => Navigator.pop(ctx, 'wtgz'),
           ),
           const SizedBox(height: 8),
           _CompressionOption(
             title: '.wsquashfs (SquashFS)',
-            subtitle: 'Large games with few writes',
+            subtitle: "Gros jeux avec peu d'écritures",
             icon: Icons.compress_rounded, color: Colors.purpleAccent,
             onTap: () => Navigator.pop(ctx, 'wsquashfs'),
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Annuler')),
         ],
       ),
     );
@@ -1135,9 +1135,9 @@ class _CompressorScreenState extends State<_CompressorScreen> {
         ? 'batocera-wine windows wine2winetgz "$_selected" 2>&1'
         : 'batocera-wine windows wine2squashfs "$_selected" 2>&1';
 
-    _appendLog("⏳ Compressing to .$type... (may take several minutes)");
+    _appendLog('⏳ Compression en .$type... (peut prendre plusieurs minutes)');
     _appendLog('\$ $cmd');
-    setState(() { _step = "Compressing .$type..."; _progress = 0; });
+    setState(() { _step = 'Compression .$type...'; _progress = 0; });
     await _execStream(cmd, _logScrollCtrl);
 
     // Cherche le fichier créé (le nom exact peut varier selon la version de batocera-wine)
@@ -1150,19 +1150,19 @@ class _CompressorScreenState extends State<_CompressorScreen> {
       if (found != finalOut) {
         await _exec('mv "$found" "$finalOut"');
       }
-      _appendLog("✅ Compression complete!\n📦 $finalOut");
-      setState(() => _step = 'Done!');
-      if (mounted) await _showSuccessDialog('Compression successful!', finalOut);
+      _appendLog('✅ Compression terminée !\n📦 $finalOut');
+      setState(() => _step = 'Terminé !');
+      if (mounted) await _showSuccessDialog('Compression réussie !', finalOut);
     } else {
       // Dernière chance : vérifie le fichier avec le nom .wine.ext
       final oldOut = '$_selected.$type';
       final existsOld = await _exec('[ -f "$oldOut" ] && echo "yes" || echo "no"');
       if (existsOld.trim() == 'yes') {
         await _exec('mv "$oldOut" "$finalOut"');
-        _appendLog("✅ Compression complete!\n📦 $finalOut");
-        setState(() => _step = 'Done!');
+        _appendLog('✅ Compression terminée !\n📦 $finalOut');
+        setState(() => _step = 'Terminé !');
       } else {
-        _appendLog('❌ Error: output file not found.\nInsufficient disk space?');
+        _appendLog('❌ Erreur : fichier de sortie introuvable.\nEspace disque insuffisant ?');
         setState(() { _processing = false; _step = ''; });
         return;
       }
@@ -1175,15 +1175,15 @@ class _CompressorScreenState extends State<_CompressorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Delete .wine folder?'),
+        title: const Text('Supprimer le dossier .wine ?'),
         content: Text('Supprimer :\n$_selected',
             style: const TextStyle(fontSize: 12, color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Delete'),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
@@ -1191,7 +1191,7 @@ class _CompressorScreenState extends State<_CompressorScreen> {
 
     if (del == true) {
       await _exec('rm -rf "$_selected"');
-      _appendLog('🗑️ .wine folder deleted.');
+      _appendLog('🗑️ Dossier .wine supprimé.');
     }
 
     setState(() { _processing = false; _selected = null; });
@@ -1234,12 +1234,12 @@ class _CompressorScreenState extends State<_CompressorScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _SectionLabel(label: '.WINE FOLDER', icon: Icons.wine_bar_rounded, accent: accent),
+                  _SectionLabel(label: 'DOSSIER .WINE', icon: Icons.wine_bar_rounded, accent: accent),
                   const SizedBox(height: 8),
                   _wineFolders.isEmpty
-                      ? _EmptyHint('No .wine folder found in /userdata/roms/windows')
+                      ? _EmptyHint('Aucun dossier .wine trouvé dans /userdata/roms/windows')
                       : _DropdownCard(
-                          hint: 'Select a .wine folder',
+                          hint: 'Sélectionner un dossier .wine',
                           value: _selected, items: _wineFolders,
                           onChanged: (v) => setState(() => _selected = v),
                           accent: accent),
@@ -1253,7 +1253,7 @@ class _CompressorScreenState extends State<_CompressorScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.archive_rounded),
                       label: Text(_processing
-                          ? (_step.isNotEmpty ? _step : 'Compressing...') : 'Compress'),
+                          ? (_step.isNotEmpty ? _step : 'Compression...') : 'Compresser'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: accent, foregroundColor: Colors.white,
@@ -1319,7 +1319,7 @@ class _DownloadRunnerScreen extends StatelessWidget {
                   child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
                 ),
                 const SizedBox(width: 12),
-                Text('Download Runner',
+                Text('Téléchargement Runner',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 18)),
               ]),
             ),
@@ -1331,7 +1331,7 @@ class _DownloadRunnerScreen extends StatelessWidget {
                   _ToolCard(
                     icon: Icons.wine_bar_rounded,
                     title: 'Wine GE-Custom',
-                    subtitle: 'Download and install a\nWine GE-Custom version from GitHub',
+                    subtitle: 'Télécharge et installe une version\nWine GE-Custom depuis GitHub',
                     color: Colors.tealAccent,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const _WineGeScreen(),
@@ -1341,7 +1341,7 @@ class _DownloadRunnerScreen extends StatelessWidget {
                   _ToolCard(
                     icon: Icons.wine_bar_outlined,
                     title: 'Wine Vanilla',
-                    subtitle: 'Download and install a\nWine Vanilla version from GitHub',
+                    subtitle: 'Télécharge et installe une version\nWine Vanilla depuis GitHub',
                     color: Colors.lightBlueAccent,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const _WineVanillaScreen(),
@@ -1351,7 +1351,7 @@ class _DownloadRunnerScreen extends StatelessWidget {
                   _ToolCard(
                     icon: Icons.science_rounded,
                     title: 'Wine TKG-Staging',
-                    subtitle: 'Download and install a\nWine TKG-Staging version from GitHub',
+                    subtitle: 'Télécharge et installe une version\nWine TKG-Staging depuis GitHub',
                     color: Colors.deepPurpleAccent,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const _WineTkgScreen(),
@@ -1361,7 +1361,7 @@ class _DownloadRunnerScreen extends StatelessWidget {
                   _ToolCard(
                     icon: Icons.bolt_rounded,
                     title: 'GE-Proton',
-                    subtitle: 'Download and install a\nGE-Proton version from GitHub',
+                    subtitle: 'Télécharge et installe une version\nGE-Proton depuis GitHub',
                     color: Colors.orangeAccent,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const _GeProtonScreen(),
@@ -1371,7 +1371,7 @@ class _DownloadRunnerScreen extends StatelessWidget {
                   _ToolCard(
                     icon: Icons.system_update_alt_rounded,
                     title: 'GE-Custom V40',
-                    subtitle: 'Install fixed version ge-custom V40\n(2 parts from GitHub)',
+                    subtitle: 'Installe la version fixe ge-custom V40\n(2 parties depuis GitHub)',
                     color: Colors.greenAccent,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const _GeCustomV40Screen(),
@@ -1381,7 +1381,7 @@ class _DownloadRunnerScreen extends StatelessWidget {
                   _ToolCard(
                     icon: Icons.delete_sweep_rounded,
                     title: 'Runner Manager',
-                    subtitle: 'List and delete runners\ninstalled in /wine/custom',
+                    subtitle: 'Liste et supprime les runners\ninstallés dans /wine/custom',
                     color: Colors.redAccent,
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const _RunnerManagerScreen(),
@@ -1459,7 +1459,7 @@ class _WineGeScreenState extends State<_WineGeScreen> {
     if (!mounted) return;
     if (parsed.isEmpty) {
       setState(() {
-        _error = 'Unable to fetch versions.\n(internet on Batocera? jq installed?)';
+        _error = 'Impossible de récupérer les versions.\n(connexion internet disponible sur Batocera ? jq installé ?)';
         _loadingReleases = false;
       });
       return;
@@ -1473,7 +1473,7 @@ class _WineGeScreenState extends State<_WineGeScreen> {
     }
     if (releases.isEmpty) {
       setState(() {
-        _error = 'No versions found. Check jq is installed on Batocera.';
+        _error = 'Aucune version trouvée. Vérifiez que jq est installé sur Batocera.';
         _loadingReleases = false;
       });
       return;
@@ -1493,19 +1493,19 @@ class _WineGeScreenState extends State<_WineGeScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Confirm download'),
+        title: const Text('Confirmer le téléchargement'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Version : $version', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('⚠️ Versions above 8.15 seem to not work on Batocera.',
+          const Text('⚠️ Les versions supérieures à 8.15 semblent ne pas fonctionner sous Batocera.',
               style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.tealAccent, foregroundColor: Colors.black),
-            child: const Text('Download'),
+            child: const Text('Télécharger'),
           ),
         ],
       ),
@@ -1515,14 +1515,14 @@ class _WineGeScreenState extends State<_WineGeScreen> {
     setState(() { _processing = true; _log = ''; });
 
     // Création du dossier
-    _appendLog('📁 Creating folder...');
-    setState(() => _step = 'Preparing...');
+    _appendLog('📁 Création du dossier...');
+    setState(() => _step = 'Préparation...');
     await _exec('mkdir -p "$wineDir"');
 
     // Téléchargement synchrone (bloque jusqu'à la fin)
-    _appendLog("⬇️ Downloading $version...");
+    _appendLog('⬇️ Téléchargement de $version...');
     _appendLog('\$ wget -O "$archive" "$url"');
-    setState(() => _step = 'Downloading...');
+    setState(() => _step = 'Téléchargement en cours...');
 
     // Lance wget en synchrone — la session SSH reste ouverte jusqu'à la fin
     await _exec('wget --tries=3 --no-check-certificate --timeout=120 -q -O "$archive" "$url" 2>&1');
@@ -1533,16 +1533,16 @@ class _WineGeScreenState extends State<_WineGeScreen> {
     final exists = await _exec('[ -f "$archive" ] && stat -c%s "$archive" || echo 0');
     final size = int.tryParse(exists.trim()) ?? 0;
     if (size < 1000000) {
-      _appendLog("❌ Error: download failed or archive too small (${size}b).");
+      _appendLog('❌ Erreur : téléchargement échoué ou archive trop petite (${size}o).');
       await _exec('rm -f "$archive"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
+    _appendLog('✅ Téléchargement terminé (${(size / 1024 / 1024).toStringAsFixed(0)} Mo).');
 
     // Extraction synchrone
-    _appendLog('\n📦 Extracting (may take several minutes)...');
-    setState(() => _step = 'Extracting...');
+    _appendLog('\n📦 Extraction en cours (patience, peut prendre plusieurs minutes)...');
+    setState(() => _step = 'Extraction...');
 
     await _exec('tar --strip-components=1 -xJf "$archive" -C "$wineDir" 2>&1 && rm -f "$archive"');
 
@@ -1552,14 +1552,14 @@ class _WineGeScreenState extends State<_WineGeScreen> {
     final fileCount = await _exec('ls "$wineDir" 2>/dev/null | wc -l');
     final count = int.tryParse(fileCount.trim()) ?? 0;
     if (count == 0) {
-      _appendLog('❌ Error: extraction failed (empty folder).');
+      _appendLog('❌ Erreur : extraction échouée (dossier vide).');
       setState(() { _processing = false; _step = ''; });
       return;
     }
 
-    _appendLog("✅ Extraction complete! ($count items)");
-    _appendLog("📂 Installed in: $wineDir");
-    setState(() { _step = 'Done!'; _processing = false; });
+    _appendLog('✅ Extraction terminée ! ($count éléments)');
+    _appendLog('📂 Installé dans : $wineDir');
+    setState(() { _step = 'Terminé !'; _processing = false; });
 
     if (mounted) {
       await showDialog(
@@ -1569,10 +1569,10 @@ class _WineGeScreenState extends State<_WineGeScreen> {
           title: Row(children: [
             const Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
             const SizedBox(width: 10),
-            const Flexible(child: Text('Installation successful!')),
+            const Flexible(child: Text('Installation réussie !')),
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
             const SizedBox(height: 6),
             Container(
               width: double.maxFinite,
@@ -1638,7 +1638,7 @@ class _WineGeScreenState extends State<_WineGeScreen> {
                   Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 15),
                   SizedBox(width: 8),
                   Expanded(child: Text(
-                    'Versions > 8.15 seem to not work on Batocera.',
+                    'Les versions > 8.15 semblent ne pas fonctionner sous Batocera.',
                     style: TextStyle(color: Colors.orangeAccent, fontSize: 11),
                   )),
                 ]),
@@ -1658,7 +1658,7 @@ class _WineGeScreenState extends State<_WineGeScreen> {
                         ElevatedButton.icon(
                           onPressed: _fetchReleases,
                           icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry'),
+                          label: const Text('Réessayer'),
                         ),
                       ]),
                     ))
@@ -1666,7 +1666,7 @@ class _WineGeScreenState extends State<_WineGeScreen> {
                       ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                           CircularProgressIndicator(color: Colors.tealAccent),
                           SizedBox(height: 12),
-                          Text('Fetching versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          Text('Récupération des versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                         ]))
                       : Column(children: [
                           // Liste des versions
@@ -1821,7 +1821,7 @@ class _WineVanillaScreenState extends State<_WineVanillaScreen> {
     if (!mounted) return;
     if (parsed.isEmpty) {
       setState(() {
-        _error = 'Unable to fetch versions.\n(internet on Batocera? jq installed?)';
+        _error = 'Impossible de récupérer les versions.\n(connexion internet disponible sur Batocera ? jq installé ?)';
         _loadingReleases = false;
       });
       return;
@@ -1835,7 +1835,7 @@ class _WineVanillaScreenState extends State<_WineVanillaScreen> {
     }
     if (releases.isEmpty) {
       setState(() {
-        _error = 'No versions found. Check jq is installed on Batocera.';
+        _error = 'Aucune version trouvée. Vérifiez que jq est installé sur Batocera.';
         _loadingReleases = false;
       });
       return;
@@ -1854,15 +1854,15 @@ class _WineVanillaScreenState extends State<_WineVanillaScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Confirm download'),
+        title: const Text('Confirmer le téléchargement'),
         content: Text('Version : $version',
             style: const TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.lightBlueAccent, foregroundColor: Colors.black),
-            child: const Text('Download'),
+            child: const Text('Télécharger'),
           ),
         ],
       ),
@@ -1871,42 +1871,42 @@ class _WineVanillaScreenState extends State<_WineVanillaScreen> {
 
     setState(() { _processing = true; _log = ''; });
 
-    _appendLog('📁 Creating folder...');
-    setState(() => _step = 'Preparing...');
+    _appendLog('📁 Création du dossier...');
+    setState(() => _step = 'Préparation...');
     await _exec('mkdir -p "$wineDir"');
 
-    _appendLog("⬇️ Downloading $version...");
+    _appendLog('⬇️ Téléchargement de $version...');
     _appendLog('\$ wget -O "$archive" "$url"');
-    setState(() => _step = 'Downloading...');
+    setState(() => _step = 'Téléchargement en cours...');
     await _exec('wget --tries=3 --no-check-certificate --timeout=120 -q -O "$archive" "$url" 2>&1');
     if (!mounted) return;
 
     final exists = await _exec('[ -f "$archive" ] && stat -c%s "$archive" || echo 0');
     final size = int.tryParse(exists.trim()) ?? 0;
     if (size < 1000000) {
-      _appendLog("❌ Error: download failed or archive too small (${size}b).");
+      _appendLog('❌ Erreur : téléchargement échoué ou archive trop petite (${size}o).');
       await _exec('rm -f "$archive"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
+    _appendLog('✅ Téléchargement terminé (${(size / 1024 / 1024).toStringAsFixed(0)} Mo).');
 
-    _appendLog('\n📦 Extracting (may take several minutes)...');
-    setState(() => _step = 'Extracting...');
+    _appendLog('\n📦 Extraction en cours (patience, peut prendre plusieurs minutes)...');
+    setState(() => _step = 'Extraction...');
     await _exec('tar --strip-components=1 -xJf "$archive" -C "$wineDir" 2>&1 && rm -f "$archive"');
     if (!mounted) return;
 
     final fileCount = await _exec('ls "$wineDir" 2>/dev/null | wc -l');
     final count = int.tryParse(fileCount.trim()) ?? 0;
     if (count == 0) {
-      _appendLog('❌ Error: extraction failed (empty folder).');
+      _appendLog('❌ Erreur : extraction échouée (dossier vide).');
       setState(() { _processing = false; _step = ''; });
       return;
     }
 
-    _appendLog("✅ Extraction complete! ($count items)");
-    _appendLog("📂 Installed in: $wineDir");
-    setState(() { _step = 'Done!'; _processing = false; });
+    _appendLog('✅ Extraction terminée ! ($count éléments)');
+    _appendLog('📂 Installé dans : $wineDir');
+    setState(() { _step = 'Terminé !'; _processing = false; });
 
     if (mounted) {
       await showDialog(
@@ -1916,10 +1916,10 @@ class _WineVanillaScreenState extends State<_WineVanillaScreen> {
           title: const Row(children: [
             Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
             SizedBox(width: 10),
-            Flexible(child: Text('Installation successful!')),
+            Flexible(child: Text('Installation réussie !')),
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
             const SizedBox(height: 6),
             Container(
               width: double.maxFinite,
@@ -1983,7 +1983,7 @@ class _WineVanillaScreenState extends State<_WineVanillaScreen> {
                         ElevatedButton.icon(
                           onPressed: _fetchReleases,
                           icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry'),
+                          label: const Text('Réessayer'),
                         ),
                       ]),
                     ))
@@ -1991,7 +1991,7 @@ class _WineVanillaScreenState extends State<_WineVanillaScreen> {
                       ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                           CircularProgressIndicator(color: Colors.lightBlueAccent),
                           SizedBox(height: 12),
-                          Text('Fetching versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          Text('Récupération des versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                         ]))
                       : Column(children: [
                           Expanded(
@@ -2124,7 +2124,7 @@ class _WineTkgScreenState extends State<_WineTkgScreen> {
     if (!mounted) return;
     if (parsed.isEmpty) {
       setState(() {
-        _error = 'Unable to fetch versions.\n(internet on Batocera? jq installed?)';
+        _error = 'Impossible de récupérer les versions.\n(connexion internet disponible sur Batocera ? jq installé ?)';
         _loadingReleases = false;
       });
       return;
@@ -2138,7 +2138,7 @@ class _WineTkgScreenState extends State<_WineTkgScreen> {
     }
     if (releases.isEmpty) {
       setState(() {
-        _error = 'No versions found. Check jq is installed on Batocera.';
+        _error = 'Aucune version trouvée. Vérifiez que jq est installé sur Batocera.';
         _loadingReleases = false;
       });
       return;
@@ -2157,15 +2157,15 @@ class _WineTkgScreenState extends State<_WineTkgScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Confirm download'),
+        title: const Text('Confirmer le téléchargement'),
         content: Text('Version : $version',
             style: const TextStyle(color: Colors.deepPurpleAccent, fontWeight: FontWeight.bold)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white),
-            child: const Text('Download'),
+            child: const Text('Télécharger'),
           ),
         ],
       ),
@@ -2174,42 +2174,42 @@ class _WineTkgScreenState extends State<_WineTkgScreen> {
 
     setState(() { _processing = true; _log = ''; });
 
-    _appendLog('📁 Creating folder...');
-    setState(() => _step = 'Preparing...');
+    _appendLog('📁 Création du dossier...');
+    setState(() => _step = 'Préparation...');
     await _exec('mkdir -p "$wineDir"');
 
-    _appendLog("⬇️ Downloading $version...");
+    _appendLog('⬇️ Téléchargement de $version...');
     _appendLog('\$ wget -O "$archive" "$url"');
-    setState(() => _step = 'Downloading...');
+    setState(() => _step = 'Téléchargement en cours...');
     await _exec('wget --tries=3 --no-check-certificate --timeout=120 -q -O "$archive" "$url" 2>&1');
     if (!mounted) return;
 
     final exists = await _exec('[ -f "$archive" ] && stat -c%s "$archive" || echo 0');
     final size = int.tryParse(exists.trim()) ?? 0;
     if (size < 1000000) {
-      _appendLog("❌ Error: download failed or archive too small (${size}b).");
+      _appendLog('❌ Erreur : téléchargement échoué ou archive trop petite (${size}o).');
       await _exec('rm -f "$archive"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
+    _appendLog('✅ Téléchargement terminé (${(size / 1024 / 1024).toStringAsFixed(0)} Mo).');
 
-    _appendLog('\n📦 Extracting (may take several minutes)...');
-    setState(() => _step = 'Extracting...');
+    _appendLog('\n📦 Extraction en cours (patience, peut prendre plusieurs minutes)...');
+    setState(() => _step = 'Extraction...');
     await _exec('tar --strip-components=1 -xJf "$archive" -C "$wineDir" 2>&1 && rm -f "$archive"');
     if (!mounted) return;
 
     final fileCount = await _exec('ls "$wineDir" 2>/dev/null | wc -l');
     final count = int.tryParse(fileCount.trim()) ?? 0;
     if (count == 0) {
-      _appendLog('❌ Error: extraction failed (empty folder).');
+      _appendLog('❌ Erreur : extraction échouée (dossier vide).');
       setState(() { _processing = false; _step = ''; });
       return;
     }
 
-    _appendLog("✅ Extraction complete! ($count items)");
-    _appendLog("📂 Installed in: $wineDir");
-    setState(() { _step = 'Done!'; _processing = false; });
+    _appendLog('✅ Extraction terminée ! ($count éléments)');
+    _appendLog('📂 Installé dans : $wineDir');
+    setState(() { _step = 'Terminé !'; _processing = false; });
 
     if (mounted) {
       await showDialog(
@@ -2219,10 +2219,10 @@ class _WineTkgScreenState extends State<_WineTkgScreen> {
           title: const Row(children: [
             Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
             SizedBox(width: 10),
-            Flexible(child: Text('Installation successful!')),
+            Flexible(child: Text('Installation réussie !')),
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
             const SizedBox(height: 6),
             Container(
               width: double.maxFinite,
@@ -2285,7 +2285,7 @@ class _WineTkgScreenState extends State<_WineTkgScreen> {
                         ElevatedButton.icon(
                           onPressed: _fetchReleases,
                           icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry'),
+                          label: const Text('Réessayer'),
                         ),
                       ]),
                     ))
@@ -2293,7 +2293,7 @@ class _WineTkgScreenState extends State<_WineTkgScreen> {
                       ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                           CircularProgressIndicator(color: Colors.deepPurpleAccent),
                           SizedBox(height: 12),
-                          Text('Fetching versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          Text('Récupération des versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                         ]))
                       : Column(children: [
                           Expanded(
@@ -2426,7 +2426,7 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
     if (!mounted) return;
     if (parsed.isEmpty) {
       setState(() {
-        _error = 'Unable to fetch versions.\n(internet on Batocera? jq installed?)';
+        _error = 'Impossible de récupérer les versions.\n(connexion internet disponible sur Batocera ? jq installé ?)';
         _loadingReleases = false;
       });
       return;
@@ -2440,7 +2440,7 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
     }
     if (releases.isEmpty) {
       setState(() {
-        _error = 'No versions found. Check jq is installed on Batocera.';
+        _error = 'Aucune version trouvée. Vérifiez que jq est installé sur Batocera.';
         _loadingReleases = false;
       });
       return;
@@ -2451,7 +2451,7 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
   Future<void> _install(Map<String, String> release) async {
     final tag = release['tag']!;
     final url = release['url']!;
-    final version = tag; // no prefix for GE-Proton
+    final version = tag; // pas de préfixe pour GE-Proton
     final wineDir = '$_installDir$version';
     final archive = '$wineDir/$version.tar.gz'; // .tar.gz
 
@@ -2459,15 +2459,15 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Confirm download'),
+        title: const Text('Confirmer le téléchargement'),
         content: Text('Version : $version',
             style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent, foregroundColor: Colors.black),
-            child: const Text('Download'),
+            child: const Text('Télécharger'),
           ),
         ],
       ),
@@ -2476,13 +2476,13 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
 
     setState(() { _processing = true; _log = ''; });
 
-    _appendLog('📁 Creating folder...');
-    setState(() => _step = 'Preparing...');
+    _appendLog('📁 Création du dossier...');
+    setState(() => _step = 'Préparation...');
     await _exec('mkdir -p "$wineDir"');
 
-    _appendLog("⬇️ Downloading $version...");
+    _appendLog('⬇️ Téléchargement de $version...');
     _appendLog('\$ wget -O "$archive" "$url"');
-    setState(() => _step = 'Downloading...');
+    setState(() => _step = 'Téléchargement en cours...');
     // .tar.gz (synchrone)
     await _exec('wget --tries=3 --no-check-certificate --timeout=120 -q -O "$archive" "$url" 2>&1');
     if (!mounted) return;
@@ -2490,15 +2490,15 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
     final exists = await _exec('[ -f "$archive" ] && stat -c%s "$archive" || echo 0');
     final size = int.tryParse(exists.trim()) ?? 0;
     if (size < 1000000) {
-      _appendLog("❌ Error: download failed or archive too small (${size}b).");
+      _appendLog('❌ Erreur : téléchargement échoué ou archive trop petite (${size}o).');
       await _exec('rm -f "$archive"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
+    _appendLog('✅ Téléchargement terminé (${(size / 1024 / 1024).toStringAsFixed(0)} Mo).');
 
-    _appendLog('\n📦 Extracting (may take several minutes)...');
-    setState(() => _step = 'Extracting...');
+    _appendLog('\n📦 Extraction en cours (patience, peut prendre plusieurs minutes)...');
+    setState(() => _step = 'Extraction...');
     // -xzf pour .tar.gz (pas -xJf)
     await _exec('tar --strip-components=1 -xzf "$archive" -C "$wineDir" 2>&1 && rm -f "$archive"');
     if (!mounted) return;
@@ -2506,21 +2506,21 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
     // Si le sous-dossier "files" existe, on déplace son contenu vers wineDir
     final hasFiles = await _exec('[ -d "$wineDir/files" ] && echo "yes" || echo "no"');
     if (hasFiles.trim() == 'yes') {
-      _appendLog('📂 Moving files/ contents...');
+      _appendLog('📂 Déplacement du contenu files/...');
       await _exec('rsync -a --remove-source-files "$wineDir/files/" "$wineDir/" && rm -rf "$wineDir/files"');
     }
 
     final fileCount = await _exec('ls "$wineDir" 2>/dev/null | wc -l');
     final count = int.tryParse(fileCount.trim()) ?? 0;
     if (count == 0) {
-      _appendLog('❌ Error: extraction failed (empty folder).');
+      _appendLog('❌ Erreur : extraction échouée (dossier vide).');
       setState(() { _processing = false; _step = ''; });
       return;
     }
 
-    _appendLog("✅ Extraction complete! ($count items)");
-    _appendLog("📂 Installed in: $wineDir");
-    setState(() { _step = 'Done!'; _processing = false; });
+    _appendLog('✅ Extraction terminée ! ($count éléments)');
+    _appendLog('📂 Installé dans : $wineDir');
+    setState(() { _step = 'Terminé !'; _processing = false; });
 
     if (mounted) {
       await showDialog(
@@ -2530,10 +2530,10 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
           title: const Row(children: [
             Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
             SizedBox(width: 10),
-            Flexible(child: Text('Installation successful!')),
+            Flexible(child: Text('Installation réussie !')),
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
             const SizedBox(height: 6),
             Container(
               width: double.maxFinite,
@@ -2596,7 +2596,7 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
                         ElevatedButton.icon(
                           onPressed: _fetchReleases,
                           icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry'),
+                          label: const Text('Réessayer'),
                         ),
                       ]),
                     ))
@@ -2604,7 +2604,7 @@ class _GeProtonScreenState extends State<_GeProtonScreen> {
                       ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                           CircularProgressIndicator(color: Colors.orangeAccent),
                           SizedBox(height: 12),
-                          Text('Fetching versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                          Text('Récupération des versions...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                         ]))
                       : Column(children: [
                           Expanded(
@@ -2726,15 +2726,15 @@ class _GeCustomV40ScreenState extends State<_GeCustomV40Screen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Confirm installation'),
-        content: const Text('Download and install ge-custom V40?',
+        title: const Text('Confirmer l\'installation'),
+        content: const Text('Télécharger et installer ge-custom V40 ?',
             style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent, foregroundColor: Colors.black),
-            child: const Text('Install'),
+            child: const Text('Installer'),
           ),
         ],
       ),
@@ -2744,94 +2744,94 @@ class _GeCustomV40ScreenState extends State<_GeCustomV40Screen> {
     setState(() { _processing = true; _log = ''; });
 
     // Préparation des dossiers
-    _appendLog('📁 Preparing folders...');
-    setState(() => _step = 'Preparing...');
+    _appendLog('📁 Préparation des dossiers...');
+    setState(() => _step = 'Préparation...');
     await _exec('mkdir -p "$_downloadDir" "$_extractDir"');
 
     // Téléchargement partie 1
-    _appendLog('⬇️ Downloading part 1/2...');
-    setState(() => _step = 'Downloading 1/2...');
+    _appendLog('⬇️ Téléchargement partie 1/2...');
+    setState(() => _step = 'Téléchargement 1/2...');
     await _exec('wget --tries=3 --no-check-certificate --timeout=120 -q -O "$_downloadDir/ge-customv40.tar.xz.001" "$_url1"');
     if (!mounted) return;
 
     final size1 = int.tryParse(await _exec('stat -c%s "$_downloadDir/ge-customv40.tar.xz.001" 2>/dev/null || echo 0')) ?? 0;
     if (size1 < 1000000) {
-      _appendLog('❌ Error: part 1 download failed.');
+      _appendLog('❌ Erreur : téléchargement partie 1 échoué.');
       await _exec('rm -rf "$_downloadDir"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog("✅ Part 1 OK (${(size1 / 1024 / 1024).toStringAsFixed(0)} MB).");
+    _appendLog('✅ Partie 1 OK (${(size1 / 1024 / 1024).toStringAsFixed(0)} Mo).');
 
     // Téléchargement partie 2
-    _appendLog('⬇️ Downloading part 2/2...');
-    setState(() => _step = 'Downloading 2/2...');
+    _appendLog('⬇️ Téléchargement partie 2/2...');
+    setState(() => _step = 'Téléchargement 2/2...');
     await _exec('wget --tries=3 --no-check-certificate --timeout=120 -q -O "$_downloadDir/ge-customv40.tar.xz.002" "$_url2"');
     if (!mounted) return;
 
     final size2 = int.tryParse(await _exec('stat -c%s "$_downloadDir/ge-customv40.tar.xz.002" 2>/dev/null || echo 0')) ?? 0;
     if (size2 < 1000000) {
-      _appendLog('❌ Error: part 2 download failed.');
+      _appendLog('❌ Erreur : téléchargement partie 2 échoué.');
       await _exec('rm -rf "$_downloadDir"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog("✅ Part 2 OK (${(size2 / 1024 / 1024).toStringAsFixed(0)} MB).");
+    _appendLog('✅ Partie 2 OK (${(size2 / 1024 / 1024).toStringAsFixed(0)} Mo).');
 
     // Assemblage
-    _appendLog('\n🔗 Assembling 2 parts...');
-    setState(() => _step = 'Assembling...');
+    _appendLog('\n🔗 Assemblage des 2 parties...');
+    setState(() => _step = 'Assemblage...');
     await _exec('cat "$_downloadDir/ge-customv40.tar.xz.001" "$_downloadDir/ge-customv40.tar.xz.002" > "$_downloadDir/ge-customv40.tar.xz"');
     if (!mounted) return;
 
     final sizeAssembled = int.tryParse(await _exec('stat -c%s "$_downloadDir/ge-customv40.tar.xz" 2>/dev/null || echo 0')) ?? 0;
     if (sizeAssembled < 1000000) {
-      _appendLog('❌ Error: assembly failed.');
+      _appendLog('❌ Erreur : assemblage échoué.');
       await _exec('rm -rf "$_downloadDir"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog("✅ Assembly OK (${(sizeAssembled / 1024 / 1024).toStringAsFixed(0)} MB).");
+    _appendLog('✅ Assemblage OK (${(sizeAssembled / 1024 / 1024).toStringAsFixed(0)} Mo).');
 
     // Décompression .xz
-    _appendLog('\n📦 Decompressing .xz (may take several minutes)...');
-    setState(() => _step = 'Decompressing .xz...');
+    _appendLog('\n📦 Décompression .xz (peut prendre plusieurs minutes)...');
+    setState(() => _step = 'Décompression .xz...');
     await _exec('cd "$_downloadDir" && xz -d ge-customv40.tar.xz');
     if (!mounted) return;
 
     final hasTar = await _exec('[ -f "$_downloadDir/ge-customv40.tar" ] && echo yes || echo no');
     if (hasTar.trim() != 'yes') {
-      _appendLog('❌ Error: .xz decompression failed.');
+      _appendLog('❌ Erreur : décompression .xz échouée.');
       await _exec('rm -rf "$_downloadDir"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
-    _appendLog('✅ .xz decompression OK.');
+    _appendLog('✅ Décompression .xz OK.');
 
     // Suppression ancien dossier + extraction .tar
-    _appendLog('\n🗑️ Removing old ge-custom folder...');
+    _appendLog('\n🗑️ Suppression de l\'ancien dossier ge-custom...');
     await _exec('rm -rf "$_extractDir/ge-custom"');
 
-    _appendLog('📦 Extracting .tar...');
-    setState(() => _step = 'Extracting .tar...');
+    _appendLog('📦 Extraction .tar...');
+    setState(() => _step = 'Extraction .tar...');
     await _exec('tar -xf "$_downloadDir/ge-customv40.tar" -C "$_extractDir"');
     if (!mounted) return;
 
     final ok2 = await _exec('[ -d "$_extractDir/ge-custom" ] && echo yes || echo no');
     if (ok2.trim() != 'yes') {
-      _appendLog('❌ Error: extraction failed.');
+      _appendLog('❌ Erreur : extraction échouée.');
       await _exec('rm -rf "$_downloadDir"');
       setState(() { _processing = false; _step = ''; });
       return;
     }
 
     // Nettoyage
-    _appendLog('🗑️ Cleaning temporary files...');
+    _appendLog('🗑️ Nettoyage des fichiers temporaires...');
     await _exec('rm -rf "$_downloadDir"');
 
-    _appendLog('✅ ge-custom V40 installation complete!');
-    _appendLog("📂 Installed in: $_extractDir/ge-custom");
-    setState(() { _step = 'Done!'; _processing = false; });
+    _appendLog('✅ Installation de ge-custom V40 terminée !');
+    _appendLog('📂 Installé dans : $_extractDir/ge-custom');
+    setState(() { _step = 'Terminé !'; _processing = false; });
 
     if (mounted) {
       await showDialog(
@@ -2841,10 +2841,10 @@ class _GeCustomV40ScreenState extends State<_GeCustomV40Screen> {
           title: const Row(children: [
             Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
             SizedBox(width: 10),
-            Flexible(child: Text('Installation successful!')),
+            Flexible(child: Text('Installation réussie !')),
           ]),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Path:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            const Text('Chemin :', style: TextStyle(color: Colors.white38, fontSize: 11)),
             const SizedBox(height: 6),
             Container(
               width: double.maxFinite,
@@ -2895,10 +2895,10 @@ class _GeCustomV40ScreenState extends State<_GeCustomV40Screen> {
                       Text('ge-custom V40', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.w700, fontSize: 15)),
                     ]),
                     const SizedBox(height: 10),
-                    const Text('Fixed version hosted on GitHub.\nDownload in 2 parts, automatic assembly and extraction.',
+                    const Text('Version fixe hébergée sur GitHub.\nTéléchargement en 2 parties, assemblage et extraction automatiques.',
                         style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5)),
                     const SizedBox(height: 8),
-                    const Text('Destination: /userdata/system/wine/custom/ge-custom',
+                    const Text('Destination : /userdata/system/wine/custom/ge-custom',
                         style: TextStyle(color: Colors.white38, fontSize: 10, fontFamily: 'monospace')),
                     const SizedBox(height: 20),
                     SizedBox(
@@ -2913,7 +2913,7 @@ class _GeCustomV40ScreenState extends State<_GeCustomV40Screen> {
                         icon: _processing
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                             : const Icon(Icons.download_rounded),
-                        label: Text(_processing ? _step : 'Download and install'),
+                        label: Text(_processing ? _step : 'Télécharger et installer'),
                       ),
                     ),
                   ]),
@@ -3029,10 +3029,10 @@ class _WineBottleManagerScreenState extends State<_WineBottleManagerScreen> {
         title: Row(children: const [
           Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
           SizedBox(width: 8),
-          Flexible(child: Text('Delete bottle?', overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text('Supprimer la bouteille ?', overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('⚠️ This action is irreversible.\nGame saves and settings will be lost.',
+          const Text('⚠️ Cette action est irréversible.\nLes sauvegardes et paramètres du jeu seront perdus.',
               style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
           const SizedBox(height: 12),
           Container(
@@ -3044,11 +3044,11 @@ class _WineBottleManagerScreenState extends State<_WineBottleManagerScreen> {
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Delete'),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
@@ -3059,7 +3059,7 @@ class _WineBottleManagerScreenState extends State<_WineBottleManagerScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text("🗑️ $display deleted."),
+      content: Text('🗑️ $display supprimée.'),
       backgroundColor: const Color(0xFF1C2230),
     ));
     _loadBottles();
@@ -3109,7 +3109,7 @@ class _WineBottleManagerScreenState extends State<_WineBottleManagerScreen> {
                   Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 15),
                   SizedBox(width: 8),
                   Expanded(child: Text(
-                    'Bottles contain game settings and saves. Deletion is irreversible.',
+                    'Les bouteilles contiennent les paramètres et sauvegardes de vos jeux. La suppression est irréversible.',
                     style: TextStyle(color: Colors.redAccent, fontSize: 11),
                   )),
                 ]),
@@ -3121,13 +3121,13 @@ class _WineBottleManagerScreenState extends State<_WineBottleManagerScreen> {
                   ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       CircularProgressIndicator(color: Colors.redAccent),
                       SizedBox(height: 12),
-                      Text('Searching Wine-Bottles...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      Text('Recherche des bouteilles...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                     ]))
                   : _bottles.isEmpty
                       ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.wine_bar_outlined, color: Colors.white24, size: 48),
                           const SizedBox(height: 12),
-                          const Text('No bottles found.',
+                          const Text('Aucune bouteille trouvée.',
                               style: TextStyle(color: Colors.white38, fontSize: 13)),
                           const SizedBox(height: 4),
                           Text(_targetDir,
@@ -3156,7 +3156,7 @@ class _WineBottleManagerScreenState extends State<_WineBottleManagerScreen> {
                                 trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
                                   onPressed: () => _confirmDelete(path),
-                                  tooltip: 'Delete',
+                                  tooltip: 'Supprimer',
                                 ),
                               ),
                             );
@@ -3240,10 +3240,10 @@ class _RunnerManagerScreenState extends State<_RunnerManagerScreen> {
         title: Row(children: const [
           Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 22),
           SizedBox(width: 8),
-          Flexible(child: Text('Delete runner?', overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text('Supprimer le runner ?', overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('⚠️ This action is irreversible.',
+          const Text('⚠️ Cette action est irréversible.',
               style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
           const SizedBox(height: 10),
           Container(
@@ -3255,11 +3255,11 @@ class _RunnerManagerScreenState extends State<_RunnerManagerScreen> {
           ),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Delete'),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
@@ -3272,7 +3272,7 @@ class _RunnerManagerScreenState extends State<_RunnerManagerScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text("🗑️ Runner \"$name\" deleted."),
+      content: Text('🗑️ Runner "$name" supprimé.'),
       backgroundColor: const Color(0xFF1C2230),
     ));
     _loadRunners();
@@ -3319,13 +3319,13 @@ class _RunnerManagerScreenState extends State<_RunnerManagerScreen> {
                   ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       CircularProgressIndicator(color: Colors.redAccent),
                       SizedBox(height: 12),
-                      Text('Loading runners...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      Text('Chargement des runners...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                     ]))
                   : _runners.isEmpty
                       ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.folder_off_rounded, color: Colors.white24, size: 48),
                           const SizedBox(height: 12),
-                          const Text('No runners found.',
+                          const Text('Aucun runner trouvé.',
                               style: TextStyle(color: Colors.white38, fontSize: 13)),
                           const SizedBox(height: 4),
                           Text(_customDir,
@@ -3348,7 +3348,7 @@ class _RunnerManagerScreenState extends State<_RunnerManagerScreen> {
                                 trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 22),
                                   onPressed: () => _confirmDelete(r),
-                                  tooltip: 'Delete',
+                                  tooltip: 'Supprimer',
                                 ),
                               ),
                             );
@@ -3380,7 +3380,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
   bool _loadingTricks = false;
   List<Map<String, String>> _tricks = [];
   String? _selectedTrick;
-  bool _commonMode = true; // true = common list, false = full list
+  bool _commonMode = true; // true = liste courante, false = liste complète
 
   // Installation
   bool _installing = false;
@@ -3392,7 +3392,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
     {'id': 'vcrun2010',  'desc': 'Visual C++ 2010'},
     {'id': 'vcrun2012',  'desc': 'Visual C++ 2012'},
     {'id': 'vcrun2013',  'desc': 'Visual C++ 2013'},
-    {'id': 'vcrun2022',  'desc': 'Visual C++ 2015 to 2022'},
+    {'id': 'vcrun2022',  'desc': 'Visual C++ 2015 à 2022'},
     {'id': 'openal',     'desc': 'OpenAL Runtime Creative 2023'},
     {'id': 'directplay', 'desc': 'MS DirectPlay from DirectX'},
     {'id': 'd3dx9_43',   'desc': 'DirectX9 (d3dx9_43)'},
@@ -3443,7 +3443,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
 
   Future<void> _loadFullTricks() async {
     setState(() { _loadingTricks = true; _tricks = []; });
-    _appendLog('⏳ Fetching official Winetricks list...');
+    _appendLog('⏳ Récupération de la liste Winetricks officielle...');
     const url = 'https://raw.githubusercontent.com/Winetricks/winetricks/master/files/verbs/all.txt';
     final raw = await _exec('curl -Ls "$url" 2>/dev/null');
     if (!mounted) return;
@@ -3451,7 +3451,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
       setState(() { _loadingTricks = false; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Unable to fetch Winetricks list.'),
+          content: Text('Impossible de récupérer la liste Winetricks.'),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -3466,7 +3466,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
       final desc = parts.length > 1 ? parts.sublist(1).join(' ') : '';
       tricks.add({'id': id, 'desc': desc});
     }
-    _appendLog("✅ ${tricks.length} components available.");
+    _appendLog('✅ ${tricks.length} composants disponibles.');
     setState(() { _tricks = tricks; _loadingTricks = false; });
   }
 
@@ -3475,20 +3475,20 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Confirm installation'),
+        title: const Text('Confirmer l\'installation'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Trick:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const Text('Trick :', style: TextStyle(color: Colors.white38, fontSize: 11)),
           Text(trick, style: const TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 10),
-          const Text('Bottle:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const Text('Bouteille :', style: TextStyle(color: Colors.white38, fontSize: 11)),
           Text(bottle.split('/').last, style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace')),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, foregroundColor: Colors.white),
-            child: const Text('Install'),
+            child: const Text('Installer'),
           ),
         ],
       ),
@@ -3496,8 +3496,8 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
     if (ok != true || !mounted) return;
 
     setState(() { _installing = true; _log = ''; });
-    _appendLog('⚙️ Launching installation on Batocera screen...');
-    _appendLog('Watch the Batocera screen to follow the installation.\n');
+    _appendLog('⚙️ Lancement de l\'installation sur l\'écran de Batocera...');
+    _appendLog('Regardez l\'écran de Batocera pour suivre l\'installation.\n');
 
     // Lance xterm + écrit un flag /tmp/_wt_done quand terminé
     await _exec('rm -f /tmp/_wt_done');
@@ -3512,12 +3512,12 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
       final done = await _exec('[ -f /tmp/_wt_done ] && echo yes || echo no');
       if (done.trim() == 'yes') break;
       await Future.delayed(const Duration(seconds: 3));
-      _appendLog('  installing...');
+      _appendLog('  installation en cours...');
     }
     await _exec('rm -f /tmp/_wt_done');
     if (!mounted) return;
 
-    _appendLog('✅ Installation complete!');
+    _appendLog('✅ Installation terminée !');
     setState(() { _installing = false; });
 
     if (mounted) {
@@ -3528,9 +3528,9 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
           title: const Row(children: [
             Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
             SizedBox(width: 10),
-            Flexible(child: Text('Winetricks installed!')),
+            Flexible(child: Text('Winetricks installé !')),
           ]),
-          content: Text("[$trick] applied to\n${bottle.split('/').last}",
+          content: Text('[$trick] appliqué sur\n${bottle.split('/').last}',
               style: const TextStyle(color: Colors.white70, fontSize: 12)),
           actions: [
             ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
@@ -3581,19 +3581,19 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
                   ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       CircularProgressIndicator(color: Colors.purpleAccent),
                       SizedBox(height: 12),
-                      Text('Searching Wine-Bottle...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      Text('Recherche des bouteilles...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                     ]))
                   : _bottles.isEmpty
                       ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.wine_bar_outlined, color: Colors.white24, size: 48),
                           const SizedBox(height: 12),
-                          const Text('No .wine bottle found.',
+                          const Text('Aucune bouteille .wine trouvée.',
                               style: TextStyle(color: Colors.white38, fontSize: 13)),
                           const SizedBox(height: 16),
                           ElevatedButton.icon(
                             onPressed: _loadBottles,
                             icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Retry'),
+                            label: const Text('Réessayer'),
                           ),
                         ]))
                       : _selectedBottle == null
@@ -3612,7 +3612,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
       children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text('Select a Wine bottle:',
+          child: Text('Sélectionnez une bouteille Wine :',
               style: TextStyle(color: Colors.white54, fontSize: 12)),
         ),
         Expanded(
@@ -3665,7 +3665,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
                 overflow: TextOverflow.ellipsis)),
             TextButton(
               onPressed: () => setState(() { _selectedBottle = null; _tricks = []; _log = ''; }),
-              child: const Text('Change', style: TextStyle(fontSize: 11)),
+              child: const Text('Changer', style: TextStyle(fontSize: 11)),
             ),
           ]),
         ),
@@ -3683,7 +3683,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
                     borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
                     border: Border.all(color: _commonMode ? Colors.purpleAccent : Colors.white12),
                   ),
-                  child: Center(child: Text('Common',
+                  child: Center(child: Text('Courants',
                       style: TextStyle(color: _commonMode ? Colors.purpleAccent : Colors.white38, fontSize: 12, fontWeight: FontWeight.w600))),
                 ),
               ),
@@ -3701,7 +3701,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
                     borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
                     border: Border.all(color: !_commonMode ? Colors.purpleAccent : Colors.white12),
                   ),
-                  child: Center(child: Text('Full list',
+                  child: Center(child: Text('Liste complète',
                       style: TextStyle(color: !_commonMode ? Colors.purpleAccent : Colors.white38, fontSize: 12, fontWeight: FontWeight.w600))),
                 ),
               ),
@@ -3714,7 +3714,7 @@ class _WinetricksScreenState extends State<_WinetricksScreen> {
               ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                   CircularProgressIndicator(color: Colors.purpleAccent),
                   SizedBox(height: 12),
-                  Text('Loading official list...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  Text('Chargement de la liste officielle...', style: TextStyle(color: Colors.white38, fontSize: 12)),
                 ]))
               : Column(children: [
                   Expanded(

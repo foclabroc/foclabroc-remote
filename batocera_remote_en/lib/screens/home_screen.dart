@@ -11,6 +11,7 @@ import 'file_manager_screen.dart';
 import 'running_game_screen.dart';
 import 'games_screen.dart';
 import 'wine_tools_screen.dart';
+import 'foclabroc_tools_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,18 +24,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   static const _tabs = [
-    _TabInfo(icon: Icons.wifi_rounded,           label: 'Connect'),
-    _TabInfo(icon: Icons.sports_esports_rounded, label: 'Running game'),
-    _TabInfo(icon: Icons.library_books_rounded,  label: 'Library'),
+    _TabInfo(icon: Icons.wifi_rounded,           label: 'Connexion'),
+    _TabInfo(icon: Icons.sports_esports_rounded, label: 'Jeu en cours'),
+    _TabInfo(icon: Icons.library_books_rounded,  label: 'Bibliothèque'),
     _TabInfo(icon: Icons.camera_alt_rounded,     label: 'Capture'),
-    _TabInfo(icon: Icons.terminal_rounded,       label: 'SSH Terminal'),
-    _TabInfo(icon: Icons.folder_rounded,         label: 'Files'),
-    _TabInfo(icon: Icons.settings_rounded,       label: 'System'),
+    _TabInfo(icon: Icons.terminal_rounded,       label: 'Terminal SSH'),
+    _TabInfo(icon: Icons.folder_rounded,         label: 'Fichiers'),
+    _TabInfo(icon: Icons.settings_rounded,       label: 'Système'),
     _TabInfo(icon: Icons.wine_bar_rounded,       label: 'Wine Tools'),
+    _TabInfo(icon: Icons.build_circle_rounded,   label: 'Foclabroc Tools'),
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List.generate(8, (_) => GlobalKey<NavigatorState>());
+      List.generate(9, (_) => GlobalKey<NavigatorState>());
 
   @override
   void initState() {
@@ -76,7 +78,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       4 => const SshTerminalScreen(),
       5 => const FileManagerScreen(),
       6 => const SystemScreen(),
-      _ => const WineToolsScreen(),
+      7 => const WineToolsScreen(),
+      _ => const FoclabroctoolsScreen(),
     }),
   );
 
@@ -95,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       key: _scaffoldKey,
       drawer: _buildDrawer(state, connected, accent),
       body: Stack(children: [
-        Stack(children: List.generate(8, (i) => Offstage(
+        Stack(children: List.generate(9, (i) => Offstage(
           offstage: _index != i,
           child: _buildScreen(i),
         ))),
@@ -137,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 const Text('Foclabroc Remote',
                     style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
                 Text(
-                  connected ? (state.ssh.host.isNotEmpty ? state.ssh.host : 'Connected') : 'Not connected',
+                  connected ? (state.ssh.host.isNotEmpty ? state.ssh.host : 'Connecté') : 'Non connecté',
                   style: TextStyle(
                     color: connected ? const Color(0xFF50FA7B) : Colors.white38,
                     fontSize: 11,

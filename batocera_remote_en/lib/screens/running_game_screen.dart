@@ -218,7 +218,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Loading manual...'),
+                Text('Chargement du manuel...'),
               ],
             ),
           ),
@@ -233,7 +233,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
       if (bytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to load manual', style: TextStyle(color: Colors.white)),
+          content: Text('Impossible de charger le manuel', style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
         return;
@@ -246,7 +246,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
-          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manual'),
+          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manuel'),
         ),
       );
     } catch (e) {
@@ -273,8 +273,8 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Stop the game?'),
-        content: const Text('The current game will be closed.'),
+        title: const Text('Arrêter le jeu ?'),
+        content: const Text('Le jeu en cours va être fermé.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
@@ -283,7 +283,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Stop'),
+            child: const Text('Arrêter'),
           ),
         ],
       ),
@@ -315,7 +315,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Running game', style: Theme.of(context).textTheme.headlineMedium),
+                      Text('Jeu en cours', style: Theme.of(context).textTheme.headlineMedium),
                       Text('Auto 5s', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10)),
                     ],
                   ),
@@ -339,7 +339,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
               child: !state.isConnected
                   ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Non connecté')
                   : !hasGame
-                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'No game running')
+                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'Aucun jeu en cours')
                       : SingleChildScrollView(
                           child: Padding(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -406,7 +406,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                _gameInfo['name'] ?? 'Unknown game',
+                                                _gameInfo['name'] ?? 'Jeu inconnu',
                                                 style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -460,7 +460,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                           Row(children: [
                                             Icon(Icons.people_rounded, size: 12, color: Colors.white38),
                                             const SizedBox(width: 4),
-                                            Text('${_gameInfo['players']} player(s)',
+                                            Text('${_gameInfo['players']} joueur(s)',
                                                 style: const TextStyle(color: Colors.white38, fontSize: 11)),
                                           ]),
                                         if (_gameInfo['emulator'] != null)
@@ -485,7 +485,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                         child: OutlinedButton.icon(
                                           onPressed: _showManual,
                                           icon: const Icon(Icons.picture_as_pdf_rounded, size: 14),
-                                          label: const Text('Manual', style: TextStyle(fontSize: 12)),
+                                          label: const Text('Manuel', style: TextStyle(fontSize: 12)),
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: Colors.blueAccent,
                                             side: const BorderSide(color: Colors.blueAccent),
@@ -518,7 +518,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
                                       child: OutlinedButton.icon(
                                         onPressed: () => _stopGame(state),
                                         icon: const Icon(Icons.stop_circle_rounded, size: 14),
-                                        label: const Text('Stop', style: TextStyle(fontSize: 12)),
+                                        label: const Text('Arrêter', style: TextStyle(fontSize: 12)),
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.redAccent,
                                           side: const BorderSide(color: Colors.redAccent),

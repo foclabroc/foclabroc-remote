@@ -210,7 +210,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await refreshVolume();
     } else {
       _status = ConnectionStatus.error;
-      _errorMessage = 'Unable to connect to $host:$port';
+      _errorMessage = 'Impossible de se connecter à $host:$port';
     }
     notifyListeners();
   }
