@@ -160,7 +160,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
         title: const Row(children: [
           Icon(Icons.view_in_ar_rounded, color: Colors.tealAccent, size: 22),
           SizedBox(width: 10),
-          Flexible(child: Text('Install NES3D?', overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text('Installer NES3D ?', overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -230,7 +230,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
       archiveUrl = 'https://github.com/foclabroc/toolbox/releases/download/Fichiers/3d-43.zip';
     }
     final archiveName = archiveUrl.split('/').last;
-    _appendLog("📦 Archive : $archiveName");
+    _appendLog("📦 Archive: $archiveName");
 
     // 3. Espace disque
     _appendLog('\n💾 Checking disk space...');
@@ -258,7 +258,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
 
     // 5. Téléchargement
     _appendLog("\n⬇️ Downloading $archiveName...");
-    _appendLog('  (peut prendre plusieurs minutes)');
+    _appendLog('  (may take several minutes)');
 
     // Lance wget en background + flag quand terminé
     await _exec('rm -f "/userdata/$archiveName" /tmp/_wget_nes3d_done');
@@ -278,7 +278,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
       final sizeNow = int.tryParse(sizeNowRaw.trim()) ?? 0;
       final nowMb = (sizeNow / 1024 / 1024).toStringAsFixed(1);
       final pct = totalBytes > 0 ? (sizeNow * 100 ~/ totalBytes) : 0;
-      final bar = totalBytes > 0 ? '$pct%' : '$nowMb Mo';
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb MB';
       setState(() {
         final lines = _log.split('\n');
         if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
@@ -412,7 +412,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
                       child: const Row(children: [
                         Icon(Icons.storage_rounded, color: Colors.orangeAccent, size: 14),
                         SizedBox(width: 6),
-                        Text('Required space: ~3.8 GB',
+                        Text('Espace requis : ~3.8 Go',
                             style: TextStyle(color: Colors.orangeAccent, fontSize: 11)),
                       ]),
                     ),
@@ -525,7 +525,7 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
         title: const Row(children: [
           Icon(Icons.tv_rounded, color: Colors.deepPurpleAccent, size: 22),
           SizedBox(width: 10),
-          Flexible(child: Text('Install Kodi pack?',
+          Flexible(child: Text('Installer le pack Kodi ?',
               overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(
@@ -575,13 +575,13 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
     setState(() { _running = true; _log = ''; });
 
     // 1. Suppression ancien dossier
-    _appendLog('🗑️ Removing $_kodiDir...');
+    _appendLog('🗑️ Suppression de $_kodiDir...');
     await _exec('rm -rf "$_kodiDir"');
     _appendLog('✅ Folder removed.');
 
     // 2. Téléchargement avec progression
     _appendLog('\n⬇️ Downloading Kodi pack...');
-    _appendLog('  (peut prendre plusieurs minutes)');
+    _appendLog('  (may take several minutes)');
 
     await _exec('rm -f $_tmpZip /tmp/_kodi_wget_done');
     await _exec('wget -q --tries=3 --timeout=120 -O "$_tmpZip" "$_zipUrl" && touch /tmp/_kodi_wget_done || touch /tmp/_kodi_wget_done &');
@@ -598,7 +598,7 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
       final sizeNow = int.tryParse(sizeNowRaw.trim()) ?? 0;
       final nowMb = (sizeNow / 1024 / 1024).toStringAsFixed(1);
       final pct = totalBytes > 0 ? (sizeNow * 100 ~/ totalBytes) : 0;
-      final bar = totalBytes > 0 ? '$pct%' : '$nowMb Mo';
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb MB';
       setState(() {
         final lines = _log.split('\n');
         if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
@@ -706,7 +706,7 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
                     ]),
                     const SizedBox(height: 10),
                     const Text(
-                      'Installs Foclabroc\'s Kodi configuration with Vstream, IPTV and other pre-configured add-ons.',
+                      'Installs Foclabroc\'s Kodi config with Vstream, IPTV and other add-ons.',
                       style: TextStyle(
                           color: Colors.white54, fontSize: 12, height: 1.5),
                     ),
@@ -770,8 +770,8 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
                                     strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.download_rounded),
                         label: Text(_running
-                            ? 'Installing...'
-                            : 'Install Kodi pack'),
+                            ? 'Installation en cours...'
+                            : 'Installer le pack Kodi'),
                       ),
                     ),
                   ]),
@@ -870,7 +870,7 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
         title: const Row(children: [
           Icon(Icons.music_note_rounded, color: Colors.pinkAccent, size: 22),
           SizedBox(width: 10),
-          Flexible(child: Text('Install Music Pack?',
+          Flexible(child: Text('Installer le Pack Music ?',
               overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(
@@ -920,7 +920,7 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
 
     // 1. Téléchargement avec progression
     _appendLog('⬇️ Downloading Music Pack...');
-    _appendLog('  (39 titres OST)');
+    _appendLog('  (39 OST tracks)');
 
     await _exec('rm -f $_tmpZip /tmp/_music_wget_done');
     await _exec('wget -q --tries=3 --timeout=120 -O "$_tmpZip" "$_zipUrl" && touch /tmp/_music_wget_done || touch /tmp/_music_wget_done &');
@@ -937,7 +937,7 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
       final sizeNow = int.tryParse(sizeNowRaw.trim()) ?? 0;
       final nowMb = (sizeNow / 1024 / 1024).toStringAsFixed(1);
       final pct = totalBytes > 0 ? (sizeNow * 100 ~/ totalBytes) : 0;
-      final bar = totalBytes > 0 ? '$pct%' : '$nowMb Mo';
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb MB';
       setState(() {
         final lines = _log.split('\n');
         if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
@@ -964,7 +964,7 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
     _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
 
     // 2. Extraction
-    _appendLog('\n📦 Extracting to $_installDir...');
+    _appendLog('\n📦 Extraction dans $_installDir...');
     await _exec('unzip -o "$_tmpZip" -d "$_destDir" 2>&1');
     if (!mounted) return;
     _appendLog('✅ Extraction complete.');
@@ -1108,8 +1108,8 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
                                     strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.download_rounded),
                         label: Text(_running
-                            ? 'Installing...'
-                            : 'Install Music Pack'),
+                            ? 'Installation en cours...'
+                            : 'Installer le Pack Music'),
                       ),
                     ),
                   ]),
@@ -1192,7 +1192,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     {'name': 'Donkey Kong Advanced',   'desc': 'A remake of the classic arcade game.',                            'size': '19.4 MB',  'git': 'dka',          'script': 'dka.sh'},
     {'name': 'TMNT Rescue Palooza',    'desc': 'Beat-em-up in the TMNT universe.',                    'size': '168 MB',   'git': 'tmntrp',       'script': 'tmntrp.sh'},
     {'name': 'Spelunky',               'desc': '2D platformer, play as a spelunker.',                'size': '24.2 MB',  'git': 'spelunky',     'script': 'spelunky.sh'},
-    {'name': 'Sonic Triple Trouble',   'desc': 'Fangame of the Game Gear title Sonic Triple Trouble.',                    'size': '115 MB',   'git': 'stt',          'script': 'stt.sh'},
+    {'name': 'Sonic Triple Trouble',   'desc': 'Fangame of the Game Gear Sonic Triple Trouble..',                    'size': '115 MB',   'git': 'stt',          'script': 'stt.sh'},
     {'name': 'Pokemon Uranium',        'desc': 'Pokemon fangame set in the Tandor region.',                         'size': '332 MB',   'git': 'pokeura',      'script': 'pokeura.sh'},
     {'name': 'MiniDoom 2',             'desc': 'DOOM transformed into an action platformer.',                 'size': '114 MB',   'git': 'minidoom2',    'script': 'minidoom2.sh'},
     {'name': 'AM2R',                   'desc': 'Another Metroid 2 Remake, unofficial remake.',                    'size': '85.6 MB',  'git': 'am2r',         'script': 'am2r.sh'},
@@ -1273,7 +1273,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
             child: Row(children: [
               const Icon(Icons.storage_rounded, color: Colors.orangeAccent, size: 14),
               const SizedBox(width: 6),
-              Text('Size: $size', style: const TextStyle(color: Colors.orangeAccent, fontSize: 11)),
+              Text('Taille : $size', style: const TextStyle(color: Colors.orangeAccent, fontSize: 11)),
             ]),
           ),
         ]),
@@ -1305,15 +1305,40 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     }
     _appendLog('✅ URL : $fileUrl');
 
-    // Récupère aussi l'URL du fichier .keys si présent
+    // Also get .keys file URL if present
     final keyUrlRaw = await _exec(
       'curl -sL "$scriptUrl" | grep -m1 \'URL_TELECHARGEMENT_KEY=\' | head -1 | sed \'s/.*URL_TELECHARGEMENT_KEY="\\(.*\\)"/\\1/\''
     );
     final keyUrl = keyUrlRaw.trim();
 
+    // Get GIT_NAME from script (used for images)
+    final gitNameRaw = await _exec(
+      'curl -sL "$scriptUrl" | grep -m1 \'GIT_NAME=\' | head -1 | sed \'s/.*GIT_NAME="\\(.*\\)"/\\1/\''
+    );
+    final gitName = gitNameRaw.trim().isNotEmpty ? gitNameRaw.trim() : git;
+
     final fileName = fileUrl.split('/').last;
     final destFile = '$_winDir/$fileName';
     final ext = fileName.contains('.wsquashfs') ? 'wsquashfs' : 'zip';
+
+    // Download script on Batocera and extract metadata directly (no Dart transit)
+    await _exec('curl -sL "$scriptUrl" > /tmp/_wgame_script.sh 2>/dev/null');
+    await _exec('grep -m1 "^DESC=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_desc.txt');
+    await _exec('grep -m1 "^DEV=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_dev.txt');
+    await _exec('grep -m1 "^PUBLISH=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_pub.txt');
+    await _exec('grep -m1 "^GENRE=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_genre.txt');
+    await _exec('grep -m1 "^GAME_FILE_FINAL=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_file_final.txt');
+    final gameFileFinal = (await _exec('cat /tmp/_game_file_final.txt')).trim();
+    // Determine gamelist path: GAME_FILE_FINAL first, then fileName (wsquashfs) or git (zip)
+    String gameFinalStr;
+    if (gameFileFinal.isNotEmpty) {
+      gameFinalStr = './$gameFileFinal';
+    } else if (ext == 'wsquashfs') {
+      gameFinalStr = './$fileName';
+    } else {
+      gameFinalStr = './$git';
+    }
+    _appendLog('📝 Path gamelist : $gameFinalStr');
 
     // 2. Supprime l'ancien fichier si existant
     _appendLog('🗑️ Removing old version...');
@@ -1338,7 +1363,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
       final sizeNow = int.tryParse(sizeNowRaw.trim()) ?? 0;
       final nowMb = (sizeNow / 1024 / 1024).toStringAsFixed(1);
       final pct = totalBytes > 0 ? (sizeNow * 100 ~/ totalBytes) : 0;
-      final bar = totalBytes > 0 ? '$pct%' : '$nowMb Mo';
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb MB';
       setState(() {
         final lines = _log.split('\n');
         if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
@@ -1385,31 +1410,47 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     final imgDir = '$_winDir/images';
     final vidDir = '$_winDir/videos';
     await _exec('mkdir -p "$imgDir" "$vidDir"');
-    await _exec('curl -sL -o "$imgDir/$git-s.png" "$_baseImgUrl/$git-s.png" 2>/dev/null');
-    await _exec('curl -sL -o "$imgDir/$git-w.png" "$_baseImgUrl/$git-w.png" 2>/dev/null');
-    await _exec('curl -sL -o "$imgDir/$git-b.png" "$_baseImgUrl/$git-b.png" 2>/dev/null');
-    await _exec('curl -sL -o "$vidDir/$git-v.mp4" "$_baseImgUrl/$git-v.mp4" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$gitName-s.png" "$_baseImgUrl/$gitName-s.png" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$gitName-w.png" "$_baseImgUrl/$gitName-w.png" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$gitName-b.png" "$_baseImgUrl/$gitName-b.png" 2>/dev/null');
+    await _exec('curl -sL -o "$vidDir/$gitName-v.mp4" "$_baseImgUrl/$gitName-v.mp4" 2>/dev/null');
     if (!mounted) return;
 
-    // 5. Mise à jour gamelist
+    // 6. Mise à jour gamelist
     _appendLog('📋 Updating gamelist...');
     final gamelistFile = '$_winDir/gamelist.xml';
     final xmlBin = '/userdata/system/pro/extra/xmlstarlet';
     final xmlLink = '/usr/bin/xmlstarlet';
-    // Crée le gamelist si absent
+    final gameFinal = gameFinalStr;
     await _exec('[ -f "$gamelistFile" ] || echo \'<?xml version="1.0" encoding="UTF-8"?><gameList></gameList>\' > "$gamelistFile"');
-    // Installe xmlstarlet si absent
-    await _exec('[ -f "$xmlBin" ] || (mkdir -p "\$(dirname $xmlBin)" && curl -sL "https://github.com/foclabroc/toolbox/raw/refs/heads/main/app/xmlstarlet" -o "$xmlBin" && chmod +x "$xmlBin" && ln -sf "$xmlBin" "$xmlLink")');
+    await _exec('[ -f "$xmlBin" ] || (mkdir -p /userdata/system/pro/extra && curl -sL "https://github.com/foclabroc/toolbox/raw/refs/heads/main/app/xmlstarlet" -o "$xmlBin" && chmod +x "$xmlBin" && ln -sf "$xmlBin" "$xmlLink")');
     await _exec('[ -L "$xmlLink" ] || ln -sf "$xmlBin" "$xmlLink"');
-    // Supprime l'entrée existante et recrée
-    final gameFinal = ext == 'zip' ? './$git' : './$fileName';
-    await _exec('xmlstarlet ed -L -d "/gameList/game[path=\\"$gameFinal\\"]" "$gamelistFile" 2>/dev/null; xmlstarlet ed -L -s "/gameList" -t elem -n "game" -v "" -s "/gameList/game[last()]" -t elem -n "path" -v "$gameFinal" -s "/gameList/game[last()]" -t elem -n "name" -v "$name" -s "/gameList/game[last()]" -t elem -n "image" -v "./images/$git-s.png" -s "/gameList/game[last()]" -t elem -n "video" -v "./videos/$git-v.mp4" -s "/gameList/game[last()]" -t elem -n "marquee" -v "./images/$git-w.png" -s "/gameList/game[last()]" -t elem -n "thumbnail" -v "./images/$git-b.png" -s "/gameList/game[last()]" -t elem -n "rating" -v "1.00" -s "/gameList/game[last()]" -t elem -n "lang" -v "fr" -s "/gameList/game[last()]" -t elem -n "region" -v "eu" "$gamelistFile" 2>/dev/null || true');
+    // Écrit gameFinal et name dans des fichiers temp pour gérer les espaces/apostrophes
+    await _exec('printf "%s" "$gameFinal" > /tmp/_game_path.txt');
+    await _exec('printf "%s" "$name" > /tmp/_game_name.txt');
+    // Write xmlstarlet script via printf (avoids SSH heredoc issues)
+    await _exec('printf "#!/bin/bash\\n" > /tmp/_xmladd.sh');
+    await _exec('printf "GL=\\"%s\\"\\n" "$gamelistFile" >> /tmp/_xmladd.sh');
+    await _exec('printf "GP=\\"\$(cat /tmp/_game_path.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "GN=\\"\$(cat /tmp/_game_name.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "DESC=\\"\$(cat /tmp/_game_desc.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "DEV=\\"\$(cat /tmp/_game_dev.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "PUB=\\"\$(cat /tmp/_game_pub.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "GENRE=\\"\$(cat /tmp/_game_genre.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "IMG=\\"./images/$gitName-s.png\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "VID=\\"./videos/$gitName-v.mp4\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "MARQ=\\"./images/$gitName-w.png\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "THUMB=\\"./images/$gitName-b.png\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "xmlstarlet ed -L -d \\"/gameList/game[path=\\\\\\"\\\$GP\\\\\\"]\\" \\"\\\$GL\\" 2>/dev/null\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "xmlstarlet ed -L -s \\"/gameList\\" -t elem -n \\"game\\" -v \\"\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"path\\" -v \\"\\\$GP\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"name\\" -v \\"\\\$GN\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"desc\\" -v \\"\\\$DESC\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"image\\" -v \\"\\\$IMG\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"video\\" -v \\"\\\$VID\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"marquee\\" -v \\"\\\$MARQ\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"thumbnail\\" -v \\"\\\$THUMB\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"rating\\" -v \\"1.00\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"developer\\" -v \\"\\\$DEV\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"publisher\\" -v \\"\\\$PUB\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"genre\\" -v \\"\\\$GENRE\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"lang\\" -v \\"fr\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"region\\" -v \\"eu\\" \\"\\\$GL\\" 2>/dev/null || true\\n" >> /tmp/_xmladd.sh');
+    await _exec('chmod +x /tmp/_xmladd.sh && bash /tmp/_xmladd.sh');
+    await _exec('rm -f /tmp/_game_desc.txt /tmp/_game_dev.txt /tmp/_game_pub.txt /tmp/_game_genre.txt /tmp/_game_file_final.txt /tmp/_game_path.txt /tmp/_game_name.txt /tmp/_xmladd.sh /tmp/_wgame_script.sh');
 
     // 6. Rechargement
     _appendLog('🔄 Reloading game list...');
     await _exec('curl -s http://127.0.0.1:1234/reloadgames');
 
-    _appendLog("\n✅ $name installed successfully!");
+    _appendLog("\n✅ $name installe avec succes !");
     setState(() { _installing = false; _installingGame = null; });
 
     if (mounted) {

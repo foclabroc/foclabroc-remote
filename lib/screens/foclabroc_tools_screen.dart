@@ -1311,9 +1311,34 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     );
     final keyUrl = keyUrlRaw.trim();
 
+    // Récupère le GIT_NAME depuis le script (utilisé pour les images)
+    final gitNameRaw = await _exec(
+      'curl -sL "$scriptUrl" | grep -m1 \'GIT_NAME=\' | head -1 | sed \'s/.*GIT_NAME="\\(.*\\)"/\\1/\''
+    );
+    final gitName = gitNameRaw.trim().isNotEmpty ? gitNameRaw.trim() : git;
+
     final fileName = fileUrl.split('/').last;
     final destFile = '$_winDir/$fileName';
     final ext = fileName.contains('.wsquashfs') ? 'wsquashfs' : 'zip';
+
+    // Télécharge le script sur Batocera et extrait les métadonnées directement (pas de transit Dart)
+    await _exec('curl -sL "$scriptUrl" > /tmp/_wgame_script.sh 2>/dev/null');
+    await _exec('grep -m1 "^DESC=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_desc.txt');
+    await _exec('grep -m1 "^DEV=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_dev.txt');
+    await _exec('grep -m1 "^PUBLISH=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_pub.txt');
+    await _exec('grep -m1 "^GENRE=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_genre.txt');
+    await _exec('grep -m1 "^GAME_FILE_FINAL=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_file_final.txt');
+    final gameFileFinal = (await _exec('cat /tmp/_game_file_final.txt')).trim();
+    // Détermine le path gamelist : GAME_FILE_FINAL en priorité, sinon fileName (wsquashfs) ou git (zip)
+    String gameFinalStr;
+    if (gameFileFinal.isNotEmpty) {
+      gameFinalStr = './$gameFileFinal';
+    } else if (ext == 'wsquashfs') {
+      gameFinalStr = './$fileName';
+    } else {
+      gameFinalStr = './$git';
+    }
+    _appendLog('📝 Path gamelist : $gameFinalStr');
 
     // 2. Supprime l'ancien fichier si existant
     _appendLog('🗑️ Suppression de l\'ancienne version...');
@@ -1385,25 +1410,41 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     final imgDir = '$_winDir/images';
     final vidDir = '$_winDir/videos';
     await _exec('mkdir -p "$imgDir" "$vidDir"');
-    await _exec('curl -sL -o "$imgDir/$git-s.png" "$_baseImgUrl/$git-s.png" 2>/dev/null');
-    await _exec('curl -sL -o "$imgDir/$git-w.png" "$_baseImgUrl/$git-w.png" 2>/dev/null');
-    await _exec('curl -sL -o "$imgDir/$git-b.png" "$_baseImgUrl/$git-b.png" 2>/dev/null');
-    await _exec('curl -sL -o "$vidDir/$git-v.mp4" "$_baseImgUrl/$git-v.mp4" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$gitName-s.png" "$_baseImgUrl/$gitName-s.png" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$gitName-w.png" "$_baseImgUrl/$gitName-w.png" 2>/dev/null');
+    await _exec('curl -sL -o "$imgDir/$gitName-b.png" "$_baseImgUrl/$gitName-b.png" 2>/dev/null');
+    await _exec('curl -sL -o "$vidDir/$gitName-v.mp4" "$_baseImgUrl/$gitName-v.mp4" 2>/dev/null');
     if (!mounted) return;
 
-    // 5. Mise à jour gamelist
+    // 6. Mise à jour gamelist
     _appendLog('📋 Mise à jour du gamelist...');
     final gamelistFile = '$_winDir/gamelist.xml';
     final xmlBin = '/userdata/system/pro/extra/xmlstarlet';
     final xmlLink = '/usr/bin/xmlstarlet';
-    // Crée le gamelist si absent
+    final gameFinal = gameFinalStr;
     await _exec('[ -f "$gamelistFile" ] || echo \'<?xml version="1.0" encoding="UTF-8"?><gameList></gameList>\' > "$gamelistFile"');
-    // Installe xmlstarlet si absent
-    await _exec('[ -f "$xmlBin" ] || (mkdir -p "\$(dirname $xmlBin)" && curl -sL "https://github.com/foclabroc/toolbox/raw/refs/heads/main/app/xmlstarlet" -o "$xmlBin" && chmod +x "$xmlBin" && ln -sf "$xmlBin" "$xmlLink")');
+    await _exec('[ -f "$xmlBin" ] || (mkdir -p /userdata/system/pro/extra && curl -sL "https://github.com/foclabroc/toolbox/raw/refs/heads/main/app/xmlstarlet" -o "$xmlBin" && chmod +x "$xmlBin" && ln -sf "$xmlBin" "$xmlLink")');
     await _exec('[ -L "$xmlLink" ] || ln -sf "$xmlBin" "$xmlLink"');
-    // Supprime l'entrée existante et recrée
-    final gameFinal = ext == 'zip' ? './$git' : './$fileName';
-    await _exec('xmlstarlet ed -L -d "/gameList/game[path=\\"$gameFinal\\"]" "$gamelistFile" 2>/dev/null; xmlstarlet ed -L -s "/gameList" -t elem -n "game" -v "" -s "/gameList/game[last()]" -t elem -n "path" -v "$gameFinal" -s "/gameList/game[last()]" -t elem -n "name" -v "$name" -s "/gameList/game[last()]" -t elem -n "image" -v "./images/$git-s.png" -s "/gameList/game[last()]" -t elem -n "video" -v "./videos/$git-v.mp4" -s "/gameList/game[last()]" -t elem -n "marquee" -v "./images/$git-w.png" -s "/gameList/game[last()]" -t elem -n "thumbnail" -v "./images/$git-b.png" -s "/gameList/game[last()]" -t elem -n "rating" -v "1.00" -s "/gameList/game[last()]" -t elem -n "lang" -v "fr" -s "/gameList/game[last()]" -t elem -n "region" -v "eu" "$gamelistFile" 2>/dev/null || true');
+    // Écrit gameFinal et name dans des fichiers temp pour gérer les espaces/apostrophes
+    await _exec('printf "%s" "$gameFinal" > /tmp/_game_path.txt');
+    await _exec('printf "%s" "$name" > /tmp/_game_name.txt');
+    // Écrit le script xmlstarlet via printf (évite les problèmes de heredoc SSH)
+    await _exec('printf "#!/bin/bash\\n" > /tmp/_xmladd.sh');
+    await _exec('printf "GL=\\"%s\\"\\n" "$gamelistFile" >> /tmp/_xmladd.sh');
+    await _exec('printf "GP=\\"\$(cat /tmp/_game_path.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "GN=\\"\$(cat /tmp/_game_name.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "DESC=\\"\$(cat /tmp/_game_desc.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "DEV=\\"\$(cat /tmp/_game_dev.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "PUB=\\"\$(cat /tmp/_game_pub.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "GENRE=\\"\$(cat /tmp/_game_genre.txt)\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "IMG=\\"./images/$gitName-s.png\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "VID=\\"./videos/$gitName-v.mp4\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "MARQ=\\"./images/$gitName-w.png\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "THUMB=\\"./images/$gitName-b.png\\"\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "xmlstarlet ed -L -d \\"/gameList/game[path=\\\\\\"\\\$GP\\\\\\"]\\" \\"\\\$GL\\" 2>/dev/null\\n" >> /tmp/_xmladd.sh');
+    await _exec('printf "xmlstarlet ed -L -s \\"/gameList\\" -t elem -n \\"game\\" -v \\"\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"path\\" -v \\"\\\$GP\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"name\\" -v \\"\\\$GN\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"desc\\" -v \\"\\\$DESC\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"image\\" -v \\"\\\$IMG\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"video\\" -v \\"\\\$VID\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"marquee\\" -v \\"\\\$MARQ\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"thumbnail\\" -v \\"\\\$THUMB\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"rating\\" -v \\"1.00\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"developer\\" -v \\"\\\$DEV\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"publisher\\" -v \\"\\\$PUB\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"genre\\" -v \\"\\\$GENRE\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"lang\\" -v \\"fr\\" -s \\"/gameList/game[last()]\\" -t elem -n \\"region\\" -v \\"eu\\" \\"\\\$GL\\" 2>/dev/null || true\\n" >> /tmp/_xmladd.sh');
+    await _exec('chmod +x /tmp/_xmladd.sh && bash /tmp/_xmladd.sh');
+    await _exec('rm -f /tmp/_game_desc.txt /tmp/_game_dev.txt /tmp/_game_pub.txt /tmp/_game_genre.txt /tmp/_game_file_final.txt /tmp/_game_path.txt /tmp/_game_name.txt /tmp/_xmladd.sh /tmp/_wgame_script.sh');
 
     // 6. Rechargement
     _appendLog('🔄 Rechargement de la liste des jeux...');
