@@ -421,23 +421,49 @@ class _SystemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = system['fullname'] ?? system['name'] ?? '';
+    final gameCount = system['gamecount'];
+    final countStr = gameCount != null ? '$gameCount' : null;
     return Card(
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Center(
-            child: logo != null
-                ? Image.memory(logo!, fit: BoxFit.contain)
-                : Text(
-                    name.toString().toUpperCase(),
-                    style: TextStyle(color: accent, fontSize: 10,
-                        fontWeight: FontWeight.w700, letterSpacing: 0.5),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+          child: Stack(
+            children: [
+              Center(
+                child: logo != null
+                    ? Image.memory(logo!, fit: BoxFit.contain)
+                    : Text(
+                        name.toString().toUpperCase(),
+                        style: TextStyle(color: accent, fontSize: 10,
+                            fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+              ),
+              if (countStr != null)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: accent.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      countStr,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
+                ),
+            ],
           ),
         ),
       ),

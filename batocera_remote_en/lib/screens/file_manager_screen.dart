@@ -68,7 +68,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       return true;
     }
     if (_currentPath != '/userdata') {
-      Navigator.of(context).pop();
+      Navigator.maybePop(context);
       return true;
     }
     return false;
@@ -114,7 +114,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       });
       setState(() { _items = items; _currentPath = path; _loading = false; });
     } catch (e) {
-      setState(() { _error = 'Erreur : $e'; _loading = false; });
+      setState(() { _error = 'Error: $e'; _loading = false; });
     }
   }
 
@@ -128,7 +128,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   void _goUp() {
     if (_currentPath == '/userdata') return;
-    Navigator.of(context).pop();
+    Navigator.maybePop(context);
   }
 
 
@@ -177,14 +177,14 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     _clipboard = List.from(_selectedItems);
     _clipboardIsCut = false;
     setState(() => _selected.clear());
-    _showSnack('${_clipboard.length} élément(s) copié(s)');
+    _showSnack('${_clipboard.length} item(s) copied');
   }
 
   void _cutSelected() {
     _clipboard = List.from(_selectedItems);
     _clipboardIsCut = true;
     setState(() => _selected.clear());
-    _showSnack('${_clipboard.length} élément(s) coupé(s)');
+    _showSnack('${_clipboard.length} item(s) cut');
   }
 
   Future<void> _paste() async {
@@ -205,7 +205,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     }
     if (_clipboardIsCut) _clipboard.clear();
     await _loadDir(_currentPath);
-    _showSnack('$success élément(s) collé(s)');
+    _showSnack('$success item(s) pasted');
   }
 
   Future<void> _renameSelected() async {
@@ -217,13 +217,13 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Renommer'),
+        title: const Text('Rename'),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
-            hintText: 'Nouveau nom',
+            hintText: 'New name',
             hintStyle: TextStyle(color: Colors.white38),
           ),
           onSubmitted: (v) => Navigator.of(ctx, rootNavigator: true).pop(v),
@@ -231,11 +231,11 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(null),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(ctrl.text.trim()),
-            child: const Text('Renommer'),
+            child: const Text('Rename'),
           ),
         ],
       ),
@@ -258,17 +258,17 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Supprimer ?'),
-        content: Text('Supprimer $count élément(s) ?'),
+        title: const Text('Delete?'),
+        content: Text('Delete $count item(s)?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Supprimer'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -385,13 +385,13 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
         if (!mounted) { controller.dispose(); return; }
         Navigator.of(context, rootNavigator: true).pop();
-        Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+        Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => _FmVideoPlayer(filePath: localFile.path, title: item.name, preloadedController: controller),
         ));
       } catch (e) {
         if (mounted) {
           Navigator.of(context, rootNavigator: true).pop();
-          _showSnack('Erreur : $e', isError: true);
+          _showSnack('Error: $e', isError: true);
         }
       }
       return;
@@ -432,7 +432,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         await OpenFilex.open(localFile.path);
       }
     } catch (e) {
-      _showSnack('Erreur : $e', isError: true);
+      _showSnack('Error: $e', isError: true);
     } finally {
       if (mounted) setState(() => _downloading = null);
     }
@@ -494,8 +494,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             if (_isEditable(item.name))
               ListTile(
                 leading: const Icon(Icons.edit_rounded, color: Colors.amberAccent),
-                title: const Text('Modifier', style: TextStyle(color: Colors.white70)),
-                subtitle: const Text('Éditeur intégré + sauvegarde sur Batocera',
+                title: const Text('Edit', style: TextStyle(color: Colors.white70)),
+                subtitle: const Text('Built-in editor + save to Batocera',
                     style: TextStyle(color: Colors.white38, fontSize: 11)),
                 onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _openEditor(item); },
               ),
@@ -508,9 +508,9 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                   color: Colors.greenAccent,
                 ),
                 title: Text(
-                  _isImage(item.name) ? 'Voir l\'image'
-                      : _isVideo(item.name) ? 'Lire la vidéo'
-                      : 'Ouvrir sur le téléphone',
+                  _isImage(item.name) ? 'View image'
+                      : _isVideo(item.name) ? 'Play video'
+                      : 'Open on phone',
                   style: const TextStyle(color: Colors.white70),
                 ),
                 onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _openFile(item); },
@@ -518,18 +518,18 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             if (_isText(item.name) && !_isEditable(item.name))
               ListTile(
                 leading: const Icon(Icons.visibility_rounded, color: Colors.blueAccent),
-                title: const Text('Voir dans l\'app', style: TextStyle(color: Colors.white70)),
+                title: const Text('View in app', style: TextStyle(color: Colors.white70)),
                 onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _viewFileInApp(item); },
               ),
             if (!_isOpenable(item.name))
               ListTile(
                 leading: const Icon(Icons.visibility_rounded, color: Colors.blueAccent),
-                title: const Text('Voir le contenu', style: TextStyle(color: Colors.white70)),
+                title: const Text('View content', style: TextStyle(color: Colors.white70)),
                 onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _viewFileInApp(item); },
               ),
             ListTile(
               leading: const Icon(Icons.delete_rounded, color: Colors.redAccent),
-              title: const Text('Supprimer', style: TextStyle(color: Colors.white70)),
+              title: const Text('Delete', style: TextStyle(color: Colors.white70)),
               onTap: () {
                 Navigator.of(ctx, rootNavigator: true).pop();
                 setState(() => _selected.add(item.fullPath));
@@ -553,9 +553,9 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       if (fileType.contains('text')) {
         content = await state.ssh.readFile(item.fullPath);
       } else {
-        content = '[Fichier binaire — aperçu non disponible]';
+        content = '[Binary file — preview not available]';
       }
-    } catch (e) { content = 'Erreur : $e'; }
+    } catch (e) { content = 'Error: $e'; }
     finally { if (mounted) setState(() => _loading = false); }
     if (!mounted) return;
     final capturedContent = content;
@@ -586,7 +586,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             const Divider(color: Colors.white10, height: 1),
             Expanded(child: SingleChildScrollView(
               controller: scrollCtrl, padding: const EdgeInsets.all(16),
-              child: SelectableText(capturedContent.isEmpty ? '(fichier vide)' : capturedContent,
+              child: SelectableText(capturedContent.isEmpty ? '(empty file)' : capturedContent,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.white70, height: 1.6)),
             )),
           ],
@@ -642,16 +642,16 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                       child: const Icon(Icons.close_rounded, color: Colors.white54),
                     ),
                     const SizedBox(width: 12),
-                    Text('$selCount sélectionné(s)',
+                    Text('$selCount selected',
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 18)),
                     const Spacer(),
                     IconButton(
                       icon: Icon(Icons.select_all_rounded, color: Colors.white38, size: 20),
                       onPressed: _selectAll,
-                      tooltip: 'Tout sélectionner',
+                      tooltip: 'Select all',
                     ),
                   ] else ...[
-                    Text('Files', style: Theme.of(context).textTheme.headlineMedium),
+                    Text('Fichiers', style: Theme.of(context).textTheme.headlineMedium),
                     const Spacer(),
                     if (_loading || _downloading != null || _uploading)
                       _uploading
@@ -791,7 +791,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                   ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.wifi_off_rounded, size: 48, color: Colors.white.withOpacity(0.15)),
                       const SizedBox(height: 12),
-                      Text('Non connecté', style: Theme.of(context).textTheme.bodyMedium),
+                      Text('Not connected', style: Theme.of(context).textTheme.bodyMedium),
                     ]))
                   : _error != null
                       ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -800,13 +800,13 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                           ElevatedButton.icon(
                             onPressed: () => _loadDir(_currentPath),
                             icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Réessayer'),
+                            label: const Text('Retry'),
                           ),
                         ]))
                       : _loading && _items.isEmpty
                           ? Center(child: CircularProgressIndicator(color: accent))
                           : _items.isEmpty
-                              ? Center(child: Text('Dossier vide', style: Theme.of(context).textTheme.bodyMedium))
+                              ? Center(child: Text('Empty folder', style: Theme.of(context).textTheme.bodyMedium))
                               : ListView.builder(
                                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
                                   itemCount: _items.length,
@@ -1002,7 +1002,7 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
       setState(() { _modified = false; _saving = false; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('Fichier sauvegardé !', style: TextStyle(color: Colors.white)),
+          content: const Text('File saved!', style: TextStyle(color: Colors.white)),
           backgroundColor: const Color(0xFF1C2230),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1012,7 +1012,7 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
       setState(() => _saving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent.shade700,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1027,10 +1027,10 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Modifications non sauvegardées'),
-        content: const Text('Quitter sans sauvegarder ?'),
+        title: const Text('Unsaved changes'),
+        content: const Text('Quit without saving?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Quitter', style: TextStyle(color: Colors.redAccent)),
@@ -1039,9 +1039,9 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
             onPressed: () async {
               Navigator.pop(ctx, false);
               await _save();
-              if (mounted) Navigator.of(context).pop();
+              if (mounted) Navigator.maybePop(context);
             },
-            child: const Text('Sauvegarder'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -1057,7 +1057,7 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
       onPopInvoked: (didPop) async {
         if (!didPop) {
           final shouldPop = await _onWillPop();
-          if (shouldPop && context.mounted) Navigator.of(context).pop();
+          if (shouldPop && context.mounted) Navigator.maybePop(context);
         }
       },
       child: Scaffold(
@@ -1086,7 +1086,7 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
                       color: Colors.amberAccent.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text('Modifié', style: TextStyle(color: Colors.amberAccent, fontSize: 11)),
+                    child: const Text('Modified', style: TextStyle(color: Colors.amberAccent, fontSize: 11)),
                   ),
                 ),
               ),
@@ -1216,7 +1216,7 @@ class _FileListTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
                     Text(
-                      item.isDir ? 'Dossier • ${item.date}' : '${item.size} • ${item.date}',
+                      item.isDir ? 'Folder • ${item.date}' : '${item.size} • ${item.date}',
                       style: const TextStyle(color: Colors.white38, fontSize: 11),
                     ),
                   ],
@@ -1341,31 +1341,29 @@ class _FmVideoPlayer extends StatefulWidget {
   final String title;
   final VideoPlayerController? preloadedController;
   const _FmVideoPlayer({this.filePath, this.streamUrl, required this.title, this.preloadedController});
-
   @override
   State<_FmVideoPlayer> createState() => _FmVideoPlayerState();
 }
 
 class _FmVideoPlayerState extends State<_FmVideoPlayer> {
   late VideoPlayerController _controller;
-  bool _initialized = false;
-
   @override
   void initState() {
     super.initState();
     if (widget.preloadedController != null) {
       _controller = widget.preloadedController!;
-      _initialized = true;
       _controller.play();
     } else {
       _controller = (widget.streamUrl != null
           ? VideoPlayerController.networkUrl(Uri.parse(widget.streamUrl!))
           : VideoPlayerController.file(File(widget.filePath!)))
         ..initialize().then((_) {
-          if (mounted) { setState(() => _initialized = true); _controller.play(); }
+          if (mounted) { setState(() {}); _controller.play(); }
         });
     }
     _controller.setLooping(false);
+    // Listener pour rebuild quand isInitialized change
+    _controller.addListener(() { if (mounted) setState(() {}); });
   }
 
   @override
@@ -1381,7 +1379,7 @@ class _FmVideoPlayerState extends State<_FmVideoPlayer> {
         elevation: 0,
         title: Text(widget.title, style: const TextStyle(fontSize: 14)),
       ),
-      body: _initialized
+      body: _controller.value.isInitialized
           ? SafeArea(
               child: Column(children: [
                 Expanded(

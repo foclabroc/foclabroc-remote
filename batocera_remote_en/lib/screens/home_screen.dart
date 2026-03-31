@@ -22,13 +22,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _popLock = false; // prevents double MIUI back calls
 
   static const _tabs = [
-    _TabInfo(icon: Icons.wifi_rounded,           label: 'Connection'),
+    _TabInfo(icon: Icons.wifi_rounded,           label: 'Connexion'),
     _TabInfo(icon: Icons.sports_esports_rounded, label: 'Current Game'),
     _TabInfo(icon: Icons.library_books_rounded,  label: 'Library'),
     _TabInfo(icon: Icons.camera_alt_rounded,     label: 'Capture'),
-    _TabInfo(icon: Icons.terminal_rounded,       label: 'Terminal SSH'),
+    _TabInfo(icon: Icons.terminal_rounded,       label: 'SSH Terminal'),
     _TabInfo(icon: Icons.folder_rounded,         label: 'Files'),
     _TabInfo(icon: Icons.settings_rounded,       label: 'System'),
     _TabInfo(icon: Icons.wine_bar_rounded,       label: 'Wine Tools'),
@@ -52,20 +53,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Future<bool> didPopRoute() async {
-    // Intercepte le bouton retour Android AVANT Flutter
-    final drawerState = _scaffoldKey.currentState;
-    if (drawerState != null && drawerState.isDrawerOpen) {
-      drawerState.closeDrawer();
+    if (_popLock) return true;
+    _popLock = true;
+    try {
+      // Intercepte le bouton retour Android AVANT Flutter
+      final drawerState = _scaffoldKey.currentState;
+      if (drawerState != null && drawerState.isDrawerOpen) {
+        drawerState.closeDrawer();
+        return true;
+      }
+      if (TabBackHandler.handle(_index)) return true;
+
+      // Navigator de l'onglet
+      final nav = _navigatorKeys[_index].currentState;
+      if (nav != null) {
+        try {
+          final didPop = await nav.maybePop();
+          if (didPop) return true;
+        } catch (_) {
+          return true;
+        }
+      }
+      drawerState?.openDrawer();
       return true;
-    }
-    if (TabBackHandler.handle(_index)) return true;
-    final nav = _navigatorKeys[_index].currentState;
-    if (nav != null && nav.canPop()) {
-      nav.pop();
+    } catch (_) {
       return true;
+    } finally {
+      await Future.delayed(const Duration(milliseconds: 400));
+      _popLock = false;
     }
-    drawerState?.openDrawer();
-    return true; // empêche de quitter l'app
   }
 
   Widget _buildScreen(int index) => Navigator(
@@ -84,6 +100,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   );
 
   void _goTo(int i) {
+    // Close virtual keyboard when switching tabs
+    FocusManager.instance.primaryFocus?.unfocus();
     Navigator.of(context).pop();
     setState(() => _index = i);
   }
@@ -185,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const Divider(color: Colors.white10, height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('v1.7',
+            child: Text('v1.8',
                 style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 11)),
           ),
         ]),

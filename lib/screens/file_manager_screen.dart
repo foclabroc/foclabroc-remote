@@ -68,7 +68,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       return true;
     }
     if (_currentPath != '/userdata') {
-      Navigator.of(context).pop();
+      Navigator.maybePop(context);
       return true;
     }
     return false;
@@ -128,7 +128,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   void _goUp() {
     if (_currentPath == '/userdata') return;
-    Navigator.of(context).pop();
+    Navigator.maybePop(context);
   }
 
 
@@ -385,7 +385,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
         if (!mounted) { controller.dispose(); return; }
         Navigator.of(context, rootNavigator: true).pop();
-        Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+        Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => _FmVideoPlayer(filePath: localFile.path, title: item.name, preloadedController: controller),
         ));
       } catch (e) {
@@ -1039,7 +1039,7 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
             onPressed: () async {
               Navigator.pop(ctx, false);
               await _save();
-              if (mounted) Navigator.of(context).pop();
+              if (mounted) Navigator.maybePop(context);
             },
             child: const Text('Sauvegarder'),
           ),
@@ -1057,7 +1057,7 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
       onPopInvoked: (didPop) async {
         if (!didPop) {
           final shouldPop = await _onWillPop();
-          if (shouldPop && context.mounted) Navigator.of(context).pop();
+          if (shouldPop && context.mounted) Navigator.maybePop(context);
         }
       },
       child: Scaffold(
@@ -1341,31 +1341,29 @@ class _FmVideoPlayer extends StatefulWidget {
   final String title;
   final VideoPlayerController? preloadedController;
   const _FmVideoPlayer({this.filePath, this.streamUrl, required this.title, this.preloadedController});
-
   @override
   State<_FmVideoPlayer> createState() => _FmVideoPlayerState();
 }
 
 class _FmVideoPlayerState extends State<_FmVideoPlayer> {
   late VideoPlayerController _controller;
-  bool _initialized = false;
-
   @override
   void initState() {
     super.initState();
     if (widget.preloadedController != null) {
       _controller = widget.preloadedController!;
-      _initialized = true;
       _controller.play();
     } else {
       _controller = (widget.streamUrl != null
           ? VideoPlayerController.networkUrl(Uri.parse(widget.streamUrl!))
           : VideoPlayerController.file(File(widget.filePath!)))
         ..initialize().then((_) {
-          if (mounted) { setState(() => _initialized = true); _controller.play(); }
+          if (mounted) { setState(() {}); _controller.play(); }
         });
     }
     _controller.setLooping(false);
+    // Listener pour rebuild quand isInitialized change
+    _controller.addListener(() { if (mounted) setState(() {}); });
   }
 
   @override
@@ -1381,7 +1379,7 @@ class _FmVideoPlayerState extends State<_FmVideoPlayer> {
         elevation: 0,
         title: Text(widget.title, style: const TextStyle(fontSize: 14)),
       ),
-      body: _initialized
+      body: _controller.value.isInitialized
           ? SafeArea(
               child: Column(children: [
                 Expanded(

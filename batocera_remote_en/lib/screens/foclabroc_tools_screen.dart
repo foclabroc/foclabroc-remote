@@ -63,6 +63,36 @@ class FoclabroctoolsScreen extends StatelessWidget {
                       builder: (_) => const _WindowsGamesScreen(),
                     )),
                   ),
+                  const SizedBox(height: 12),
+                  _FoclabrocToolCard(
+                    icon: Icons.play_circle_rounded,
+                    title: 'YouTube TV',
+                    subtitle: 'Install YouTube TV in Ports\n(Batocera x86_64)',
+                    color: Colors.redAccent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const _YoutubeTvInstallScreen(),
+                    )),
+                  ),
+                  const SizedBox(height: 12),
+                  _FoclabrocToolCard(
+                    icon: Icons.build_rounded,
+                    title: 'Foclabroc Toolbox → Ports',
+                    subtitle: 'Install the Toolbox in Ports\nto access it from Batocera',
+                    color: Colors.amberAccent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const _FoclabrocToolboxInstallScreen(),
+                    )),
+                  ),
+                  const SizedBox(height: 12),
+                  _FoclabrocToolCard(
+                    icon: Icons.archive_rounded,
+                    title: 'RGSX',
+                    subtitle: 'Install RetroGameSets game downloader\nin Ports',
+                    color: Colors.cyanAccent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const _RgsxInstallScreen(),
+                    )),
+                  ),
                 ],
               ),
             ),
@@ -160,7 +190,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
         title: const Row(children: [
           Icon(Icons.view_in_ar_rounded, color: Colors.tealAccent, size: 22),
           SizedBox(width: 10),
-          Flexible(child: Text('Installer NES3D ?', overflow: TextOverflow.ellipsis)),
+          Flexible(child: Text('Install NES3D ?', overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -356,7 +386,7 @@ class _Nes3dInstallScreenState extends State<_Nes3dInstallScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
               child: Row(children: [
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.maybePop(context),
                   child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
                 ),
                 const SizedBox(width: 12),
@@ -525,7 +555,7 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
         title: const Row(children: [
           Icon(Icons.tv_rounded, color: Colors.deepPurpleAccent, size: 22),
           SizedBox(width: 10),
-          Flexible(child: Text('Installer le pack Kodi ?',
+          Flexible(child: Text('Install Kodi Pack ?',
               overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(
@@ -673,7 +703,7 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
               child: Row(children: [
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.maybePop(context),
                   child: const Icon(Icons.arrow_back_rounded,
                       color: Colors.white54),
                 ),
@@ -770,8 +800,8 @@ class _KodiInstallScreenState extends State<_KodiInstallScreen> {
                                     strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.download_rounded),
                         label: Text(_running
-                            ? 'Installation en cours...'
-                            : 'Installer le pack Kodi'),
+                            ? 'Install in progress...'
+                            : 'Install Kodi Pack'),
                       ),
                     ),
                   ]),
@@ -870,7 +900,7 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
         title: const Row(children: [
           Icon(Icons.music_note_rounded, color: Colors.pinkAccent, size: 22),
           SizedBox(width: 10),
-          Flexible(child: Text('Installer le Pack Music ?',
+          Flexible(child: Text('Install Music Pack ?',
               overflow: TextOverflow.ellipsis)),
         ]),
         content: Column(
@@ -1016,7 +1046,7 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
               child: Row(children: [
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.maybePop(context),
                   child: const Icon(Icons.arrow_back_rounded,
                       color: Colors.white54),
                 ),
@@ -1108,8 +1138,8 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
                                     strokeWidth: 2, color: Colors.white))
                             : const Icon(Icons.download_rounded),
                         label: Text(_running
-                            ? 'Installation en cours...'
-                            : 'Installer le Pack Music'),
+                            ? 'Install in progress...'
+                            : 'Install Music Pack'),
                       ),
                     ),
                   ]),
@@ -1192,7 +1222,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     {'name': 'Donkey Kong Advanced',   'desc': 'A remake of the classic arcade game.',                            'size': '19.4 MB',  'git': 'dka',          'script': 'dka.sh'},
     {'name': 'TMNT Rescue Palooza',    'desc': 'Beat-em-up in the TMNT universe.',                    'size': '168 MB',   'git': 'tmntrp',       'script': 'tmntrp.sh'},
     {'name': 'Spelunky',               'desc': '2D platformer, play as a spelunker.',                'size': '24.2 MB',  'git': 'spelunky',     'script': 'spelunky.sh'},
-    {'name': 'Sonic Triple Trouble',   'desc': 'Fangame of the Game Gear Sonic Triple Trouble..',                    'size': '115 MB',   'git': 'stt',          'script': 'stt.sh'},
+    {'name': 'Sonic Triple Trouble',   'desc': 'Fangame of the Game Gear Sonic Triple Trouble.',                    'size': '115 MB',   'git': 'stt',          'script': 'stt.sh'},
     {'name': 'Pokemon Uranium',        'desc': 'Pokemon fangame set in the Tandor region.',                         'size': '332 MB',   'git': 'pokeura',      'script': 'pokeura.sh'},
     {'name': 'MiniDoom 2',             'desc': 'DOOM transformed into an action platformer.',                 'size': '114 MB',   'git': 'minidoom2',    'script': 'minidoom2.sh'},
     {'name': 'AM2R',                   'desc': 'Another Metroid 2 Remake, unofficial remake.',                    'size': '85.6 MB',  'git': 'am2r',         'script': 'am2r.sh'},
@@ -1305,13 +1335,13 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     }
     _appendLog('✅ URL : $fileUrl');
 
-    // Also get .keys file URL if present
+    // Récupère aussi l'URL du fichier .keys si présent
     final keyUrlRaw = await _exec(
       'curl -sL "$scriptUrl" | grep -m1 \'URL_TELECHARGEMENT_KEY=\' | head -1 | sed \'s/.*URL_TELECHARGEMENT_KEY="\\(.*\\)"/\\1/\''
     );
     final keyUrl = keyUrlRaw.trim();
 
-    // Get GIT_NAME from script (used for images)
+    // Récupère le GIT_NAME depuis le script (utilisé pour les images)
     final gitNameRaw = await _exec(
       'curl -sL "$scriptUrl" | grep -m1 \'GIT_NAME=\' | head -1 | sed \'s/.*GIT_NAME="\\(.*\\)"/\\1/\''
     );
@@ -1321,7 +1351,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     final destFile = '$_winDir/$fileName';
     final ext = fileName.contains('.wsquashfs') ? 'wsquashfs' : 'zip';
 
-    // Download script on Batocera and extract metadata directly (no Dart transit)
+    // Télécharge le script sur Batocera et extrait les métadonnées directement (pas de transit Dart)
     await _exec('curl -sL "$scriptUrl" > /tmp/_wgame_script.sh 2>/dev/null');
     await _exec('grep -m1 "^DESC=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_desc.txt');
     await _exec('grep -m1 "^DEV=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_dev.txt');
@@ -1329,7 +1359,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     await _exec('grep -m1 "^GENRE=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_genre.txt');
     await _exec('grep -m1 "^GAME_FILE_FINAL=" /tmp/_wgame_script.sh | cut -d\'"\' -f2 > /tmp/_game_file_final.txt');
     final gameFileFinal = (await _exec('cat /tmp/_game_file_final.txt')).trim();
-    // Determine gamelist path: GAME_FILE_FINAL first, then fileName (wsquashfs) or git (zip)
+    // Détermine le path gamelist : GAME_FILE_FINAL en priorité, sinon fileName (wsquashfs) ou git (zip)
     String gameFinalStr;
     if (gameFileFinal.isNotEmpty) {
       gameFinalStr = './$gameFileFinal';
@@ -1428,7 +1458,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     // Écrit gameFinal et name dans des fichiers temp pour gérer les espaces/apostrophes
     await _exec('printf "%s" "$gameFinal" > /tmp/_game_path.txt');
     await _exec('printf "%s" "$name" > /tmp/_game_name.txt');
-    // Write xmlstarlet script via printf (avoids SSH heredoc issues)
+    // Écrit le script xmlstarlet via printf (évite les problèmes de heredoc SSH)
     await _exec('printf "#!/bin/bash\\n" > /tmp/_xmladd.sh');
     await _exec('printf "GL=\\"%s\\"\\n" "$gamelistFile" >> /tmp/_xmladd.sh');
     await _exec('printf "GP=\\"\$(cat /tmp/_game_path.txt)\\"\\n" >> /tmp/_xmladd.sh');
@@ -1485,7 +1515,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
               child: Row(children: [
                 GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.maybePop(context),
                   child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
                 ),
                 const SizedBox(width: 12),
@@ -1499,7 +1529,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-              child: Text('${_games.length} games available',
+              child: Text('${_games.length} jeux disponibles',
                   style: const TextStyle(color: Colors.white38, fontSize: 11)),
             ),
             Expanded(
@@ -1592,6 +1622,991 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
                   ),
               ]),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── YouTube TV Install ────────────────────────────────────────────────────────
+
+class _YoutubeTvInstallScreen extends StatefulWidget {
+  const _YoutubeTvInstallScreen();
+  @override
+  State<_YoutubeTvInstallScreen> createState() => _YoutubeTvInstallScreenState();
+}
+
+class _YoutubeTvInstallScreenState extends State<_YoutubeTvInstallScreen> {
+  bool _running = false;
+  String _log = '';
+
+  static const _appUrl =
+      'https://github.com/foclabroc/toolbox/raw/refs/heads/main/youtubetv/extra/YouTubeonTV-linux-x64.zip';
+  static const _depUrl =
+      'https://github.com/foclabroc/toolbox/raw/refs/heads/main/gparted/extra/dep.zip';
+  static const _keysUrl =
+      'https://raw.githubusercontent.com/foclabroc/toolbox/refs/heads/main/youtubetv/extra/YoutubeTV.sh.keys';
+  static const _imgBase =
+      'https://raw.githubusercontent.com/foclabroc/toolbox/refs/heads/main/youtubetv/extra';
+  static const _appDir = '/userdata/system/pro/youtubetv';
+  static const _portsDir = '/userdata/roms/ports';
+
+  Future<String> _exec(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute(cmd);
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      return String.fromCharCodes(bytes).trim();
+    } catch (_) { return ''; }
+  }
+
+  void _appendLog(String msg) => setState(() => _log += '$msg\n');
+
+  Future<void> _launch() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.play_circle_rounded, color: Colors.redAccent, size: 22),
+          SizedBox(width: 10),
+          Flexible(child: Text('Install YouTube TV?', overflow: TextOverflow.ellipsis)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+            'Installs YouTube TV in the Batocera Ports menu.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+              SizedBox(width: 6),
+              Expanded(child: Text(
+                'Batocera x86_64 only.',
+                style: TextStyle(color: Colors.redAccent, fontSize: 11),
+              )),
+            ]),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            child: const Text('Install'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() { _running = true; _log = ''; });
+
+    // 1. Suppression ancienne installation
+    _appendLog('🗑️ Removing old installation...');
+    await _exec('rm -rf $_appDir /userdata/system/pro/youtube-tv 2>/dev/null');
+    await _exec('mkdir -p "$_appDir/temp"');
+
+    // 2. Téléchargement de l\'app avec progression
+    _appendLog('\n⬇️ Downloading YouTube TV...');
+    final tmpZip = '$_appDir/temp/youtube-tv.zip';
+    await _exec('rm -f /tmp/_ytv_done');
+    await _exec('wget -q --tries=3 --timeout=120 -O "$tmpZip" "$_appUrl" && touch /tmp/_ytv_done || touch /tmp/_ytv_done &');
+
+    final totalRaw = await _exec(
+        'curl -sIL "$_appUrl" | grep -i content-length | tail -1 | awk \'{print \$2}\' | tr -d \$\'\\r\'');
+    final totalBytes = int.tryParse(totalRaw.trim()) ?? 0;
+    final totalMb = totalBytes > 0 ? (totalBytes / 1024 / 1024).toStringAsFixed(0) : '?';
+
+    while (true) {
+      if (!mounted) break;
+      await Future.delayed(const Duration(seconds: 1));
+      final szRaw = await _exec('stat -c%s "$tmpZip" 2>/dev/null || echo 0');
+      final sz = int.tryParse(szRaw.trim()) ?? 0;
+      final nowMb = (sz / 1024 / 1024).toStringAsFixed(1);
+      final pct = totalBytes > 0 ? (sz * 100 ~/ totalBytes) : 0;
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb MB';
+      setState(() {
+        final lines = _log.split('\n');
+        if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
+          lines[lines.length - 2] = '  ↓ $nowMb / $totalMb Mo  [$bar]';
+          _log = lines.join('\n');
+        } else {
+          _log += '  ↓ $nowMb / $totalMb Mo  [$bar]\n';
+        }
+      });
+      final done = await _exec('[ -f /tmp/_ytv_done ] && echo yes || echo no');
+      if (done.trim() == 'yes') break;
+    }
+    await _exec('rm -f /tmp/_ytv_done');
+    if (!mounted) return;
+
+    final szCheck = int.tryParse((await _exec('stat -c%s "$tmpZip" 2>/dev/null || echo 0')).trim()) ?? 0;
+    if (szCheck < 100000) {
+      _appendLog('❌ Download failed.');
+      setState(() => _running = false);
+      return;
+    }
+    _appendLog("✅ Download complete (${(szCheck / 1024 / 1024).toStringAsFixed(0)} MB).");
+
+    // 3. Extraction
+    _appendLog('\n📦 Extracting...');
+    await _exec('unzip -o "$tmpZip" -d "$_appDir/temp/extracted" 2>/dev/null');
+    await _exec('mv "$_appDir/temp/extracted/"*/* "$_appDir/" 2>/dev/null || true');
+    await _exec('chmod a+x "$_appDir/YouTubeonTV" 2>/dev/null || true');
+    _appendLog('✅ Extraction complete.');
+
+    // 4. Création du Launcher
+    _appendLog('\n🔧 Creating Launcher...');
+    await _exec(
+      'printf "%s\\n" "#!/bin/bash" > "$_appDir/Launcher" && '
+      'printf "%s\\n" "unclutter-remote -s" >> "$_appDir/Launcher" && '
+      'printf "%s\\n" "sed -i \\"s,!appArgs.disableOldBuildWarning,1 == 0,g\\" /userdata/system/pro/youtubetv/resources/app/lib/main.js 2>/dev/null" >> "$_appDir/Launcher" && '
+      'printf "%s\\n" "mkdir /userdata/system/pro/youtubetv/home 2>/dev/null; mkdir /userdata/system/pro/youtubetv/config 2>/dev/null" >> "$_appDir/Launcher" && '
+      'printf "%s\\n" \'LD_LIBRARY_PATH="/userdata/system/pro/.dep:\${LD_LIBRARY_PATH}" HOME=/userdata/system/pro/youtubetv/home XDG_CONFIG_HOME=/userdata/system/pro/youtubetv/config QT_SCALE_FACTOR="1" GDK_SCALE="1" XDG_DATA_HOME=/userdata/system/pro/youtubetv/home DISPLAY=:0.0 /userdata/system/pro/youtubetv/YouTubeonTV --no-sandbox --test-type "\${@}"\' >> "$_appDir/Launcher" && '
+      'chmod a+x "$_appDir/Launcher"'
+    );
+
+    // 5. Fichiers .dep
+    _appendLog('⬇️ Downloading dependencies...');
+    await _exec('mkdir -p /userdata/system/pro/.dep');
+    await _exec('wget -q -O /userdata/system/pro/.dep/dep.zip "$_depUrl" && unzip -o -qq /userdata/system/pro/.dep/dep.zip -d /userdata/system/pro/.dep/ 2>/dev/null && rm -f /userdata/system/pro/.dep/dep.zip');
+
+    // 6. Script Ports
+    _appendLog('\n📝 Creating Ports script...');
+    await _exec('mkdir -p "$_portsDir"');
+    await _exec('rm -f "$_portsDir/YouTubeTV.sh" "$_portsDir/YoutubeTV.sh" "$_portsDir/YoutubeTV.sh.keys" "$_portsDir/YouTubeTV.sh.keys"');
+    await _exec(
+      'printf "%s\\n" "#!/bin/bash" > "$_portsDir/YoutubeTV.sh" && '
+      'printf "%s\\n" "unclutter-remote -s" >> "$_portsDir/YoutubeTV.sh" && '
+      'printf "%s\\n" "killall -9 YouTubeonTV && unclutter-remote -s" >> "$_portsDir/YoutubeTV.sh" && '
+      'printf "%s\\n" "/userdata/system/pro/youtubetv/Launcher" >> "$_portsDir/YoutubeTV.sh" && '
+      'chmod +x "$_portsDir/YoutubeTV.sh"'
+    );
+
+    // 7. Fichier keys
+    await _exec('curl -sL -o "$_portsDir/YoutubeTV.sh.keys" "$_keysUrl"');
+
+    // 8. Images
+    _appendLog('\n🖼️ Downloading images...');
+    await _exec('mkdir -p "$_portsDir/images"');
+    await _exec('curl -sL -o "$_portsDir/images/YoutubeTV-screenshot.png" "$_imgBase/YoutubeTV-screenshot.png"');
+    await _exec('curl -sL -o "$_portsDir/images/YoutubeTV-wheel.png" "$_imgBase/YoutubeTV-wheel.png"');
+    await _exec('curl -sL -o "$_portsDir/images/YoutubeTV-cartridge.png" "$_imgBase/YoutubeTV-cartridge.png"');
+
+    // 9. Gamelist
+    _appendLog('\n📋 Updating gamelist...');
+    final gamelistFile = '$_portsDir/gamelist.xml';
+    final xmlBin = '/userdata/system/pro/extra/xmlstarlet';
+    final xmlLink = '/usr/bin/xmlstarlet';
+    await _exec('[ -f "$gamelistFile" ] || echo \'<?xml version="1.0" encoding="UTF-8"?><gameList></gameList>\' > "$gamelistFile"');
+    await _exec('[ -f "$xmlBin" ] || (mkdir -p /userdata/system/pro/extra && curl -sL "https://github.com/foclabroc/toolbox/raw/refs/heads/main/app/xmlstarlet" -o "$xmlBin" && chmod +x "$xmlBin" && ln -sf "$xmlBin" "$xmlLink")');
+    await _exec('[ -L "$xmlLink" ] || ln -sf "$xmlBin" "$xmlLink"');
+    await _exec('xmlstarlet ed -L -d "/gameList/game[path=\'./YoutubeTV.sh\']" "$gamelistFile" 2>/dev/null; '
+      'xmlstarlet ed -L '
+      '-s "/gameList" -t elem -n "game" -v "" '
+      '-s "/gameList/game[last()]" -t elem -n "path" -v "./YoutubeTV.sh" '
+      '-s "/gameList/game[last()]" -t elem -n "name" -v "Youtube TV" '
+      '-s "/gameList/game[last()]" -t elem -n "desc" -v "YouTube TV pour Batocera Linux." '
+      '-s "/gameList/game[last()]" -t elem -n "developer" -v "Youtube" '
+      '-s "/gameList/game[last()]" -t elem -n "publisher" -v "Youtube" '
+      '-s "/gameList/game[last()]" -t elem -n "genre" -v "Divertissement" '
+      '-s "/gameList/game[last()]" -t elem -n "rating" -v "1.00" '
+      '-s "/gameList/game[last()]" -t elem -n "region" -v "eu" '
+      '-s "/gameList/game[last()]" -t elem -n "lang" -v "fr" '
+      '-s "/gameList/game[last()]" -t elem -n "image" -v "./images/YoutubeTV-screenshot.png" '
+      '-s "/gameList/game[last()]" -t elem -n "wheel" -v "./images/YoutubeTV-wheel.png" '
+      '-s "/gameList/game[last()]" -t elem -n "thumbnail" -v "./images/YoutubeTV-cartridge.png" '
+      '"$gamelistFile" 2>/dev/null || true');
+
+    // 10. Nettoyage + rechargement
+    _appendLog('\n🧹 Cleaning up...');
+    await _exec('rm -rf "$_appDir/temp"');
+    _appendLog('🔄 Reloading game list...');
+    await _exec('curl -s http://127.0.0.1:1234/reloadgames');
+
+    _appendLog('\n✅ YouTube TV installed successfully!');
+    setState(() => _running = false);
+
+    if (mounted) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
+            SizedBox(width: 10),
+            Flexible(child: Text('YouTube TV installed!')),
+          ]),
+          content: const Text(
+            'YouTube TV is available in the Ports menu.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          actions: [
+            ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      if (mounted) setState(() => _log = '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.maybePop(context),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
+                ),
+                const SizedBox(width: 12),
+                Text('YouTube TV',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 22)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Row(children: [
+                      Icon(Icons.play_circle_rounded, color: Colors.redAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text('YouTube TV for Batocera',
+                          style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700, fontSize: 15)),
+                    ]),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Installs YouTube TV in the Ports menu. Access millions of videos from your Batocera.',
+                      style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final e in ['Ports', 'x86_64', 'YouTube'])
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.redAccent.withOpacity(0.25)),
+                          ),
+                          child: Text(e, style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
+                    ]),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+                        SizedBox(width: 6),
+                        Text('Batocera x86_64 only',
+                            style: TextStyle(color: Colors.redAccent, fontSize: 11)),
+                      ]),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _running ? null : _launch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          disabledBackgroundColor: Colors.white12,
+                        ),
+                        icon: _running
+                            ? const SizedBox(width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.download_rounded),
+                        label: Text(_running ? 'Installing...' : 'Install YouTube TV'),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+            if (_running) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: const LinearProgressIndicator(
+                    backgroundColor: Color(0x14FFFFFF),
+                    valueColor: AlwaysStoppedAnimation(Colors.redAccent),
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+            ],
+            if (_log.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0C10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      child: Text(_log,
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: Colors.white70, height: 1.5)),
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Foclabroc Toolbox Ports Install ─────────────────────────────────────────
+
+class _FoclabrocToolboxInstallScreen extends StatefulWidget {
+  const _FoclabrocToolboxInstallScreen();
+  @override
+  State<_FoclabrocToolboxInstallScreen> createState() => _FoclabrocToolboxInstallScreenState();
+}
+
+class _FoclabrocToolboxInstallScreenState extends State<_FoclabrocToolboxInstallScreen> {
+  bool _running = false;
+  String _log = '';
+
+  static const _portsDir = '/userdata/roms/ports';
+  static const _imgBase = 'https://raw.githubusercontent.com/foclabroc/toolbox/refs/heads/main/app';
+
+  Future<String> _exec(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute(cmd);
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      return String.fromCharCodes(bytes).trim();
+    } catch (_) { return ''; }
+  }
+
+  void _appendLog(String msg) => setState(() => _log += '$msg\n');
+
+  Future<void> _launch() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.build_rounded, color: Colors.amberAccent, size: 22),
+          SizedBox(width: 10),
+          Flexible(child: Text('Install in Ports?', overflow: TextOverflow.ellipsis)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+            'Installs Foclabroc Toolbox in the Batocera Ports menu.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.amberAccent.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.amberAccent.withOpacity(0.2)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.info_rounded, color: Colors.amberAccent, size: 14),
+              SizedBox(width: 6),
+              Expanded(child: Text(
+                'EmulationStation will restart at the end.',
+                style: TextStyle(color: Colors.amberAccent, fontSize: 11),
+              )),
+            ]),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amberAccent, foregroundColor: Colors.black),
+            child: const Text('Install'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() { _running = true; _log = ''; });
+
+    // 1. Vérification architecture
+    _appendLog('🔍 Checking architecture...');
+    final arch = await _exec('uname -m');
+    if (arch.trim() != 'x86_64') {
+      _appendLog('❌ Unsupported architecture: $arch (x86_64 required).');
+      setState(() => _running = false);
+      return;
+    }
+    _appendLog('✅ x86_64 architecture detected.');
+
+    // 2. Création dossier pro si absent
+    await _exec('mkdir -p /userdata/system/pro');
+
+    // 3. Téléchargement du script et des keys
+    _appendLog('\n⬇️ Downloading foclabroc-tools script...');
+    await _exec('curl -sL "https://raw.githubusercontent.com/foclabroc/toolbox/refs/heads/main/app/foclabroc-tools.sh" -o "$_portsDir/foclabroc-tools.sh"');
+    await _exec('curl -sL "https://raw.githubusercontent.com/foclabroc/toolbox/refs/heads/main/app/foclabroc-tools.sh.keys" -o "$_portsDir/foclabroc-tools.sh.keys"');
+    await _exec('chmod +x "$_portsDir/foclabroc-tools.sh"');
+    _appendLog('✅ Script downloaded.');
+
+    // 4. Images
+    _appendLog('\n🖼️ Downloading images...');
+    await _exec('mkdir -p "$_portsDir/images"');
+    await _exec('curl -sL -o "$_portsDir/images/foctool-screenshot.jpg" "$_imgBase/foctool-screenshot.jpg"');
+    await _exec('curl -sL -o "$_portsDir/images/foctool-wheel.png" "$_imgBase/foctool-wheel.png"');
+    await _exec('curl -sL -o "$_portsDir/images/foctool-box.png" "$_imgBase/foctool-box.png"');
+    if (!mounted) return;
+
+    // 5. Gamelist
+    _appendLog('\n📋 Updating gamelist...');
+    final gamelistFile = '$_portsDir/gamelist.xml';
+    final xmlBin = '/userdata/system/pro/extra/xmlstarlet';
+    final xmlLink = '/usr/bin/xmlstarlet';
+    await _exec('[ -f "$gamelistFile" ] || echo \'<?xml version="1.0" encoding="UTF-8"?><gameList></gameList>\' > "$gamelistFile"');
+    await _exec('[ -f "$xmlBin" ] || (mkdir -p /userdata/system/pro/extra && curl -sL "https://github.com/foclabroc/toolbox/raw/refs/heads/main/app/xmlstarlet" -o "$xmlBin" && chmod +x "$xmlBin" && ln -sf "$xmlBin" "$xmlLink")');
+    await _exec('[ -L "$xmlLink" ] || ln -sf "$xmlBin" "$xmlLink"');
+    await _exec('xmlstarlet ed -L -d "/gameList/game[path=\'./foclabroc-tools.sh\']" "$gamelistFile" 2>/dev/null; '
+      'xmlstarlet ed -L '
+      '-s "/gameList" -t elem -n "game" -v "" '
+      '-s "/gameList/game[last()]" -t elem -n "path" -v "./foclabroc-tools.sh" '
+      '-s "/gameList/game[last()]" -t elem -n "name" -v "Foclabroc Toolbox" '
+      '-s "/gameList/game[last()]" -t elem -n "desc" -v "Boite a outils Foclabroc pour Batocera Linux." '
+      '-s "/gameList/game[last()]" -t elem -n "developer" -v "Foclabroc" '
+      '-s "/gameList/game[last()]" -t elem -n "publisher" -v "Foclabroc" '
+      '-s "/gameList/game[last()]" -t elem -n "genre" -v "Toolbox" '
+      '-s "/gameList/game[last()]" -t elem -n "rating" -v "1.00" '
+      '-s "/gameList/game[last()]" -t elem -n "region" -v "eu" '
+      '-s "/gameList/game[last()]" -t elem -n "lang" -v "fr" '
+      '-s "/gameList/game[last()]" -t elem -n "image" -v "./images/foctool-screenshot.jpg" '
+      '-s "/gameList/game[last()]" -t elem -n "marquee" -v "./images/foctool-wheel.png" '
+      '-s "/gameList/game[last()]" -t elem -n "thumbnail" -v "./images/foctool-box.png" '
+      '"$gamelistFile" 2>/dev/null || true');
+
+    // 6. Rechargement + redémarrage ES
+    _appendLog('\n🔄 Rechargement de la liste des jeux...');
+    await _exec('curl -s http://127.0.0.1:1234/reloadgames');
+
+    _appendLog('\n✅ Foclabroc Toolbox installed in Ports!');
+    _appendLog('🔁 Restarting EmulationStation...');
+    await _exec('killall -9 emulationstation');
+
+    setState(() => _running = false);
+
+    if (mounted) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
+            SizedBox(width: 10),
+            Flexible(child: Text('Toolbox installed!')),
+          ]),
+          content: const Text(
+            'Foclabroc Toolbox is available in the Ports menu.\nEmulationStation will restart.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          actions: [
+            ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      if (mounted) setState(() => _log = '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.maybePop(context),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
+                ),
+                const SizedBox(width: 12),
+                Text('Foclabroc Toolbox → Ports',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 18)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Row(children: [
+                      Icon(Icons.build_rounded, color: Colors.amberAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text('Foclabroc Toolbox',
+                          style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.w700, fontSize: 15)),
+                    ]),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Installs Foclabroc Toolbox directly in the Batocera Ports menu for easy access.',
+                      style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final e in ['Ports', 'x86_64', 'Toolbox'])
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.amberAccent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.amberAccent.withOpacity(0.25)),
+                          ),
+                          child: Text(e, style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
+                    ]),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amberAccent.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.amberAccent.withOpacity(0.2)),
+                      ),
+                      child: const Row(children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 14),
+                        SizedBox(width: 6),
+                        Text('EmulationStation will restart at the end',
+                            style: TextStyle(color: Colors.amberAccent, fontSize: 11)),
+                      ]),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _running ? null : _launch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amberAccent,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          disabledBackgroundColor: Colors.white12,
+                        ),
+                        icon: _running
+                            ? const SizedBox(width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                            : const Icon(Icons.download_rounded),
+                        label: Text(_running ? 'Installing...' : 'Install in Ports'),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+            if (_running) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: const LinearProgressIndicator(
+                    backgroundColor: Color(0x14FFFFFF),
+                    valueColor: AlwaysStoppedAnimation(Colors.amberAccent),
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+            ],
+            if (_log.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0C10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      child: Text(_log,
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: Colors.white70, height: 1.5)),
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── RGSX Install ─────────────────────────────────────────────────────────────
+
+class _RgsxInstallScreen extends StatefulWidget {
+  const _RgsxInstallScreen();
+  @override
+  State<_RgsxInstallScreen> createState() => _RgsxInstallScreenState();
+}
+
+class _RgsxInstallScreenState extends State<_RgsxInstallScreen> {
+  bool _running = false;
+  String _log = '';
+
+  static const _portsDir = '/userdata/roms/ports';
+  static const _rgsxDir = '/userdata/roms/ports/RGSX';
+  static const _logDir = '/userdata/roms/ports/RGSX_INSTALL_LOGS';
+
+  Future<String> _exec(String cmd) async {
+    try {
+      final state = context.read<AppState>();
+      final session = await state.ssh.client!.execute(cmd);
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      return String.fromCharCodes(bytes).trim();
+    } catch (_) { return ''; }
+  }
+
+  void _appendLog(String msg) => setState(() => _log += '$msg\n');
+
+  Future<void> _launch() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.archive_rounded, color: Colors.cyanAccent, size: 22),
+          SizedBox(width: 10),
+          Flexible(child: Text('Install RGSX?', overflow: TextOverflow.ellipsis)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text(
+            'Downloads and installs the RetroGameSets (RGSX) pack in the Ports menu.',
+            style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.cyanAccent.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.cyanAccent.withOpacity(0.2)),
+            ),
+            child: const Row(children: [
+              Icon(Icons.info_rounded, color: Colors.cyanAccent, size: 14),
+              SizedBox(width: 6),
+              Expanded(child: Text(
+                'Requires python3. Large file.',
+                style: TextStyle(color: Colors.cyanAccent, fontSize: 11),
+              )),
+            ]),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.cyanAccent, foregroundColor: Colors.black),
+            child: const Text('Install'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() { _running = true; _log = ''; });
+
+    // 1. Vérifie python3
+    _appendLog('🔍 Checking python3...');
+    final py = await _exec('command -v python3 && echo ok || echo fail');
+    if (!py.contains('ok')) {
+      _appendLog('❌ python3 not found on Batocera.');
+      setState(() => _running = false);
+      return;
+    }
+    _appendLog('✅ python3 available.');
+
+    // 2. Crée les dossiers
+    await _exec('mkdir -p "$_portsDir" "$_logDir"');
+
+    // 3. Récupère l'URL du dernier release GitHub
+    _appendLog('\n🔍 Fetching latest release URL...');
+    final releaseUrl = await _exec(
+      'curl -sL "https://api.github.com/repos/RetroGameSets/RGSX/releases/latest" '
+      '| grep -o "https://[^\"]*RGSX_Full_latest\\.zip" | head -1'
+    );
+    final zipUrl = releaseUrl.trim().isNotEmpty
+        ? releaseUrl.trim()
+        : 'https://github.com/RetroGameSets/RGSX/releases/latest/download/RGSX_Full_latest.zip';
+    _appendLog('✅ URL : $zipUrl');
+
+    // 4. Téléchargement avec progression
+    _appendLog('\n⬇️ Downloading RGSX...');
+    _appendLog('  (large file, please wait)');
+    await _exec('rm -f /tmp/_rgsx_done /tmp/_rgsx.zip');
+    await _exec('curl -L --retry 3 --max-time 1800 -o /tmp/_rgsx.zip "$zipUrl" && touch /tmp/_rgsx_done || touch /tmp/_rgsx_done &');
+
+    final totalRaw = await _exec('curl -sIL "$zipUrl" | grep -i content-length | tail -1 | awk \'{print \$2}\' | tr -d \$\'\\r\'');
+    final totalBytes = int.tryParse(totalRaw.trim()) ?? 0;
+    final totalMb = totalBytes > 0 ? (totalBytes / 1024 / 1024).toStringAsFixed(0) : '?';
+
+    while (true) {
+      if (!mounted) break;
+      await Future.delayed(const Duration(seconds: 2));
+      final szRaw = await _exec('stat -c%s /tmp/_rgsx.zip 2>/dev/null || echo 0');
+      final sz = int.tryParse(szRaw.trim()) ?? 0;
+      final nowMb = (sz / 1024 / 1024).toStringAsFixed(1);
+      final pct = totalBytes > 0 ? (sz * 100 ~/ totalBytes) : 0;
+      final bar = totalBytes > 0 ? '$pct%' : '$nowMb MB';
+      setState(() {
+        final lines = _log.split('\n');
+        if (lines.length >= 2 && lines[lines.length - 2].startsWith('  ↓')) {
+          lines[lines.length - 2] = '  ↓ $nowMb / $totalMb Mo  [$bar]';
+          _log = lines.join('\n');
+        } else {
+          _log += '  ↓ $nowMb / $totalMb Mo  [$bar]\n';
+        }
+      });
+      final done = await _exec('[ -f /tmp/_rgsx_done ] && echo yes || echo no');
+      if (done.trim() == 'yes') break;
+    }
+    await _exec('rm -f /tmp/_rgsx_done');
+    if (!mounted) return;
+
+    final szCheck = int.tryParse((await _exec('stat -c%s /tmp/_rgsx.zip 2>/dev/null || echo 0')).trim()) ?? 0;
+    if (szCheck < 100000) {
+      _appendLog('❌ Download failed.');
+      await _exec('rm -f /tmp/_rgsx.zip');
+      setState(() => _running = false);
+      return;
+    }
+    _appendLog("✅ Download complete (${(szCheck / 1024 / 1024).toStringAsFixed(0)} MB).");
+
+    // 5. Vérifie le ZIP
+    _appendLog('\n🔍 Verifying ZIP...');
+    final zipOk = await _exec('unzip -t /tmp/_rgsx.zip >/dev/null 2>&1 && echo ok || echo fail');
+    if (!zipOk.contains('ok')) {
+      _appendLog('❌ Corrupted ZIP.');
+      await _exec('rm -f /tmp/_rgsx.zip');
+      setState(() => _running = false);
+      return;
+    }
+    _appendLog('✅ ZIP valid.');
+
+    // 6. Supprime l'ancienne installation
+    _appendLog('\n🗑️ Removing old installation...');
+    await _exec('rm -rf "$_rgsxDir"');
+
+    // 7. Extraction
+    _appendLog('\n📦 Extracting...');
+    await _exec('unzip -q -o /tmp/_rgsx.zip -d /userdata/roms/ 2>&1');
+    await _exec('rm -f /tmp/_rgsx.zip');
+    // Find the extracted RGSX folder (name may vary)
+    final extractedDir = (await _exec('ls "$_portsDir/" | grep -i rgsx | head -1')).trim();
+    _appendLog('  📁 Folder: $extractedDir');
+    if (extractedDir.isEmpty) {
+      _appendLog('❌ RGSX directory not found after extraction.');
+      setState(() => _running = false);
+      return;
+    }
+    final rgsxPath = '$_portsDir/$extractedDir';
+    _appendLog('✅ Extraction complete.');
+
+    // 8. Permissions
+    _appendLog('\n🔧 Permissions...');
+    await _exec('find "$rgsxPath" -name "*.sh" -exec chmod +x {} \\;');
+    await _exec('chmod +x "$rgsxPath/update_gamelist.py" 2>/dev/null || true');
+    await _exec('chmod -R u+rwX "$rgsxPath" 2>/dev/null || true');
+
+    // 9. Update gamelist
+    _appendLog('\n📋 Updating gamelist...');
+    final pyResult = await _exec('python3 "$rgsxPath/update_gamelist.py" 2>&1');
+    if (pyResult.isNotEmpty) _appendLog('  $pyResult');
+    _appendLog('✅ Gamelist updated.');
+
+    // 10. Nettoyage
+    await _exec('rm -f "$_portsDir/RGSX.zip" 2>/dev/null || true');
+
+    // 11. Rechargement
+    _appendLog('\n🔄 Rechargement de la liste des jeux...');
+    await _exec('curl -s http://127.0.0.1:1234/reloadgames');
+
+    _appendLog('\n✅ RGSX installed successfully!');
+
+    setState(() => _running = false);
+
+    if (mounted) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.check_circle_rounded, color: Color(0xFF50FA7B), size: 22),
+            SizedBox(width: 10),
+            Flexible(child: Text('RGSX installed!')),
+          ]),
+          content: const Text(
+            'RGSX is available in the Ports menu.\nUpdate your game list if needed.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          actions: [
+            ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      if (mounted) setState(() => _log = '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 24, 0),
+              child: Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.maybePop(context),
+                  child: const Icon(Icons.arrow_back_rounded, color: Colors.white54),
+                ),
+                const SizedBox(width: 12),
+                Text('RGSX',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontSize: 22)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Row(children: [
+                      Icon(Icons.archive_rounded, color: Colors.cyanAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text('RetroGameSets RGSX',
+                          style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w700, fontSize: 15)),
+                    ]),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Installs the RetroGameSets RGSX pack in the Batocera Ports menu.',
+                      style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, children: [
+                      for (final e in ['Ports', 'python3', 'RGSX'])
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.cyanAccent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.cyanAccent.withOpacity(0.25)),
+                          ),
+                          child: Text(e, style: const TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
+                    ]),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _running ? null : _launch,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.cyanAccent,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          disabledBackgroundColor: Colors.white12,
+                        ),
+                        icon: _running
+                            ? const SizedBox(width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                            : const Icon(Icons.download_rounded),
+                        label: Text(_running ? 'Installing...' : 'Install RGSX'),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+            if (_running) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: const LinearProgressIndicator(
+                    backgroundColor: Color(0x14FFFFFF),
+                    valueColor: AlwaysStoppedAnimation(Colors.cyanAccent),
+                    minHeight: 4,
+                  ),
+                ),
+              ),
+            ],
+            if (_log.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0C10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: SingleChildScrollView(
+                      reverse: true,
+                      child: Text(_log,
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: Colors.white70, height: 1.5)),
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              const Spacer(),
           ],
         ),
       ),

@@ -202,7 +202,7 @@ class _GamesScreenState extends State<GamesScreen> {
               padding: const EdgeInsets.fromLTRB(64, 8, 24, 0),
               child: Row(
                 children: [
-                  Text('Library', style: Theme.of(context).textTheme.headlineMedium),
+                  Text('Bibliothèque', style: Theme.of(context).textTheme.headlineMedium),
                   const Spacer(),
                   if (state.isConnected)
                     _loadingRandom
@@ -216,7 +216,7 @@ class _GamesScreenState extends State<GamesScreen> {
                               children: const [
                                 Icon(Icons.casino_rounded, color: Colors.white54, size: 20),
                                 SizedBox(height: 2),
-                                Text('Random',
+                                Text('Aléatoire',
                                     style: TextStyle(color: Colors.white38, fontSize: 9)),
                               ],
                             ),
@@ -237,7 +237,7 @@ class _GamesScreenState extends State<GamesScreen> {
                         children: [
                           Icon(Icons.refresh_rounded, color: Colors.white38, size: 20),
                           const SizedBox(height: 2),
-                          const Text('Refresh',
+                          const Text('Rafraîchir',
                               style: TextStyle(color: Colors.white24, fontSize: 9)),
                         ],
                       ),
@@ -260,7 +260,7 @@ class _GamesScreenState extends State<GamesScreen> {
                   },
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
-                    hintText: 'Search all games...',
+                    hintText: 'Rechercher dans tous les jeux...',
                     hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
                     prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 18),
                     suffixIcon: _globalSearch.isNotEmpty
@@ -280,7 +280,7 @@ class _GamesScreenState extends State<GamesScreen> {
                   ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.wifi_off_rounded, size: 48, color: Colors.white.withOpacity(0.1)),
                       const SizedBox(height: 12),
-                      Text('Not connected', style: Theme.of(context).textTheme.bodyMedium),
+                      Text('Non connecté', style: Theme.of(context).textTheme.bodyMedium),
                     ]))
                   : _globalSearch.isNotEmpty
                       ? _buildGlobalResults(accent)
@@ -290,7 +290,7 @@ class _GamesScreenState extends State<GamesScreen> {
                           ? Center(child: ElevatedButton.icon(
                               onPressed: _loadSystems,
                               icon: const Icon(Icons.refresh_rounded),
-                              label: const Text('Load systems'),
+                              label: const Text('Charger les systèmes'),
                             ))
                           : GridView.builder(
                               padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
@@ -334,13 +334,13 @@ class _GamesScreenState extends State<GamesScreen> {
       return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         CircularProgressIndicator(color: accent),
         const SizedBox(height: 12),
-        const Text('Loading all games...', style: TextStyle(color: Colors.white38, fontSize: 12)),
+        const Text('Chargement de tous les jeux...', style: TextStyle(color: Colors.white38, fontSize: 12)),
       ]));
     }
     final q = _globalSearch.toLowerCase();
     final results = _allGames.where((g) =>
         (g['name'] ?? '').toString().toLowerCase().contains(q)).toList();
-    if (results.isEmpty) return Center(child: Text('No results for "$_globalSearch"',
+    if (results.isEmpty) return Center(child: Text('Aucun résultat pour "$_globalSearch"',
         style: Theme.of(context).textTheme.bodyMedium));
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
@@ -421,23 +421,49 @@ class _SystemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = system['fullname'] ?? system['name'] ?? '';
+    final gameCount = system['gamecount'];
+    final countStr = gameCount != null ? '$gameCount' : null;
     return Card(
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Center(
-            child: logo != null
-                ? Image.memory(logo!, fit: BoxFit.contain)
-                : Text(
-                    name.toString().toUpperCase(),
-                    style: TextStyle(color: accent, fontSize: 10,
-                        fontWeight: FontWeight.w700, letterSpacing: 0.5),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+          child: Stack(
+            children: [
+              Center(
+                child: logo != null
+                    ? Image.memory(logo!, fit: BoxFit.contain)
+                    : Text(
+                        name.toString().toUpperCase(),
+                        style: TextStyle(color: accent, fontSize: 10,
+                            fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+              ),
+              if (countStr != null)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: accent.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      countStr,
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
+                ),
+            ],
           ),
         ),
       ),
@@ -516,7 +542,7 @@ class _GamesListScreenState extends State<_GamesListScreen> {
       final session = await state.ssh.client!.execute('curl -s -X POST http://127.0.0.1:1234/launch -d "$path"');
       await session.done;
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Launching game...', style: TextStyle(color: Colors.white)),
+        content: Text('Lancement du jeu...', style: TextStyle(color: Colors.white)),
         backgroundColor: Color(0xFF1C2230),
         behavior: SnackBarBehavior.floating,
       ));
@@ -575,7 +601,7 @@ class _GamesListScreenState extends State<_GamesListScreen> {
                     onChanged: (v) => setState(() => _search = v),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'Search...',
+                      hintText: 'Rechercher...',
                       hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
                       prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 18),
                       suffixIcon: _search.isNotEmpty
@@ -598,7 +624,7 @@ class _GamesListScreenState extends State<_GamesListScreen> {
                   ? Center(child: CircularProgressIndicator(color: accent))
                   : games.isEmpty
                       ? Center(child: Text(
-                          _search.isNotEmpty ? 'No results' : 'No games',
+                          _search.isNotEmpty ? 'Aucun résultat' : 'Aucun jeu',
                           style: Theme.of(context).textTheme.bodyMedium))
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
@@ -656,7 +682,7 @@ class _GamesListScreenState extends State<_GamesListScreen> {
                                               const SizedBox(width: 3),
                                             ],
                                             if (playcount > 0)
-                                              Text('Played $playcount times',
+                                              Text('Joué $playcount fois',
                                                   style: const TextStyle(color: Colors.white24, fontSize: 10)),
                                           ]),
                                       ],

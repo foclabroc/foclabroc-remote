@@ -22,6 +22,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _popLock = false; // évite les doubles appels MIUI
 
   static const _tabs = [
     _TabInfo(icon: Icons.wifi_rounded,           label: 'Connexion'),
@@ -52,20 +53,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Future<bool> didPopRoute() async {
-    // Intercepte le bouton retour Android AVANT Flutter
-    final drawerState = _scaffoldKey.currentState;
-    if (drawerState != null && drawerState.isDrawerOpen) {
-      drawerState.closeDrawer();
+    if (_popLock) return true;
+    _popLock = true;
+    try {
+      // Intercepte le bouton retour Android AVANT Flutter
+      final drawerState = _scaffoldKey.currentState;
+      if (drawerState != null && drawerState.isDrawerOpen) {
+        drawerState.closeDrawer();
+        return true;
+      }
+      if (TabBackHandler.handle(_index)) return true;
+
+      // Navigator de l'onglet
+      final nav = _navigatorKeys[_index].currentState;
+      if (nav != null) {
+        try {
+          final didPop = await nav.maybePop();
+          if (didPop) return true;
+        } catch (_) {
+          return true;
+        }
+      }
+      drawerState?.openDrawer();
       return true;
-    }
-    if (TabBackHandler.handle(_index)) return true;
-    final nav = _navigatorKeys[_index].currentState;
-    if (nav != null && nav.canPop()) {
-      nav.pop();
+    } catch (_) {
       return true;
+    } finally {
+      await Future.delayed(const Duration(milliseconds: 400));
+      _popLock = false;
     }
-    drawerState?.openDrawer();
-    return true; // empêche de quitter l'app
   }
 
   Widget _buildScreen(int index) => Navigator(
@@ -84,6 +100,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   );
 
   void _goTo(int i) {
+    // Ferme le clavier virtuel avant de changer d'onglet
+    FocusManager.instance.primaryFocus?.unfocus();
     Navigator.of(context).pop();
     setState(() => _index = i);
   }
@@ -185,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const Divider(color: Colors.white10, height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('v1.7',
+            child: Text('v1.8',
                 style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 11)),
           ),
         ]),
