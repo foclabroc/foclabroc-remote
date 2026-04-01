@@ -336,7 +336,7 @@ final systems = list
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                                   child: Text(
-                                    'Total : ${_gameCounts.values.fold(0, (a, b) => a + b)} jeux',
+                                    'Total : ${_gameCounts.values.fold(0, (a, b) => a + b)} games',
                                     style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.w700),
                                     textAlign: TextAlign.center,
                                   ),
