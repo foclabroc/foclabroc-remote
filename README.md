@@ -100,7 +100,7 @@ English version available
   - Téléchargement avec progression, mise à jour automatique du gamelist (images, vidéo, métadonnées)
 - **YouTube TV** — installe YouTube TV dans le menu Ports (Batocera x86_64 uniquement)
 - **Foclabroc Toolbox → Ports** — installe la Toolbox dans le menu Ports pour y accéder depuis Batocera (x86_64)
-- **RGSX** — télécharge et installe le pack RetroGameSets dans `/userdata/roms` (requiert python3)
+- **RGSX** — télécharge et installe RetroGameSets game downloader dans 'Ports'
 
 ---
 
@@ -112,7 +112,7 @@ English version available
 
 **Identifiants SSH par défaut Batocera :**
 ```
-IP     : adresse locale de ta machine (ex: 192.168.1.134)
+IP     : adresse locale de ta machine (ex: 192.168.1.xxx)
 Port   : 22
 User   : root
 Pass   : linux
