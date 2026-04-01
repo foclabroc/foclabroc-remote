@@ -2532,7 +2532,7 @@ class _RgsxInstallScreenState extends State<_RgsxInstallScreen> {
                     ]),
                     const SizedBox(height: 10),
                     const Text(
-                      'Installe le pack RetroGameSets RGSX dans le menu Ports de Batocera.',
+                      'Installe RGSX Game downloader dans le menu Ports de Batocera.',
                       style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
                     ),
                     const SizedBox(height: 8),

@@ -1,8 +1,7 @@
 # Foclabroc Remote 🎮
 
 **Télécommande Android pour Batocera Linux**
-- POUR BATOCERA V43+. Certaines fonctionnalité comme la capture video, peuvent ne pas fonctionner avec les versions precedente
-
+- POUR BATOCERA V43+. Certaines fonctionnalités comme la capture vidéo peuvent ne pas fonctionner avec les versions précédentes
 
 [![Voir la démo](https://img.youtube.com/vi/OkYvSxjOg3c/maxresdefault.jpg)](https://youtu.be/OkYvSxjOg3c)
 
@@ -14,7 +13,7 @@
 
 [![Download APK](https://img.shields.io/badge/Download-APK-red?style=for-the-badge&logo=android)](https://github.com/foclabroc/foclabroc-remote/releases)
 
-Version Francaise disponible
+Version Française disponible  
 English version available
 
 ---
@@ -40,6 +39,8 @@ English version available
 
 ### 📚 Bibliothèque de jeux
 - Grille de tous tes systèmes avec logos
+- **Nombre de jeux** affiché sur chaque carte système (badge bleu clair)
+- **Total de jeux** affiché en haut de la grille
 - **Recherche globale** dans tous les jeux de tous les systèmes (avec cache)
 - Liste des jeux par système avec indicateurs : ⭐ favori, 🏆 achievements, 📖 manuel, 🗺️ map
 - **Fiche détaillée** par jeu :
@@ -97,6 +98,9 @@ English version available
   - Super Tux Kart, Streets of Rage R 5.2, Megaman 2.5D, Sonic Smackdown, Maldita Castilla
   - Super Smash Crusade, Rayman Redemption, Power Bomberman, Mushroom Kingdom Fusion, Dr. Robotnik's Racers
   - Téléchargement avec progression, mise à jour automatique du gamelist (images, vidéo, métadonnées)
+- **YouTube TV** — installe YouTube TV dans le menu Ports (Batocera x86_64 uniquement)
+- **Foclabroc Toolbox → Ports** — installe la Toolbox dans le menu Ports pour y accéder depuis Batocera (x86_64)
+- **RGSX** — télécharge et installe le pack RetroGameSets dans `/userdata/roms` (requiert python3)
 
 ---
 

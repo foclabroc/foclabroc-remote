@@ -23,6 +23,7 @@ class _GamesScreenState extends State<GamesScreen> {
   final TextEditingController _globalSearchCtrl = TextEditingController();
   String _globalSearch = '';
   List<Map<String, dynamic>> _allGames = [];
+  final Map<String, int> _gameCounts = {};
   bool _loadingAllGames = false;
   bool _loadingRandom = false;
 
@@ -87,7 +88,7 @@ class _GamesScreenState extends State<GamesScreen> {
     try {
       final raw = await _execDirect('curl -s http://127.0.0.1:1234/systems');
       final list = jsonDecode(raw) as List;
-      final systems = list
+final systems = list
           .map((s) => s as Map<String, dynamic>)
           .where((s) => s['visible'] == 'true' && s['name'] != 'all' && s['name'] != 'recordings' && s['name'] != 'imageviewer' && s['name'] != 'favorites' && s['name'] != 'recent' && s['name'] != 'flatpak' && s['name'] != 'odcommander')
           .toList();
@@ -95,9 +96,41 @@ class _GamesScreenState extends State<GamesScreen> {
           .compareTo((b['fullname'] ?? '').toString()));
       setState(() { _systems = systems; _loadingSystems = false; });
       _loadLogos(systems);
+      _loadGameCounts(systems);
     } catch (_) {
       setState(() => _loadingSystems = false);
     }
+  }
+
+  Future<void> _loadGameCounts(List<Map<String, dynamic>> systems) async {
+    // Si les jeux sont déjà en cache, on compte directement sans SSH
+    if (_allGames.isNotEmpty) {
+      _computeCountsFromCache();
+      return;
+    }
+    // Sinon on charge depuis l'API système par système
+    for (final sys in systems) {
+      if (!mounted) break;
+      try {
+        final sysName = sys['name'].toString();
+        final raw = await _execDirect(
+          "curl -s http://127.0.0.1:1234/systems/$sysName/games | python3 -c \"import json,sys; d=json.load(sys.stdin); print(len([g for g in d if g.get('hidden') != 'true']))\""
+        );
+        final count = int.tryParse(raw.trim());
+        if (count != null && mounted) {
+          setState(() => _gameCounts[sys['name'].toString()] = count);
+        }
+      } catch (_) {}
+    }
+  }
+
+  void _computeCountsFromCache() {
+    final counts = <String, int>{};
+    for (final g in _allGames) {
+      final sysName = g['_systemName']?.toString() ?? '';
+      if (sysName.isNotEmpty) counts[sysName] = (counts[sysName] ?? 0) + 1;
+    }
+    if (mounted) setState(() => _gameCounts.addAll(counts));
   }
 
   Future<File> _getCacheFile() async {
@@ -116,7 +149,10 @@ class _GamesScreenState extends State<GamesScreen> {
         final cached = jsonDecode(await cacheFile.readAsString()) as List;
         if (cached.isNotEmpty) {
           final games = cached.map((g) => g as Map<String, dynamic>).toList();
-          if (mounted) setState(() { _allGames = games; _loadingAllGames = false; });
+          if (mounted) {
+            setState(() { _allGames = games; _loadingAllGames = false; });
+            _computeCountsFromCache();
+          }
           return;
         }
       }
@@ -145,7 +181,10 @@ class _GamesScreenState extends State<GamesScreen> {
       await cacheFile.writeAsString(jsonEncode(all));
     } catch (_) {}
 
-    if (mounted) setState(() { _allGames = all; _loadingAllGames = false; });
+    if (mounted) {
+      setState(() { _allGames = all; _loadingAllGames = false; });
+      _computeCountsFromCache();
+    }
   }
 
   Future<void> _pickRandom() async {
@@ -292,36 +331,50 @@ class _GamesScreenState extends State<GamesScreen> {
                               icon: const Icon(Icons.refresh_rounded),
                               label: const Text('Charger les systèmes'),
                             ))
-                          : GridView.builder(
-                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                childAspectRatio: 1.2,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
+                          : Column(children: [
+                              if (_gameCounts.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                                  child: Text(
+                                    'Total : ${_gameCounts.values.fold(0, (a, b) => a + b)} jeux',
+                                    style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.w700),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              Expanded(
+                                child: GridView.builder(
+                                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    childAspectRatio: 1.2,
+                                    crossAxisSpacing: 8,
+                                    mainAxisSpacing: 16,
+                                  ),
+                                  itemCount: _systems.length,
+                                  itemBuilder: (_, i) {
+                                    final sys = _systems[i];
+                                    final sysName = sys['name'].toString();
+                                    return _SystemCard(
+                                      key: ValueKey(sysName),
+                                      system: sys,
+                                      logo: _logoCache[sysName],
+                                      accent: accent,
+                                      gameCount: _gameCounts[sysName],
+                                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                                        builder: (_) => _GamesListScreen(
+                                          systemName: sysName,
+                                          fullname: sys['fullname'] ?? sysName,
+                                          fetchImage: _fetchImage,
+                                          execDirect: _execDirect,
+                                          systemLogo: _logoCache[sysName],
+                                          allGames: _allGames,
+                                        ),
+                                      )),
+                                    );
+                                  },
+                                ),
                               ),
-                              itemCount: _systems.length,
-                              itemBuilder: (_, i) {
-                                final sys = _systems[i];
-                                final sysName = sys['name'].toString();
-                                return _SystemCard(
-                                  key: ValueKey(sysName),
-                                  system: sys,
-                                  logo: _logoCache[sysName],
-                                  accent: accent,
-                                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                                    builder: (_) => _GamesListScreen(
-                                      systemName: sysName,
-                                      fullname: sys['fullname'] ?? sysName,
-                                      fetchImage: _fetchImage,
-                                      execDirect: _execDirect,
-                                      systemLogo: _logoCache[sysName],
-                                      allGames: _allGames,
-                                    ),
-                                  )),
-                                );
-                              },
-                            ),
+                            ]),
             ),
           ],
         ),
@@ -409,6 +462,7 @@ class _SystemCard extends StatelessWidget {
   final Uint8List? logo;
   final VoidCallback onTap;
   final Color accent;
+  final int? gameCount;
 
   const _SystemCard({
     super.key,
@@ -416,56 +470,66 @@ class _SystemCard extends StatelessWidget {
     required this.logo,
     required this.onTap,
     required this.accent,
+    this.gameCount,
   });
 
   @override
   Widget build(BuildContext context) {
     final name = system['fullname'] ?? system['name'] ?? '';
-    final gameCount = system['gamecount'];
     final countStr = gameCount != null ? '$gameCount' : null;
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Stack(
-            children: [
-              Center(
-                child: logo != null
-                    ? Image.memory(logo!, fit: BoxFit.contain)
-                    : Text(
-                        name.toString().toUpperCase(),
-                        style: TextStyle(color: accent, fontSize: 10,
-                            fontWeight: FontWeight.w700, letterSpacing: 0.5),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          SizedBox.expand(
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Center(
+                    child: logo != null
+                        ? Image.memory(logo!, fit: BoxFit.contain)
+                        : Text(
+                            name.toString().toUpperCase(),
+                            style: TextStyle(color: accent, fontSize: 10,
+                                fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                  ),
+                ),
               ),
-              if (countStr != null)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: accent.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      countStr,
-                      style: TextStyle(
-                        color: accent,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
+            ),
+          ),
+          if (countStr != null)
+            Positioned(
+              bottom: -8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.lightBlue,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '$countStr jeux',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
