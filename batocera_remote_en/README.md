@@ -1,28 +1,23 @@
 # Foclabroc Remote 🎮
 
-**Télécommande Android pour Batocera Linux**
-- POUR BATOCERA V43+. Certaines fonctionnalité comme la capture video, peuvent ne pas fonctionner avec les versions precedente
-
+**Android Remote Control for Batocera Linux — v1.1.0**
 
 [![Voir la démo](https://img.youtube.com/vi/OkYvSxjOg3c/maxresdefault.jpg)](https://youtu.be/OkYvSxjOg3c)
 
-> *Cliquez sur l'image pour voir la vidéo de présentation*
+> *Click on the image to watch the demo video*
 
 ---
 
-## 📥 Télécharger
+## 📥 Download
 
-[![Download APK](https://img.shields.io/badge/Download-APK-red?style=for-the-badge&logo=android)](https://github.com/foclabroc/foclabroc-remote/releases)
-
-Version Francaise disponible
-English version available
+[![Download APK](https://img.shields.io/badge/Download-APK-red?style=for-the-badge&logo=android)](https://github.com/foclabroc/foclabroc-remote/releases/download/release/foclabroc.remote.apk)
 
 ---
 
-## ✨ Fonctionnalités
+## ✨ Features
 
 ### 🔗 Connexion SSH
-- Connexion WiFi via SSH à ta machine Batocera (possibilité de nommer les IP)
+- Connexion WiFi via SSH à ta machine Batocera
 - **Connexion automatique** à la dernière IP utilisée au démarrage
 - Reconnexion silencieuse automatique si la connexion est perdue
 - Indicateur "Reconnexion..." visible sur tous les onglets
@@ -77,28 +72,15 @@ English version available
 - Logs `stderr` et `stdout` partageables
 - **Vider le cache** images et vidéos de l'application
 
-### 🍷 Wine Tools
-- **.PC Converter** — convertit un dossier `.pc` en `.wine` avec compression optionnelle
-- **Decompressor** — décompresse `.wtgz` / `.wsquashfs` → `.wine`
-- **Compressor** — compresse `.wine` → `.wtgz` ou `.wsquashfs`
-- **Téléchargement Runner** — télécharge et installe des runners Wine depuis GitHub :
-  - Wine GE-Custom, Wine Vanilla, Wine TKG-Staging, GE-Proton, GE-Custom V40
-  - **Runner Manager** — liste et supprime les runners installés
-- **Wine Bottle Manager** — liste et supprime les bouteilles Wine
-- **Winetricks** — installe des dépendances Windows (VC++, DirectX...) dans une bouteille
-
-### 🔧 Foclabroc Tools
-- **NES3D** — installe le pack NES 3D (détection automatique de la version Batocera V40/41/42/43+)
-
 ---
 
-## 📋 Prérequis
+## 📋 Requirements
 
 - Android 8.0+
 - Batocera Linux sur le même réseau WiFi
 - SSH activé sur Batocera (activé par défaut)
 
-**Identifiants SSH par défaut Batocera :**
+**Default Batocera SSH credentials :**
 ```
 IP     : adresse locale de ta machine (ex: 192.168.1.134)
 Port   : 22
@@ -110,14 +92,14 @@ Pass   : linux
 
 ## 🚀 Installation
 
-1. Télécharge l'APK via le bouton ci-dessus
-2. Sur ton téléphone Android : **Paramètres → Sécurité → Sources inconnues** → Autoriser
-3. Installe l'APK
-4. Lance l'app — connexion automatique si déjà utilisée
+1. Download the APK using the button above
+2. On your Android phone: **Settings → Security → Unknown sources** → Allow
+3. Install the APK
+4. Launch the app — auto-connects if previously used
 
 ---
 
-## 🛠️ Compiler depuis les sources
+## 🛠️ Build from source
 
 ```bash
 # Prérequis : Flutter SDK >= 3.0
@@ -135,7 +117,7 @@ flutter build apk --release
 
 ---
 
-## 📦 Stack technique
+## 📦 Tech stack
 
 | Package | Usage |
 |---|---|
@@ -155,17 +137,17 @@ flutter build apk --release
 
 ---
 
-## 👨‍💻 Auteur
+## 👨‍💻 Author
 
-**foclabroc** — Contributeur Batocera  
+**foclabroc** — Batocera contributor  
 🔗 [GitHub](https://github.com/foclabroc)
 
 ---
 
-## 📄 Licence
+## 📄 License
 
-MIT License — libre d'utilisation, de modification et de distribution.
+MIT License — free to use, modify and distribute.
 
 ---
 
-*Fait avec le ❤️ pour la communauté Batocera*
+*Made with ❤️ for the Batocera community*

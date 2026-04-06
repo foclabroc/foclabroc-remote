@@ -88,21 +88,6 @@ class SshService {
         line.contains('/dev/tty');
   }
 
-  // ─── Exécution brute (sans bash -l) pour le terminal interactif ────────────
-  Future<String> executeRaw(String command) async {
-    if (_client == null || !_connected) throw Exception('Not connected');
-    try {
-      final session = await _client!.execute(
-        'bash -c \'$command\' </dev/null 2>&1',
-      );
-      final stdoutBytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
-      session.stderr.drain();
-      await session.done;
-      return utf8.decode(stdoutBytes).trim();
-    } catch (e) {
-      throw Exception('Command error: $e');
-    }
-  }
 
   Future<String> execute(String command) async {
     if (_client == null || !_connected) {
@@ -316,15 +301,7 @@ class SshService {
 
   // ─── Upload SFTP ─────────────────────────────────────────────────────────────
 
-  Future<void> uploadFile(
-    String remotePath,
-    Uint8List bytes, {
-    void Function(int sent, int total)? onProgress,
-  }) async {
-    throw UnimplementedError('Use uploadFileFromPath instead');
-  }
-
-  // Upload depuis un chemin local — stream par chunks sans tout charger en RAM
+  // Upload from local path — stream by chunks without loading all in RAM
   Future<void> uploadFileFromPath(
     String localPath,
     String remotePath, {

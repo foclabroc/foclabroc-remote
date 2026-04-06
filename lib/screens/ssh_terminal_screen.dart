@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -61,21 +62,50 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
     _scrollToBottom();
 
     try {
-      final output = await state.ssh.executeRaw(cmd);
-      setState(() {
-        if (output.isNotEmpty) {
-          _lines.add(_TermLine(text: output, type: _LineType.output));
+      final client = state.ssh.client;
+      if (client == null) throw Exception('Non connecté');
+      final session = await client.execute('bash -c \'$cmd\' </dev/null 2>&1');
+
+      // Index de la ligne de sortie en cours (streaming)
+      int outputLineIndex = -1;
+      String pending = '';
+
+      await for (final chunk in session.stdout) {
+        if (!mounted) break;
+        pending += utf8.decode(chunk, allowMalformed: true);
+        final parts = pending.split('\n');
+        pending = parts.removeLast(); // dernière partie incomplète
+        for (final part in parts) {
+          final line = part.trimRight();
+          if (line.isEmpty) continue;
+          if (outputLineIndex == -1) {
+            setState(() {
+              _lines.add(_TermLine(text: line, type: _LineType.output));
+              outputLineIndex = _lines.length - 1;
+            });
+          } else {
+            setState(() {
+              _lines.add(_TermLine(text: line, type: _LineType.output));
+            });
+          }
+          _scrollToBottom();
         }
-        _running = false;
-      });
+      }
+      // Flush le reste
+      if (pending.trimRight().isNotEmpty && mounted) {
+        setState(() => _lines.add(_TermLine(text: pending.trimRight(), type: _LineType.output)));
+        _scrollToBottom();
+      }
+      session.stderr.drain();
+      await session.done;
     } catch (e) {
-      setState(() {
-        _lines.add(_TermLine(text: 'Erreur : $e', type: _LineType.error));
-        _running = false;
-      });
+      if (mounted) setState(() => _lines.add(_TermLine(text: 'Erreur : $e', type: _LineType.error)));
     }
-    _scrollToBottom();
-    _focusNode.requestFocus();
+    if (mounted) {
+      setState(() => _running = false);
+      _scrollToBottom();
+      _focusNode.requestFocus();
+    }
   }
 
   void _historyUp() {

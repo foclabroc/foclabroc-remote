@@ -24,6 +24,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
   Uint8List? _wheelBytes;
   Timer? _autoRefresh;
   Timer? _timeRefresh;
+  Timer? _statsRefresh;
 
   // Stats système
   double _cpuTemp = 0;
@@ -48,7 +49,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       }
     });
     // Stats CPU/RAM toutes les 3s
-    Timer.periodic(const Duration(seconds: 3), (_) {
+    _statsRefresh = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && context.read<AppState>().isConnected) _fetchStats();
     });
   }
@@ -105,6 +106,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
   void dispose() {
     _autoRefresh?.cancel();
     _timeRefresh?.cancel();
+    _statsRefresh?.cancel();
     super.dispose();
   }
 
@@ -122,9 +124,23 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
   Future<void> _fetchPlayTime() async {
     try {
-      final t = await _execDirect(
+      // 1. Cherche emulatorlauncher (la plupart des émulateurs)
+      String t = await _execDirect(
         "ps -o etime= -C emulatorlauncher 2>/dev/null | head -1 | tr -d '[:blank:]'",
       );
+      // 2. Si vide, cherche les émulateurs qui se lancent directement (Switch, PS3...)
+      if (t.isEmpty) {
+        const directProcs = [
+          'ryujinx', 'yuzu', 'suyu', 'torzu',
+          'rpcs3', 'xemu', 'cemu', 'ppsspp', 'dolphin-emu',
+        ];
+        for (final proc in directProcs) {
+          t = await _execDirect(
+            "ps -o etime= -C $proc 2>/dev/null | head -1 | tr -d '[:blank:]'",
+          );
+          if (t.isNotEmpty) break;
+        }
+      }
       if (mounted && t.isNotEmpty) setState(() => _playTime = t);
     } catch (_) {}
   }
@@ -289,8 +305,15 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       ),
     );
     if (confirmed == true) {
-      await state.ssh.execute('batocera-es-swissknife --emukill');
-      await Future.delayed(const Duration(seconds: 2));
+      // Arrêt propre via hotkeygen (fonctionne pour tous les émulateurs dont Switch)
+      await state.ssh.execute('hotkeygen --send exit');
+      await Future.delayed(const Duration(seconds: 3));
+      // Si le jeu tourne encore, force kill via l'API ES
+      final stillRunning = await _execDirect('curl -s http://127.0.0.1:1234/runningGame 2>/dev/null');
+      if (stillRunning.isNotEmpty && stillRunning != 'null') {
+        await state.ssh.execute('curl -s http://127.0.0.1:1234/emukill');
+        await Future.delayed(const Duration(seconds: 2));
+      }
       await _fetchGameInfo();
     }
   }

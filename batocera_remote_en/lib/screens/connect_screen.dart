@@ -114,7 +114,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final isConnected = state.isConnected;
     final isConnecting = state.status == ConnectionStatus.connecting;
 
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +143,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                padding: EdgeInsets.fromLTRB(24, 8, 24, 24 + bottomInset),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

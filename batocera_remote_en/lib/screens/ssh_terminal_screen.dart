@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +18,7 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
   final List<_TermLine> _lines = [];
   bool _running = false;
 
-  // Historique des commandes
+  // Command history
   final List<String> _history = [];
   int _historyIndex = -1;
 
@@ -47,10 +48,7 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
     final cmd = _cmdCtrl.text.trim();
     if (cmd.isEmpty) return;
 
-    // Ajoute à l'historique
-    if (_history.isEmpty || _history.last != cmd) {
-      _history.add(cmd);
-    }
+    if (_history.isEmpty || _history.last != cmd) _history.add(cmd);
     _historyIndex = -1;
 
     setState(() {
@@ -61,21 +59,50 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
     _scrollToBottom();
 
     try {
-      final output = await state.ssh.executeRaw(cmd);
-      setState(() {
-        if (output.isNotEmpty) {
-          _lines.add(_TermLine(text: output, type: _LineType.output));
+      final client = state.ssh.client;
+      if (client == null) throw Exception('Not connected');
+      final session = await client.execute('bash -c \'$cmd\' </dev/null 2>&1');
+
+      // Index de la ligne de sortie en cours (streaming)
+      int outputLineIndex = -1;
+      String pending = '';
+
+      await for (final chunk in session.stdout) {
+        if (!mounted) break;
+        pending += utf8.decode(chunk, allowMalformed: true);
+        final parts = pending.split('\n');
+        pending = parts.removeLast(); // last incomplete part
+        for (final part in parts) {
+          final line = part.trimRight();
+          if (line.isEmpty) continue;
+          if (outputLineIndex == -1) {
+            setState(() {
+              _lines.add(_TermLine(text: line, type: _LineType.output));
+              outputLineIndex = _lines.length - 1;
+            });
+          } else {
+            setState(() {
+              _lines.add(_TermLine(text: line, type: _LineType.output));
+            });
+          }
+          _scrollToBottom();
         }
-        _running = false;
-      });
+      }
+      // Flush le reste
+      if (pending.trimRight().isNotEmpty && mounted) {
+        setState(() => _lines.add(_TermLine(text: pending.trimRight(), type: _LineType.output)));
+        _scrollToBottom();
+      }
+      session.stderr.drain();
+      await session.done;
     } catch (e) {
-      setState(() {
-        _lines.add(_TermLine(text: 'Error: $e', type: _LineType.error));
-        _running = false;
-      });
+      if (mounted) setState(() => _lines.add(_TermLine(text: 'Erreur : $e', type: _LineType.error)));
     }
-    _scrollToBottom();
-    _focusNode.requestFocus();
+    if (mounted) {
+      setState(() => _running = false);
+      _scrollToBottom();
+      _focusNode.requestFocus();
+    }
   }
 
   void _historyUp() {
@@ -129,8 +156,10 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final accent = Theme.of(context).colorScheme.primary;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
@@ -235,8 +264,10 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
               ),
 
             // Input
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.fromLTRB(12, 8, 12, 12 + bottomInset),
               child: Row(
                 children: [
                   Text(

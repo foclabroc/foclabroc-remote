@@ -24,6 +24,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
   Uint8List? _wheelBytes;
   Timer? _autoRefresh;
   Timer? _timeRefresh;
+  Timer? _statsRefresh;
 
   // Stats système
   double _cpuTemp = 0;
@@ -47,8 +48,8 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
         _fetchPlayTime();
       }
     });
-    // Stats CPU/RAM toutes les 3s
-    Timer.periodic(const Duration(seconds: 3), (_) {
+    // Stats CPU/RAM every 3s
+    _statsRefresh = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && context.read<AppState>().isConnected) _fetchStats();
     });
   }
@@ -105,6 +106,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
   void dispose() {
     _autoRefresh?.cancel();
     _timeRefresh?.cancel();
+    _statsRefresh?.cancel();
     super.dispose();
   }
 
@@ -122,9 +124,23 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
   Future<void> _fetchPlayTime() async {
     try {
-      final t = await _execDirect(
+      // 1. Look for emulatorlauncher (most emulators)
+      String t = await _execDirect(
         "ps -o etime= -C emulatorlauncher 2>/dev/null | head -1 | tr -d '[:blank:]'",
       );
+      // 2. If empty, look for emulators that launch directly (Switch, PS3...)
+      if (t.isEmpty) {
+        const directProcs = [
+          'ryujinx', 'yuzu', 'suyu', 'torzu',
+          'rpcs3', 'xemu', 'cemu', 'ppsspp', 'dolphin-emu',
+        ];
+        for (final proc in directProcs) {
+          t = await _execDirect(
+            "ps -o etime= -C $proc 2>/dev/null | head -1 | tr -d '[:blank:]'",
+          );
+          if (t.isNotEmpty) break;
+        }
+      }
       if (mounted && t.isNotEmpty) setState(() => _playTime = t);
     } catch (_) {}
   }
@@ -278,7 +294,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
@@ -289,8 +305,15 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       ),
     );
     if (confirmed == true) {
-      await state.ssh.execute('batocera-es-swissknife --emukill');
-      await Future.delayed(const Duration(seconds: 2));
+      // Clean stop via hotkeygen (works for all emulators including Switch)
+      await state.ssh.execute('hotkeygen --send exit');
+      await Future.delayed(const Duration(seconds: 3));
+      // If game is still running, force kill via ES API
+      final stillRunning = await _execDirect('curl -s http://127.0.0.1:1234/runningGame 2>/dev/null');
+      if (stillRunning.isNotEmpty && stillRunning != 'null') {
+        await state.ssh.execute('curl -s http://127.0.0.1:1234/emukill');
+        await Future.delayed(const Duration(seconds: 2));
+      }
       await _fetchGameInfo();
     }
   }

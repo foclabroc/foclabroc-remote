@@ -628,6 +628,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     final selCount = _selected.length;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
