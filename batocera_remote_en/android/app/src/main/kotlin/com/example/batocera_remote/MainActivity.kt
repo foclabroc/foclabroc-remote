@@ -11,7 +11,7 @@ import kotlin.math.*
 class MainActivity : FlutterActivity() {
 
     companion object {
-        private const val CHANNEL = "com.example.batocera_remote/audio"
+        private const val CHANNEL = "com.foclabroc.batocera_remote/audio"
         private const val SAMPLE_RATE = 44100
     }
 
