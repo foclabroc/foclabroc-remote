@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ssh_service.dart';
@@ -21,6 +20,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<Map<String, String>> _roms = [];
   bool _loadingRoms = false;
   List<String> _recentHosts = []; // format: 'name::ip' or just 'ip'
+  Timer? _watchdog; // surveille la connexion en continu
 
   ConnectionStatus get status => _status;
   String get errorMessage => _errorMessage;
@@ -40,61 +40,89 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   AppState() {
     _loadPrefs();
     WidgetsBinding.instance.addObserver(this);
+    _startWatchdog();
   }
 
   @override
   void dispose() {
+    _watchdog?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // ── Watchdog : vérifie la connexion toutes les 5s ────────────────────────
+  void _startWatchdog() {
+    _watchdog?.cancel();
+    _watchdog = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (_host.isEmpty) return;
+      if (_status == ConnectionStatus.connecting) return; // déjà en cours
+      if (_status == ConnectionStatus.disconnected) return; // déconnexion volontaire
+
+      // Si le ssh_service a perdu la connexion sans qu'app_state le sache
+      if (_status == ConnectionStatus.connected && !_ssh.isConnected) {
+        await _silentReconnect();
+      }
+    });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Reconnecte immédiatement sans délai
-      _silentReconnect();
+      // On resume: always check even if we think we're connected
+      if (_host.isNotEmpty && _status != ConnectionStatus.connecting) {
+        _checkAndReconnect();
+      }
     } else if (state == AppLifecycleState.paused) {
-      // Envoie un keepalive avant de passer en arrière-plan
       if (_status == ConnectionStatus.connected) {
         _ssh.execute('echo bg').catchError((_) {});
       }
     }
   }
 
-  Future<void> _silentReconnect() async {
-    if (_host.isEmpty) return;
-    if (_status != ConnectionStatus.connected) return;
-
-    // Vérifie si la connexion est encore vivante
+  // Quick ping to check if connection is alive
+  Future<void> _checkAndReconnect() async {
+    if (_status == ConnectionStatus.connecting) return;
     bool alive = false;
     try {
       await _ssh.execute('echo ok').timeout(const Duration(seconds: 3));
       alive = true;
     } catch (_) {}
-
     if (!alive) {
-      // Déconnecte proprement l'ancienne session
-      try { await _ssh.disconnect(); } catch (_) {}
+      await _silentReconnect();
+    }
+  }
 
-      // Reconnecte silencieusement
-      try {
-        final ok = await _ssh.connect(
-          host: _host,
-          port: _port,
-          username: _username,
-          password: _password,
-        );
-        if (ok) {
-          _status = ConnectionStatus.connected;
-          notifyListeners();
-        } else {
-          _status = ConnectionStatus.disconnected;
-          notifyListeners();
-        }
-      } catch (_) {
+  Future<void> _silentReconnect() async {
+    if (_host.isEmpty) return;
+    if (_status == ConnectionStatus.connecting) return;
+
+    // Passe en "connecting" pour afficher la bannière
+    _status = ConnectionStatus.connecting;
+    notifyListeners();
+
+    // Déconnecte proprement l'ancienne session
+    try { await _ssh.disconnect(); } catch (_) {}
+
+    // Tente de reconnecter
+    try {
+      final ok = await _ssh.connect(
+        host: _host,
+        port: _port,
+        username: _username,
+        password: _password,
+      );
+      if (ok) {
+        _status = ConnectionStatus.connected;
+        notifyListeners();
+        await refreshSystemInfo();
+        await refreshVolume();
+      } else {
         _status = ConnectionStatus.disconnected;
         notifyListeners();
       }
+    } catch (_) {
+      _status = ConnectionStatus.disconnected;
+      notifyListeners();
     }
   }
 

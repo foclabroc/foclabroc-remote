@@ -66,7 +66,7 @@ class _GamesScreenState extends State<GamesScreen> {
       if (!await cacheFolder.exists()) await cacheFolder.create(recursive: true);
       final key = md5.convert(utf8.encode(path)).toString();
       final cacheFile = File('${cacheFolder.path}/$key');
-      if (await cacheFile.exists()) return await cacheFile.readAsBytes();
+      if (await cacheFile.exists() && await cacheFile.length() > 100) return await cacheFile.readAsBytes();
 
       final state = context.read<AppState>();
       final url = 'http://127.0.0.1:1234$path';

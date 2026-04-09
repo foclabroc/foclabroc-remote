@@ -159,8 +159,10 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final accent = Theme.of(context).colorScheme.primary;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
@@ -265,8 +267,10 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
               ),
 
             // Input
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.fromLTRB(12, 8, 12, 12 + bottomInset),
               child: Row(
                 children: [
                   Text(

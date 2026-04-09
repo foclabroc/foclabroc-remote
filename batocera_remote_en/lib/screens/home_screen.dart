@@ -13,6 +13,7 @@ import 'games_screen.dart';
 import 'wine_tools_screen.dart';
 import 'foclabroc_tools_screen.dart';
 import 'quiz_screen.dart';
+import 'breakout_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _popLock = false; // prevents double MIUI back calls
 
   static const _tabs = [
-    _TabInfo(icon: Icons.wifi_rounded,           label: 'Connexion'),
+    _TabInfo(icon: Icons.wifi_rounded,           label: 'Connection'),
     _TabInfo(icon: Icons.sports_esports_rounded, label: 'Current Game'),
     _TabInfo(icon: Icons.library_books_rounded,  label: 'Library'),
     _TabInfo(icon: Icons.camera_alt_rounded,     label: 'Capture'),
@@ -36,10 +37,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _TabInfo(icon: Icons.wine_bar_rounded,       label: 'Wine Tools'),
     _TabInfo(icon: Icons.build_circle_rounded,   label: 'Foclabroc Tools'),
     _TabInfo(icon: Icons.quiz_rounded,              label: 'Retro Quiz'),
+    _TabInfo(icon: Icons.sports_tennis_rounded,     label: 'Breakout (offline)'),
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List.generate(10, (_) => GlobalKey<NavigatorState>());
+      List.generate(11, (_) => GlobalKey<NavigatorState>());
 
   @override
   void initState() {
@@ -98,7 +100,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       6 => const SystemScreen(),
       7 => const WineToolsScreen(),
       8 => const FoclabroctoolsScreen(),
-      _ => const QuizScreen(),
+      9 => const QuizScreen(),
+      _ => const BreakoutScreen(),
     }),
   );
 
@@ -113,16 +116,86 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final connected = state.isConnected;
+    final reconnecting = state.isReconnecting;
     final accent = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       key: _scaffoldKey,
       drawer: _buildDrawer(state, connected, accent),
       body: Stack(children: [
-        Stack(children: List.generate(10, (i) => Offstage(
+        Stack(children: List.generate(11, (i) => Offstage(
           offstage: _index != i,
           child: _buildScreen(i),
         ))),
+
+        // ── Reconnection / disconnection banner (visible on all tabs) ─────────
+        if (!connected)
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: AnimatedSlide(
+              offset: connected ? const Offset(0, 1) : Offset.zero,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              child: AnimatedOpacity(
+                opacity: connected ? 0 : 1,
+                duration: const Duration(milliseconds: 300),
+                child: SafeArea(
+                  top: false,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: reconnecting
+                          ? Colors.amberAccent.withOpacity(0.12)
+                          : Colors.redAccent.withOpacity(0.12),
+                      border: Border(
+                        top: BorderSide(
+                          color: reconnecting
+                              ? Colors.amberAccent.withOpacity(0.4)
+                              : Colors.redAccent.withOpacity(0.4),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Row(children: [
+                      reconnecting
+                          ? const SizedBox(
+                              width: 14, height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: Colors.amberAccent,
+                              ),
+                            )
+                          : const Icon(Icons.wifi_off_rounded,
+                              color: Colors.redAccent, size: 14),
+                      const SizedBox(width: 10),
+                      Text(
+                        reconnecting ? 'Reconnecting...' : 'Connection lost',
+                        style: TextStyle(
+                          color: reconnecting ? Colors.amberAccent : Colors.redAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (state.host.isNotEmpty)
+                        Text(
+                          state.host,
+                          style: TextStyle(
+                            color: reconnecting
+                                ? Colors.amberAccent.withOpacity(0.6)
+                                : Colors.redAccent.withOpacity(0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // ── Hamburger button ──────────────────────────────────────────────────
         Positioned(
           top: MediaQuery.of(context).padding.top + 10,
           left: 12,
@@ -206,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const Divider(color: Colors.white10, height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('v1.9',
+            child: Text('v2.0',
                 style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 11)),
           ),
         ]),

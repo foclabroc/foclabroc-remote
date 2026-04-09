@@ -24,7 +24,8 @@ English version available
 - Connexion WiFi via SSH à ta machine Batocera (possibilité de nommer les IP)
 - **Connexion automatique** à la dernière IP utilisée au démarrage
 - Reconnexion silencieuse automatique si la connexion est perdue
-- Indicateur "Reconnexion..." visible sur tous les onglets
+- **Vérification instantanée** de la connexion au retour au premier plan
+- Indicateur \"Reconnexion...\" visible sur tous les onglets
 - Historique des 3 dernières adresses IP (effaçable)
 - Informations système détaillées (modèle, CPU, RAM, résolution, OS...)
 
@@ -97,10 +98,38 @@ English version available
   - Spelunky, Sonic Triple Trouble, Pokemon Uranium, MiniDoom 2, AM2R, Megaman X II
   - Super Tux Kart, Streets of Rage R 5.2, Megaman 2.5D, Sonic Smackdown, Maldita Castilla
   - Super Smash Crusade, Rayman Redemption, Power Bomberman, Mushroom Kingdom Fusion, Dr. Robotnik's Racers
-  - Téléchargement avec progression, mise à jour automatique du gamelist (images, vidéo, métadonnées)
 - **YouTube TV** — installe YouTube TV dans le menu Ports (Batocera x86_64 uniquement)
 - **Foclabroc Toolbox → Ports** — installe la Toolbox dans le menu Ports pour y accéder depuis Batocera (x86_64)
 - **RGSX** — télécharge et installe RetroGameSets game downloader dans 'Ports'
+
+### 🕹️ Quiz Rétro
+- Un screenshot s'affiche → trouve le jeu parmi 4 propositions
+- 10 questions, 20 secondes par question
+- Score = 10 pts + bonus temps
+- Séries de bonnes réponses = bonus 🔥
+- Meilleur score sauvegardé
+
+### 🧱 Casse-briques Rétro
+- Logos de consoles rétro comme briques (35 systèmes)
+- Briques adaptées dynamiquement à la largeur de l'écran
+- Niveaux infinis — densité et vitesse augmentent
+- Briques résistantes (2 coups) à partir du niveau 2
+- **5 power-ups** à collecter :
+  - 🟢 **Batocera** → agrandit la raquette (+30px)
+  - 🔴 **Recalbox** → réduit la raquette ET **−500 pts** si attrapé !
+  - 🐢 **Balle lente** → ralentit la balle 5 secondes
+  - ⚪ **Multiball** → 2 balles supplémentaires (max 4 balles)
+  - 🔫 **Light Gun** → tire des balles depuis la raquette pendant 3 secondes
+- Score pop animé (+pts) au-dessus de chaque brique détruite
+- Particules d'explosion colorées à la destruction
+- Pulse de la raquette à chaque power-up collecté
+- Barre de progression sous la raquette (balle lente / pistolet)
+- Système de combo 🔥 avec bonus croissants
+- Bouton **Pause** dédié
+- Écran de fin avec 6 stats détaillées (score, niveau, vies, briques, power-ups, combo max)
+- **Partage du score** : capture d'écran des résultats partageable
+- Meilleur score avec nom du joueur et niveau atteint
+- Mode portrait forcé
 
 ---
 
@@ -160,7 +189,7 @@ flutter build apk --release
 | **path_provider** | Système de fichiers local |
 | **file_picker** | Sélection fichiers Android |
 | **open_filex** | Ouverture fichiers natifs |
-| **share_plus** | Partage de logs |
+| **share_plus** | Partage de logs et scores |
 | **url_launcher** | Liens externes (RetroAchievements) |
 | **wakelock_plus** | Écran allumé en permanence |
 | **shared_preferences** | Sauvegarde préférences |

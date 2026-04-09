@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'models/app_state.dart';
@@ -9,6 +10,11 @@ final GlobalKey<NavigatorState> _rootNavKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Forcer le mode portrait uniquement
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   // Empêche la mise en veille tant que l'app est ouverte
   await WakelockPlus.enable();
   runApp(
