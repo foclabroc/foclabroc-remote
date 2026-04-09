@@ -3,7 +3,7 @@
 **Télécommande Android pour Batocera Linux**
 - POUR BATOCERA V43+. Certaines fonctionnalités comme la capture vidéo peuvent ne pas fonctionner avec les versions précédentes
 
-[![Voir la démo](https://img.youtube.com/vi/OkYvSxjOg3c/maxresdefault.jpg)](https://youtu.be/Dkd6l1CZtBY)
+[![Voir la démo](https://img.youtube.com/vi/OkYvSxjOg3c/maxresdefault.jpg)](https://youtu.be/4veWFNOn-VU)
 
 > *Cliquez sur l'image pour voir la vidéo de présentation*
 
