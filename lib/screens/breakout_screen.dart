@@ -20,9 +20,9 @@ const _kBestNameKey   = 'breakout_best_name';
 
 const _brickW       = 72.0;
 const _brickH       = 36.0;
-const _brickCols    = 5;
+const _brickCols    = 6;
 const _brickRows    = 5;
-const _brickPadX    = 8.0;
+const _brickPadX    = 4.0;
 const _brickPadY    = 6.0;
 const _brickOffsetY = 80.0;
 const _paddleW      = 90.0;
@@ -147,33 +147,57 @@ class _BreakoutScreenState extends State<BreakoutScreen> {
       final name = await showDialog<String>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1C2230),
-          title: const Text('🏆 Nouveau record !',
-              style: TextStyle(color: Colors.amberAccent, fontSize: 18, fontWeight: FontWeight.w700)),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('$score pts', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              maxLength: 12,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Ton nom...',
-                hintStyle: const TextStyle(color: Colors.white38),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.06),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                counterStyle: const TextStyle(color: Colors.white38),
-              ),
-              onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()),
+        builder: (ctx) => AnimatedPadding(
+          duration: const Duration(milliseconds: 150),
+          padding: EdgeInsets.only(
+            left: 24, right: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            top: 24,
+          ),
+          child: Center(
+            child: Material(
+              color: const Color(0xFF1C2230),
+              borderRadius: BorderRadius.circular(20),
+              child: IntrinsicHeight(child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Text('🏆 Nouveau record !',
+                    style: TextStyle(color: Colors.amberAccent, fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                Text('$score pts', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  maxLength: 12,
+                  style: const TextStyle(color: Colors.white),
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    hintText: 'Ton nom...',
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.06),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    counterStyle: const TextStyle(color: Colors.white38),
+                  ),
+                  onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()),
+                ),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: TextButton(
+                    onPressed: () => Navigator.pop(ctx, ''),
+                    child: const Text('Passer'),
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+                    child: const Text('Sauvegarder'),
+                  )),
+                ]),
+              ]),
+            )),
             ),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Passer')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Sauvegarder')),
-          ],
+          ),
         ),
       );
       final finalName = (name ?? '').isEmpty ? 'Anonyme' : name!;
@@ -528,6 +552,50 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
     _buildLevel();
   }
 
+  // ── Formes géométriques ───────────────────────────────────────────────────
+  List<List<bool>> _buildShape(int cols, int rows) {
+    // Toutes les formes sont conçues pour être symétriques sur 6 colonnes
+    final List<bool Function(int, int)> shapes = [
+      // Damier parfait
+      (c, r) => (c + r) % 2 == 0,
+      // Deux diagonales symétriques (V)
+      (c, r) => (c <= cols ~/ 2)
+          ? r == c
+          : r == cols - 1 - c,
+      // Losange centré (symétrique)
+      (c, r) {
+        final cx = (cols - 1) / 2.0;
+        final cy = (rows - 1) / 2.0;
+        return ((c - cx).abs() + (r - cy).abs()) <= (cols / 2.0).floor();
+      },
+      // Croix centrée (2 colonnes + 2 lignes centrales)
+      (c, r) => (c == 2 || c == 3) || (r == rows ~/ 2 || r == rows ~/ 2 - 1),
+      // Colonnes paires seulement
+      (c, r) => c % 2 == 0,
+      // Colonnes impaires seulement
+      (c, r) => c % 2 == 1,
+      // Lignes alternées
+      (c, r) => r % 2 == 0,
+      // Cadre (bordure uniquement)
+      (c, r) => r == 0 || r == rows - 1 || c == 0 || c == cols - 1,
+      // Triangle centré (symétrique)
+      (c, r) {
+        final cx = (cols - 1) / 2.0;
+        final maxDist = cx * (1.0 - r / (rows - 1).toDouble());
+        return (c - cx).abs() <= maxDist + 0.5;
+      },
+      // W / double V
+      (c, r) => (c == r % (cols ~/ 2)) || (c == cols - 1 - (r % (cols ~/ 2))),
+      // Damier large (blocs 2x2)
+      (c, r) => (c ~/ 2 + r ~/ 2) % 2 == 0,
+      // Plein classique
+      (c, r) => true,
+    ];
+    final idx = (_level - 1 + _rng.nextInt(shapes.length)) % shapes.length;
+    final fn = shapes[idx];
+    return List.generate(rows, (r) => List.generate(cols, (c) => fn(c, r)));
+  }
+
   void _buildLevel() {
     _powerUps.clear();
     _paddleWCurrent = _paddleW;
@@ -541,17 +609,21 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
     if (keys.isEmpty) return;
 
     // Calcul dynamique : briques adaptées à la largeur écran avec marge 8px
-    const marginX = 8.0;
+    const marginX = 4.0;
     final availW  = _w - marginX * 2;
     final brickW  = (availW - (_brickCols - 1) * _brickPadX) / _brickCols;
-    final startX  = marginX;
-    final density = (0.60 + _level * 0.08).clamp(0.60, 1.0);
-    final rows = (_brickRows + (_level - 1)).clamp(_brickRows, _brickRows + 4);
+    // Centrage : recalcul du startX pour que le bloc soit parfaitement centré
+    final totalW  = _brickCols * brickW + (_brickCols - 1) * _brickPadX;
+    final startX  = (_w - totalW) / 2;
+    final rows    = (_brickRows + (_level ~/ 2)).clamp(_brickRows, _brickRows + 4);
+
+    // Forme géométrique aléatoire
+    final shape = _buildShape(_brickCols, rows);
 
     final positions = <Offset>[];
     for (int row = 0; row < rows; row++) {
       for (int col = 0; col < _brickCols; col++) {
-        if (_rng.nextDouble() <= density) {
+        if (shape[row][col]) {
           positions.add(Offset(
             startX + col * (brickW + _brickPadX),
             _brickOffsetY + row * (_brickH + _brickPadY),
@@ -559,7 +631,7 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
         }
       }
     }
-    if (positions.length < 10) { _buildLevel(); return; }
+    if (positions.length < 8) { _buildLevel(); return; }
     positions.shuffle(_rng);
 
     final bonusIdx      = {positions[0], positions[1]};
@@ -701,10 +773,28 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
               b.alive = false;
               _combo++;
               _bricksDestroyed++;
-              final pts = 10 + (_combo > 1 ? (_combo - 1) * 5 : 0);
-              _score += pts;
-              _scorePops.add(_ScorePop(pos: b.rect.center - const Offset(0, 10), text: '+\$pts'));
-              _spawnParticles(b.rect, Colors.orangeAccent);
+              if (b.isMalus) {
+                _score -= 500;
+                _combo = 0;
+                _scorePops.add(_ScorePop(pos: b.rect.center - const Offset(0, 10), text: '-500 💀'));
+                _powerUps.add(_PowerUp(pos: b.rect.center, isBonus: false,
+                    image: _images[_malusAsset]));
+              } else {
+                final pts = 10 + (_combo > 1 ? (_combo - 1) * 5 : 0);
+                _score += pts;
+                _scorePops.add(_ScorePop(pos: b.rect.center - const Offset(0, 10), text: '+\$pts'));
+              }
+              if (b.isBonus) {
+                _powerUps.add(_PowerUp(pos: b.rect.center, isBonus: true,
+                    image: _images[_bonusAsset]));
+              }
+              if (b.brickColor == const Color(0xFF003366)) {
+                _powerUps.add(_PowerUp(pos: b.rect.center, isBonus: true, isSlow: true));
+              }
+              if (b.brickColor == const Color(0xFF500080)) {
+                _powerUps.add(_PowerUp(pos: b.rect.center, isBonus: true, isShoot: true));
+              }
+              _spawnParticles(b.rect, b.isMalus ? Colors.redAccent : Colors.orangeAccent);
             }
             return true;
           }
