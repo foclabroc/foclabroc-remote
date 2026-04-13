@@ -279,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const Divider(color: Colors.white10, height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('v2.1',
+            child: Text('v2.2',
                 style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 11)),
           ),
         ]),

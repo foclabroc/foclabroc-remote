@@ -59,6 +59,16 @@ class _GamesScreenState extends State<GamesScreen> {
     } catch (_) { return ''; }
   }
 
+  bool _isValidImage(Uint8List bytes) {
+    if (bytes.length < 8) return false;
+    if (bytes[0] == 0x89 && bytes[1] == 0x50) return true; // PNG
+    if (bytes[0] == 0xFF && bytes[1] == 0xD8) return true; // JPEG
+    if (bytes[0] == 0x47 && bytes[1] == 0x49) return true; // GIF
+    if (bytes[0] == 0x52 && bytes[1] == 0x49) return true; // WebP
+    if (bytes[0] == 0x3C) return true;                      // SVG (<)
+    return false;
+  }
+
   Future<Uint8List?> _fetchImage(String path) async {
     try {
       final cacheDir = await getTemporaryDirectory();
@@ -66,7 +76,17 @@ class _GamesScreenState extends State<GamesScreen> {
       if (!await cacheFolder.exists()) await cacheFolder.create(recursive: true);
       final key = md5.convert(utf8.encode(path)).toString();
       final cacheFile = File('${cacheFolder.path}/$key');
-      if (await cacheFile.exists() && await cacheFile.length() > 100) return await cacheFile.readAsBytes();
+
+      // Cache valide si > 100 bytes ET image valide
+      if (await cacheFile.exists()) {
+        final len = await cacheFile.length();
+        if (len > 100) {
+          final cached = await cacheFile.readAsBytes();
+          if (_isValidImage(cached)) return cached;
+        }
+        // Cache corrompu → supprimer et réessayer
+        await cacheFile.delete();
+      }
 
       final state = context.read<AppState>();
       final url = 'http://127.0.0.1:1234$path';
@@ -75,7 +95,9 @@ class _GamesScreenState extends State<GamesScreen> {
       final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
       await session.done;
       final result = Uint8List.fromList(bytes);
-      if (result.isNotEmpty) {
+
+      // Ne sauvegarder que si c'est une vraie image
+      if (result.length > 100 && _isValidImage(result)) {
         await cacheFile.writeAsBytes(result);
         return result;
       }
@@ -217,12 +239,23 @@ final systems = list
       if (!mounted) return;
       final batch = systems.skip(i).take(batchSize).toList();
       await Future.wait(batch.map((sys) async {
-        final logoPath = sys['logo']?.toString();
-        if (logoPath == null || logoPath.isEmpty) return;
-        final sysName = sys['name'].toString();
+        final sysName = sys['name']?.toString() ?? '';
+        if (sysName.isEmpty) return;
         if (_logoCache.containsKey(sysName)) return;
-        final bytes = await _fetchImage(logoPath);
-        if (mounted && bytes != null) setState(() => _logoCache[sysName] = bytes);
+
+        // Essayer le chemin de l'API d'abord, puis fallback direct
+        final paths = <String>[
+          if ((sys['logo']?.toString() ?? '').isNotEmpty) sys['logo'].toString(),
+          '/systems/$sysName/logo',
+        ];
+
+        for (final logoPath in paths) {
+          final bytes = await _fetchImage(logoPath);
+          if (mounted && bytes != null) {
+            setState(() => _logoCache[sysName] = bytes);
+            break;
+          }
+        }
       }));
       await Future.delayed(const Duration(milliseconds: 50));
     }
