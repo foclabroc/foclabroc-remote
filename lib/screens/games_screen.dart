@@ -52,7 +52,8 @@ class _GamesScreenState extends State<GamesScreen> {
   Future<String> _execDirect(String cmd) async {
     try {
       final state = context.read<AppState>();
-      final session = await state.ssh.client!.execute(cmd);
+      // 2>/dev/null bloque la bannière Batocera qui pollue stdout
+      final session = await state.ssh.client!.execute('$cmd 2>/dev/null');
       final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
       await session.done;
       return utf8.decode(bytes).trim();
@@ -89,12 +90,19 @@ class _GamesScreenState extends State<GamesScreen> {
       }
 
       final state = context.read<AppState>();
-      final url = 'http://127.0.0.1:1234$path';
-      // Lit curl directement depuis stdout SSH — pas de fichier tmp
-      final session = await state.ssh.client!.execute('curl -s "$url"');
-      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
-      await session.done;
-      final result = Uint8List.fromList(bytes);
+      Uint8List result;
+
+      if (path.startsWith('/usr/') || path.startsWith('/userdata/')) {
+        // Chemin filesystem → SFTP direct
+        result = await state.ssh.downloadFile(path);
+      } else {
+        // Route API ES → curl
+        final url = 'http://127.0.0.1:1234$path';
+        final session = await state.ssh.client!.execute('curl -s --max-time 8 "$url"');
+        final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+        await session.done;
+        result = Uint8List.fromList(bytes);
+      }
 
       // Ne sauvegarder que si c'est une vraie image
       if (result.length > 100 && _isValidImage(result)) {
@@ -117,7 +125,7 @@ final systems = list
       systems.sort((a, b) => (a['fullname'] ?? '').toString()
           .compareTo((b['fullname'] ?? '').toString()));
       setState(() { _systems = systems; _loadingSystems = false; });
-      _loadLogos(systems);
+      await _loadLogos(systems);
       _loadGameCounts(systems);
     } catch (_) {
       setState(() => _loadingSystems = false);
@@ -234,7 +242,7 @@ final systems = list
   }
 
   Future<void> _loadLogos(List<Map<String, dynamic>> systems) async {
-    const batchSize = 5;
+    const batchSize = 3;
     for (int i = 0; i < systems.length; i += batchSize) {
       if (!mounted) return;
       final batch = systems.skip(i).take(batchSize).toList();
@@ -243,10 +251,12 @@ final systems = list
         if (sysName.isEmpty) return;
         if (_logoCache.containsKey(sysName)) return;
 
-        // Essayer le chemin de l'API d'abord, puis fallback direct
+        final sysNameL = sysName.toLowerCase();
         final paths = <String>[
           if ((sys['logo']?.toString() ?? '').isNotEmpty) sys['logo'].toString(),
           '/systems/$sysName/logo',
+          '/usr/share/emulationstation/themes/es-theme-carbon/art/logos/$sysNameL.svg',
+          '/usr/share/emulationstation/themes/es-theme-carbon/art/logos/$sysNameL.png',
         ];
 
         for (final logoPath in paths) {
@@ -257,7 +267,6 @@ final systems = list
           }
         }
       }));
-      await Future.delayed(const Duration(milliseconds: 50));
     }
   }
 
