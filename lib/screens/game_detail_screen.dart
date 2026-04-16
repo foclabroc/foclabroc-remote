@@ -294,7 +294,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                 child: Container(
                   width: double.infinity, height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: const Color(0xFF3D4F6B),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(children: [

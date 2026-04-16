@@ -126,7 +126,7 @@ class _GamesScreenState extends State<GamesScreen> {
 
       if (result.length > 100) {
         // SVG trop complexe (>50KB) → convertir en PNG via rsvg-convert
-        if (_isSvg(result) && result.length > 15000) {
+        if (_isSvg(result)) {
           final png = await _svgToPng(result, key, state);
           if (png != null) {
             await cacheFile.writeAsBytes(png);
@@ -563,6 +563,7 @@ class _SystemCard extends StatelessWidget {
           SizedBox.expand(
             child: Card(
               margin: EdgeInsets.zero,
+              color: const Color(0xFF3D4F6B),
               child: InkWell(
                 onTap: onTap,
                 borderRadius: BorderRadius.circular(16),
