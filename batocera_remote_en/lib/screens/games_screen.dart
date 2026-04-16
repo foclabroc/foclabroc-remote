@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../models/app_state.dart';
 import 'game_detail_screen.dart';
 
@@ -66,9 +67,11 @@ class _GamesScreenState extends State<GamesScreen> {
     if (bytes[0] == 0xFF && bytes[1] == 0xD8) return true; // JPEG
     if (bytes[0] == 0x47 && bytes[1] == 0x49) return true; // GIF
     if (bytes[0] == 0x52 && bytes[1] == 0x49) return true; // WebP
-    if (bytes[0] == 0x3C) return true;                      // SVG (<)
+    if (bytes[0] == 0x3C) return true;                      // SVG
     return false;
   }
+
+  bool _isSvg(Uint8List bytes) => bytes.length > 4 && bytes[0] == 0x3C;
 
   Future<Uint8List?> _fetchImage(String path) async {
     try {
@@ -104,9 +107,11 @@ class _GamesScreenState extends State<GamesScreen> {
         result = Uint8List.fromList(bytes);
       }
 
-      // Ne sauvegarder que si c'est une vraie image
-      if (result.length > 100 && _isValidImage(result)) {
-        await cacheFile.writeAsBytes(result);
+      // Sauvegarder si image valide OU fichier binaire non-vide (PDF, etc.)
+      if (result.length > 100) {
+        if (_isValidImage(result)) {
+          await cacheFile.writeAsBytes(result);
+        }
         return result;
       }
       return null;
@@ -310,7 +315,12 @@ final systems = list
                     GestureDetector(
                       onTap: state.isConnected ? () async {
                         try { final f = await _getCacheFile(); if (await f.exists()) await f.delete(); } catch (_) {}
-                        setState(() => _allGames = []);
+                        try {
+                          final cacheDir = await getTemporaryDirectory();
+                          final logoFolder = Directory('${cacheDir.path}/batocera_img_cache');
+                          if (await logoFolder.exists()) await logoFolder.delete(recursive: true);
+                        } catch (_) {}
+                        setState(() { _allGames = []; _logoCache.clear(); _systems = []; });
                         _loadSystems();
                       } : null,
                       child: Column(
@@ -497,6 +507,8 @@ final systems = list
   }
 }
 
+bool _isSvgBytes(Uint8List bytes) => bytes.isNotEmpty && bytes[0] == 0x3C;
+
 // ─── System Card ──────────────────────────────────────────────────────────────
 
 class _SystemCard extends StatelessWidget {
@@ -534,7 +546,7 @@ class _SystemCard extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   child: Center(
                     child: logo != null
-                        ? Image.memory(logo!, fit: BoxFit.contain)
+                        ? (_isSvgBytes(logo!) ? SizedBox(width: 115, height: 50, child: ClipRect(child: SvgPicture.memory(logo!, fit: BoxFit.contain, allowDrawingOutsideViewBox: false))) : Image.memory(logo!, fit: BoxFit.contain))
                         : Text(
                             name.toString().toUpperCase(),
                             style: TextStyle(color: accent, fontSize: 10,

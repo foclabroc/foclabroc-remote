@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
@@ -300,7 +301,9 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                     if (widget.systemLogo != null)
                       Padding(
                         padding: const EdgeInsets.all(6),
-                        child: Image.memory(widget.systemLogo!, fit: BoxFit.contain, width: 60),
+                        child: widget.systemLogo![0] == 0x3C
+                            ? SizedBox(width: 60, height: 40, child: SvgPicture.memory(widget.systemLogo!, fit: BoxFit.contain))
+                            : Image.memory(widget.systemLogo!, fit: BoxFit.contain, width: 60),
                       ),
                     if (widget.systemLogo != null && _wheelBytes != null)
                       Container(width: 1, height: 40, color: Colors.white10),

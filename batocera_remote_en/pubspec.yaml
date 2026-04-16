@@ -1,6 +1,6 @@
 name: batocera_remote
 description: Télécommande Android pour Batocera Linux
-version: 1.1.0+2
+version: 2.3.0+23
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -20,6 +20,7 @@ dependencies:
   crypto: ^3.0.3
   video_player: ^2.8.0
   wakelock_plus: ^1.1.4
+  flutter_svg: ^2.0.0
 
 dev_dependencies:
   flutter_test:
