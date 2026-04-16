@@ -73,6 +73,23 @@ class _GamesScreenState extends State<GamesScreen> {
 
   bool _isSvg(Uint8List bytes) => bytes.length > 4 && bytes[0] == 0x3C;
 
+
+  // Convertit un SVG complexe en PNG via rsvg-convert sur Batocera
+  Future<Uint8List?> _svgToPng(Uint8List svgBytes, String key, AppState state) async {
+    try {
+      final tmpSvg = '/tmp/logo_$key.svg';
+      final tmpPng = '/tmp/logo_$key.png';
+      final dir = await getTemporaryDirectory();
+      final localSvg = File('${dir.path}/tmp_svg_$key.svg');
+      await localSvg.writeAsBytes(svgBytes);
+      await state.ssh.uploadFileFromPath(localSvg.path, tmpSvg);
+      await _execDirect('rsvg-convert -w 120 -h 60 "$tmpSvg" -o "$tmpPng" 2>/dev/null');
+      final pngBytes = await state.ssh.downloadFile(tmpPng);
+      await _execDirect('rm -f "$tmpSvg" "$tmpPng"');
+      return pngBytes.length > 100 ? pngBytes : null;
+    } catch (_) { return null; }
+  }
+
   Future<Uint8List?> _fetchImage(String path) async {
     try {
       final cacheDir = await getTemporaryDirectory();
@@ -107,8 +124,15 @@ class _GamesScreenState extends State<GamesScreen> {
         result = Uint8List.fromList(bytes);
       }
 
-      // Sauvegarder si image valide OU fichier binaire non-vide (PDF, etc.)
       if (result.length > 100) {
+        // SVG trop complexe (>50KB) → convertir en PNG via rsvg-convert
+        if (_isSvg(result) && result.length > 15000) {
+          final png = await _svgToPng(result, key, state);
+          if (png != null) {
+            await cacheFile.writeAsBytes(png);
+            return png;
+          }
+        }
         if (_isValidImage(result)) {
           await cacheFile.writeAsBytes(result);
         }
@@ -546,7 +570,7 @@ class _SystemCard extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   child: Center(
                     child: logo != null
-                        ? (_isSvgBytes(logo!) ? SizedBox(width: 115, height: 50, child: ClipRect(child: SvgPicture.memory(logo!, fit: BoxFit.contain, allowDrawingOutsideViewBox: false))) : Image.memory(logo!, fit: BoxFit.contain))
+                        ? (_isSvgBytes(logo!) ? SizedBox(width: 100, height: 36, child: ClipRect(child: SvgPicture.memory(logo!, fit: BoxFit.contain, allowDrawingOutsideViewBox: false))) : Image.memory(logo!, fit: BoxFit.contain))
                         : Text(
                             name.toString().toUpperCase(),
                             style: TextStyle(color: accent, fontSize: 10,
