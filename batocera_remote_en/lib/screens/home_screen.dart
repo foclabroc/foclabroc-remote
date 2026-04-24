@@ -14,6 +14,9 @@ import 'wine_tools_screen.dart';
 import 'foclabroc_tools_screen.dart';
 import 'quiz_screen.dart';
 import 'breakout_screen.dart';
+import 'links_screen.dart';
+
+const kAppVersion = '2.4-EN';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,10 +41,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _TabInfo(icon: Icons.build_circle_rounded,   label: 'Foclabroc Tools'),
     _TabInfo(icon: Icons.quiz_rounded,              label: 'Retro Quiz'),
     _TabInfo(icon: Icons.sports_tennis_rounded,     label: 'Breakout (offline)'),
+    _TabInfo(icon: Icons.link_rounded,               label: 'Useful links'),
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List.generate(11, (_) => GlobalKey<NavigatorState>());
+      List.generate(12, (_) => GlobalKey<NavigatorState>());
 
   @override
   void initState() {
@@ -101,7 +105,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       7 => const WineToolsScreen(),
       8 => const FoclabroctoolsScreen(),
       9 => const QuizScreen(),
-      _ => const BreakoutScreen(),
+      10 => const BreakoutScreen(),
+      _ => const LinksScreen(),
     }),
   );
 
@@ -123,7 +128,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       key: _scaffoldKey,
       drawer: _buildDrawer(state, connected, accent),
       body: Stack(children: [
-        Stack(children: List.generate(11, (i) => Offstage(
+        Stack(children: List.generate(12, (i) => Offstage(
           offstage: _index != i,
           child: _buildScreen(i),
         ))),
@@ -279,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const Divider(color: Colors.white10, height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('v2.3',
+            child: Text('v$kAppVersion',
                 style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 11)),
           ),
         ]),
