@@ -157,14 +157,28 @@ class SshService {
       'amixer sset Master ${percent}% 2>/dev/null || '
       'pactl set-sink-volume @DEFAULT_SINK@ ${percent}%',
     );
+    // Sauvegarder dans batocera.conf pour persistance
+    try {
+      final session = await _client!.execute(
+        'batocera-settings-set audio.volume $percent 2>/dev/null; '
+        'sed -i s/^audio\\.volume=.*/audio.volume=$percent/ /userdata/system/batocera.conf 2>/dev/null',
+      );
+      await session.done;
+    } catch (_) {}
   }
 
   Future<int> getVolume() async {
     try {
-      final out = await execute(
-        "amixer sget Master 2>/dev/null | grep -o '[0-9]*%' | head -1 | tr -d '%'",
+      // Utiliser client direct pour éviter les problèmes d'échappement avec bash -l -c
+      final session = await _client!.execute(
+        'grep audio.volume= /userdata/system/batocera.conf 2>/dev/null | grep -v boost | grep -v pcengine | cut -d= -f2 | head -1',
       );
-      return int.tryParse(out) ?? 50;
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      final out = utf8.decode(bytes).trim();
+      final v = int.tryParse(out);
+      if (v != null && v >= 0 && v <= 100) return v;
+      return 50;
     } catch (_) {
       return 50;
     }
@@ -192,25 +206,11 @@ class SshService {
   }
 
   Future<void> startRecord() async {
-    // setsid détache ffmpeg du process group du shell SSH.
-    // Sans ça, la fermeture du canal SSH propage SIGHUP à ffmpeg
-    // et corrompt le trailer MKV au stop (fichier 0 ko).
-    await execute('setsid batocera-record start </dev/null >/dev/null 2>&1 &');
+    await execute('batocera-record start &');
   }
 
   Future<void> stopRecord() async {
     await execute('batocera-record stop');
-    // Remux MKV → MKV pour régénérer l'index (cues) et permettre le seek.
-    // -c copy = pas de réencodage, ~1s. On écrit dans un fichier temporaire
-    // puis on remplace l'original pour garder le même nom de fichier.
-    await execute(
-      'sleep 1; '
-      'mkv=\$(ls -t /userdata/recordings/*.mkv 2>/dev/null | head -1); '
-      '[ -n "\$mkv" ] && [ -s "\$mkv" ] && '
-      'ffmpeg -y -i "\$mkv" -c copy -map 0 "\${mkv%.mkv}.tmp.mkv" '
-      '</dev/null >/dev/null 2>&1 && '
-      'mv -f "\${mkv%.mkv}.tmp.mkv" "\$mkv"',
-    );
   }
 
   // ─── Logs & fichiers (sans bash -l pour éviter le banner) ───────────────────
