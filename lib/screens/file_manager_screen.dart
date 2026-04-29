@@ -23,6 +23,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   bool _loading = false;
   String? _error;
   String? _downloading;
+  double? _downloadProgress; // 0.0 à 1.0, null = indéterminé
   bool _uploading = false;
   double _uploadProgress = 0.0;
   String _uploadingFileName = '';
@@ -249,6 +250,102 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       await _loadDir(_currentPath);
     }
     setState(() => _selected.clear());
+  }
+
+
+  Future<void> _downloadSelected() async {
+    if (_selected.isEmpty) return;
+    final state = context.read<AppState>();
+    final items = _items.where((it) => _selected.contains(it.fullPath) && !it.isDir).toList();
+    if (items.isEmpty) {
+      _showSnack('Sélectionnez au moins un fichier');
+      return;
+    }
+    const downloadsPath = '/storage/emulated/0/Download';
+    final downloadsDir = Directory(downloadsPath);
+    if (!await downloadsDir.exists()) await downloadsDir.create(recursive: true);
+
+    // Variables de progression partagées avec le dialog
+    double progress = 0.0;
+    String currentName = items.first.name;
+    int currentIdx = 1;
+
+    // Dialog modal avec progression
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          // Écouter les mises à jour via un Stream-like approach
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1C2230),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.download_rounded, color: Colors.purpleAccent, size: 32),
+              const SizedBox(height: 12),
+              Text(
+                items.length > 1 ? 'Fichier $currentIdx/${items.length}' : 'Téléchargement...',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              Text(currentName,
+                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: progress > 0 ? progress : null,
+                color: Colors.purpleAccent,
+                backgroundColor: Colors.purple.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(4),
+                minHeight: 6,
+              ),
+              if (progress > 0) ...[
+                const SizedBox(height: 6),
+                Text('${(progress * 100).toInt()}%',
+                  style: const TextStyle(color: Colors.purpleAccent, fontSize: 12)),
+              ],
+            ]),
+          );
+        },
+      ),
+    );
+
+    final saved = <String>[];
+    for (int idx = 0; idx < items.length; idx++) {
+      final item = items[idx];
+      currentName = item.name;
+      currentIdx = idx + 1;
+      progress = 0.0;
+
+      try {
+        final sizeStr = await state.ssh.execute('stat -c%s "${item.fullPath}" 2>/dev/null');
+        final totalSize = int.tryParse(sizeStr.trim()) ?? 0;
+        final dest = File('$downloadsPath/${item.name}');
+        await state.ssh.downloadFileToDisk(
+          item.fullPath,
+          dest.path,
+          onProgress: totalSize > 0 ? (bytes) {
+            progress = (bytes / totalSize).clamp(0.0, 1.0);
+            if (mounted) setState(() {});
+          } : null,
+        );
+        saved.add(item.name);
+      } catch (e) {
+        if (mounted) _showSnack('Erreur ${item.name} : $e', isError: true);
+      }
+    }
+
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      setState(() { _downloading = null; _downloadProgress = null; });
+      if (saved.isNotEmpty) {
+        final msg = saved.length == 1
+            ? '${saved.first} téléchargé dans Téléchargements'
+            : '${saved.length} fichiers téléchargés dans Téléchargements';
+        _showSnack(msg);
+      }
+    }
   }
 
   Future<void> _deleteSelected() async {
@@ -528,6 +625,17 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                 onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _viewFileInApp(item); },
               ),
             ListTile(
+              leading: const Icon(Icons.download_rounded, color: Colors.purpleAccent),
+              title: const Text('Télécharger', style: TextStyle(color: Colors.white70)),
+              subtitle: const Text('Enregistrer dans Téléchargements',
+                  style: TextStyle(color: Colors.white38, fontSize: 11)),
+              onTap: () {
+                Navigator.of(ctx, rootNavigator: true).pop();
+                setState(() { _selected.clear(); _selected.add(item.fullPath); });
+                _downloadSelected();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_rounded, color: Colors.redAccent),
               title: const Text('Supprimer', style: TextStyle(color: Colors.white70)),
               onTap: () {
@@ -695,16 +803,44 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                               ],
                             ),
                           )
-                        : Row(children: [
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: Text('Chargement...',
-                                  style: TextStyle(color: accent, fontSize: 12)),
-                            ),
-                            SizedBox(width: 18, height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
-                            const SizedBox(width: 8),
-                          ])
+                        : _downloading != null
+                          ? SizedBox(
+                              width: 160,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Téléch. : $_downloading',
+                                    style: const TextStyle(color: Colors.purpleAccent, fontSize: 10),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  LinearProgressIndicator(
+                                    value: _downloadProgress,
+                                    color: Colors.purpleAccent,
+                                    backgroundColor: Colors.purple.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                    minHeight: 5,
+                                  ),
+                                  if (_downloadProgress != null)
+                                    Text(
+                                      '${(_downloadProgress! * 100).toInt()}%',
+                                      style: const TextStyle(color: Colors.purpleAccent, fontSize: 10),
+                                    ),
+                                ],
+                              ),
+                            )
+                          : Row(children: [
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Text('Chargement...',
+                                    style: TextStyle(color: accent, fontSize: 12)),
+                              ),
+                              SizedBox(width: 18, height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
+                              const SizedBox(width: 8),
+                            ])
                     else ...[
                       IconButton(
                         icon: Icon(Icons.upload_rounded, color: Colors.white38, size: 20),
@@ -871,6 +1007,12 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                         color: Colors.amberAccent,
                         onTap: _renameSelected,
                       ),
+                    _ActionBtn(
+                      icon: Icons.download_rounded,
+                      label: 'Télécharger',
+                      color: Colors.purpleAccent,
+                      onTap: _downloadSelected,
+                    ),
                     _ActionBtn(
                       icon: Icons.delete_rounded,
                       label: 'Supprimer',
