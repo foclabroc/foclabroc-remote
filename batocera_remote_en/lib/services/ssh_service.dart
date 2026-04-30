@@ -91,7 +91,7 @@ class SshService {
 
   Future<String> execute(String command) async {
     if (_client == null || !_connected) {
-      throw Exception('Non connecté');
+      throw Exception('Not connected');
     }
     try {
       // </dev/null évite le /dev/tty, 2>/dev/null supprime stderr
@@ -107,7 +107,7 @@ class SshService {
           .join('\n');
       return output.trim();
     } catch (e) {
-      throw Exception('Erreur commande: $e');
+      throw Exception('Command error: $e');
     }
   }
 
@@ -206,17 +206,31 @@ class SshService {
   }
 
   Future<void> startRecord() async {
-    await execute('batocera-record start &');
+    // setsid détache ffmpeg du process group du shell SSH.
+    // Sans ça, la fermeture du canal SSH propage SIGHUP à ffmpeg
+    // et corrompt le trailer MKV au stop (fichier 0 ko).
+    await execute('setsid batocera-record start </dev/null >/dev/null 2>&1 &');
   }
 
   Future<void> stopRecord() async {
     await execute('batocera-record stop');
+    // Remux MKV → MKV pour régénérer l'index (cues) et permettre le seek.
+    // -c copy = pas de réencodage, ~1s. On écrit dans un fichier temporaire
+    // puis on remplace l'original pour garder le même nom de fichier.
+    await execute(
+      'sleep 1; '
+      'mkv=\$(ls -t /userdata/recordings/*.mkv 2>/dev/null | head -1); '
+      '[ -n "\$mkv" ] && [ -s "\$mkv" ] && '
+      'ffmpeg -y -i "\$mkv" -c copy -map 0 "\${mkv%.mkv}.tmp.mkv" '
+      '</dev/null >/dev/null 2>&1 && '
+      'mv -f "\${mkv%.mkv}.tmp.mkv" "\$mkv"',
+    );
   }
 
   // ─── Logs & fichiers (sans bash -l pour éviter le banner) ───────────────────
 
   Future<String> readLog(String filename) async {
-    if (_client == null || !_connected) throw Exception('Non connecté');
+    if (_client == null || !_connected) throw Exception('Not connected');
     final session = await _client!.execute(
       'cat /userdata/system/logs/$filename',
     );
@@ -227,7 +241,7 @@ class SshService {
   }
 
   Future<String> readFile(String remotePath) async {
-    if (_client == null || !_connected) throw Exception('Non connecté');
+    if (_client == null || !_connected) throw Exception('Not connected');
     final session = await _client!.execute('cat "$remotePath"');
     final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
     await session.done;
@@ -238,7 +252,7 @@ class SshService {
 
   Future<Uint8List> downloadFile(String remotePath) async {
     if (_client == null || !_connected) {
-      throw Exception('Non connecté');
+      throw Exception('Not connected');
     }
     final sftp = await _client!.sftp();
     final file = await sftp.open(remotePath);
@@ -260,7 +274,7 @@ class SshService {
   // Stream direct vers disque (pour les gros fichiers)
   Future<void> downloadFileToDisk(String remotePath, String localPath,
       {void Function(int bytes)? onProgress}) async {
-    if (_client == null || !_connected) throw Exception('Non connecté');
+    if (_client == null || !_connected) throw Exception('Not connected');
     final sftp = await _client!.sftp();
     final remoteFile = await sftp.open(remotePath);
     final localFile = File(localPath).openWrite();
@@ -289,7 +303,7 @@ class SshService {
 
   Future<int> startTunnel() async {
     if (_tunnelServer != null) return _tunnelPort;
-    if (_client == null || !_connected) throw Exception('Non connecté');
+    if (_client == null || !_connected) throw Exception('Not connected');
 
     _tunnelServer = await ServerSocket.bind('127.0.0.1', 0);
     _tunnelPort = _tunnelServer!.port;
@@ -322,7 +336,7 @@ class SshService {
     void Function(int sent, int total)? onProgress,
   }) async {
     if (_client == null || !_connected) {
-      throw Exception('Non connecté');
+      throw Exception('Not connected');
     }
     final ioFile = File(localPath);
     final total = await ioFile.length();

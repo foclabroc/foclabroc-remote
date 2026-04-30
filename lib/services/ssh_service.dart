@@ -206,11 +206,25 @@ class SshService {
   }
 
   Future<void> startRecord() async {
-    await execute('batocera-record start &');
+    // setsid détache ffmpeg du process group du shell SSH.
+    // Sans ça, la fermeture du canal SSH propage SIGHUP à ffmpeg
+    // et corrompt le trailer MKV au stop (fichier 0 ko).
+    await execute('setsid batocera-record start </dev/null >/dev/null 2>&1 &');
   }
 
   Future<void> stopRecord() async {
     await execute('batocera-record stop');
+    // Remux MKV → MKV pour régénérer l'index (cues) et permettre le seek.
+    // -c copy = pas de réencodage, ~1s. On écrit dans un fichier temporaire
+    // puis on remplace l'original pour garder le même nom de fichier.
+    await execute(
+      'sleep 1; '
+      'mkv=\$(ls -t /userdata/recordings/*.mkv 2>/dev/null | head -1); '
+      '[ -n "\$mkv" ] && [ -s "\$mkv" ] && '
+      'ffmpeg -y -i "\$mkv" -c copy -map 0 "\${mkv%.mkv}.tmp.mkv" '
+      '</dev/null >/dev/null 2>&1 && '
+      'mv -f "\${mkv%.mkv}.tmp.mkv" "\$mkv"',
+    );
   }
 
   // ─── Logs & fichiers (sans bash -l pour éviter le banner) ───────────────────
