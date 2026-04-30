@@ -1249,29 +1249,6 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     } catch (_) { return ''; }
   }
 
-  Future<String> _execStream(String cmd) async {
-    try {
-      final state = context.read<AppState>();
-      final session = await state.ssh.client!.execute('stdbuf -oL $cmd');
-      String pending = '';
-      await for (final chunk in session.stdout) {
-        final text = String.fromCharCodes(chunk);
-        pending += text;
-        final lines = pending.split('\n');
-        pending = lines.removeLast();
-        for (final line in lines) {
-          final t = line.trim();
-          if (t.isNotEmpty && mounted) setState(() => _log += '  $t\n');
-        }
-      }
-      if (pending.trim().isNotEmpty && mounted) {
-        setState(() => _log += '  ${pending.trim()}\n');
-      }
-      await session.done;
-      return '';
-    } catch (_) { return ''; }
-  }
-
   void _appendLog(String msg) => setState(() => _log += '$msg\n');
 
   Future<void> _installGame(Map<String, String> game) async {

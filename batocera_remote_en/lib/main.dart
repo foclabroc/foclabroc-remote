@@ -6,8 +6,6 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'models/app_state.dart';
 import 'screens/home_screen.dart';
 
-final GlobalKey<NavigatorState> _rootNavKey = GlobalKey<NavigatorState>();
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Forcer le mode portrait uniquement
@@ -31,7 +29,6 @@ class BatoceraRemoteApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: _rootNavKey,
       title: 'Foclabroc Remote',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

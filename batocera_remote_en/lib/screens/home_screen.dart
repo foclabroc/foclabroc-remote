@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
 import '../widgets/back_handler.dart';
@@ -16,7 +15,7 @@ import 'quiz_screen.dart';
 import 'breakout_screen.dart';
 import 'links_screen.dart';
 
-const kAppVersion = '2.7-EN';
+const kAppVersion = '2.8-EN';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

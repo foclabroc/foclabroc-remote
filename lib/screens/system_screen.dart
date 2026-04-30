@@ -346,13 +346,6 @@ class _PowerModeSelectorState extends State<_PowerModeSelector> {
     ('powersaver', 'Économie'),
   ];
 
-  String _modeLabel(String mode) {
-    for (final m in _modes) {
-      if (m.$1 == mode) return m.$2;
-    }
-    return mode;
-  }
-
   @override
   void initState() {
     super.initState();

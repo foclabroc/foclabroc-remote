@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:flutter/rendering.dart';
-import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'quiz_audio_service.dart';
@@ -18,7 +17,6 @@ const _kBestScoreKey  = 'breakout_best_score';
 const _kBestLevelKey  = 'breakout_best_level';
 const _kBestNameKey   = 'breakout_best_name';
 
-const _brickW       = 72.0;
 const _brickH       = 36.0;
 const _brickCols    = 6;
 const _brickRows    = 5;
@@ -1192,7 +1190,7 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
   Widget _buildGameOver() {
     final emoji = _score >= 500 ? '🏆' : _score >= 200 ? '🎮' : '💀';
     final color = _lives > 0 ? Colors.greenAccent : Colors.redAccent;
-    final msg   = _lives <= 0 ? 'Game Over!' : _level > 3 ? 'Impressive!' : 'Level $_level terminé !';
+    final msg   = _lives <= 0 ? 'Game Over!' : _level > 3 ? 'Impressive!' : 'Level $_level cleared!';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0F14),

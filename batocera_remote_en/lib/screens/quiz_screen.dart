@@ -522,7 +522,7 @@ class _QuizGameScreenState extends State<_QuizGameScreen> {
             const Icon(Icons.image_not_supported_rounded, size: 64, color: Colors.white12),
             const SizedBox(height: 16),
             const Text(
-              'Pas assez de jeux avec screenshots\npour générer un quiz.',
+              'Not enough games with screenshots\nto generate a quiz.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white38, fontSize: 15),
             ),

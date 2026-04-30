@@ -269,7 +269,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -360,7 +360,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
             Expanded(
               child: !state.isConnected
-                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Non connecté')
+                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Not connected')
                   : !hasGame
                       ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'No game running')
                       : SingleChildScrollView(
@@ -662,7 +662,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
             onPageChanged: (page, total) => setState(() { _currentPage = page ?? 0; _totalPages = total ?? 0; }),
             onViewCreated: (controller) => _controller = controller,
             onError: (error) => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur PDF : $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
+              SnackBar(content: Text('PDF error: $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
             ),
           ),
           if (!_isReady)

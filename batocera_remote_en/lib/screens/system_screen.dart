@@ -251,7 +251,7 @@ class SystemScreen extends StatelessWidget {
                         ));
                       } catch (e) {
                         if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
+                          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
                           backgroundColor: Colors.redAccent,
                           behavior: SnackBarBehavior.floating,
                         ));
@@ -345,13 +345,6 @@ class _PowerModeSelectorState extends State<_PowerModeSelector> {
     ('balanced', 'Balanced'),
     ('powersaver', 'Economy'),
   ];
-
-  String _modeLabel(String mode) {
-    for (final m in _modes) {
-      if (m.$1 == mode) return m.$2;
-    }
-    return mode;
-  }
 
   @override
   void initState() {
@@ -461,7 +454,7 @@ class _LogButtonState extends State<_LogButton> {
     try {
       logContent = await widget.ssh.readLog(widget.filename);
     } catch (e) {
-      logContent = 'Erreur : $e';
+      logContent = 'Error: $e';
     } finally {
       if (mounted) setState(() => _loading = false);
     }

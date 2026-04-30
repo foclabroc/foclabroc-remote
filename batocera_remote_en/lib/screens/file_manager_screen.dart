@@ -283,7 +283,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               const Icon(Icons.download_rounded, color: Colors.purpleAccent, size: 32),
               const SizedBox(height: 12),
               Text(
-                items.length > 1 ? 'Fichier $currentIdx/${items.length}' : 'Downloading...',
+                items.length > 1 ? 'File $currentIdx/${items.length}' : 'Downloading...',
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
               const SizedBox(height: 4),
@@ -331,7 +331,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         );
         saved.add(item.name);
       } catch (e) {
-        if (mounted) _showSnack('Erreur ${item.name} : $e', isError: true);
+        if (mounted) _showSnack('Error ${item.name}: $e', isError: true);
       }
     }
 
@@ -759,7 +759,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                       tooltip: 'Select all',
                     ),
                   ] else ...[
-                    Text('Fichiers', style: Theme.of(context).textTheme.headlineMedium),
+                    Text('Files', style: Theme.of(context).textTheme.headlineMedium),
                     const Spacer(),
                     if (_loading || _downloading != null || _uploading)
                       _uploading
@@ -1175,7 +1175,7 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Quitter', style: TextStyle(color: Colors.redAccent)),
+            child: const Text('Quit', style: TextStyle(color: Colors.redAccent)),
           ),
           ElevatedButton(
             onPressed: () async {

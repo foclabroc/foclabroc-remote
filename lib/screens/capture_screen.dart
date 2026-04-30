@@ -120,16 +120,17 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   Future<void> _stopRecording(AppState state) async {
-    setState(() => _loadingRecord = true);
+    // Arrêt UI immédiat : compteur figé, état "non enregistré"
+    _stopTimer();
+    final duration = _timerLabel;
+    setState(() { _recording = false; _seconds = 0; _loadingRecord = true; });
     try {
       await state.ssh.stopRecord();
-      _stopTimer();
-      final duration = _timerLabel;
-      setState(() { _recording = false; _seconds = 0; _loadingRecord = false; });
       if (mounted) _showSuccess('Capture enregistrée dans : /userdata/recordings - Durée : $duration');
     } catch (e) {
       if (mounted) _showError('Erreur : $e');
-      setState(() => _loadingRecord = false);
+    } finally {
+      if (mounted) setState(() => _loadingRecord = false);
     }
   }
 

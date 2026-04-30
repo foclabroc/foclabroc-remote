@@ -395,7 +395,7 @@ class _PcConverterScreenState extends State<_PcConverterScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
         title: const Text('Delete .wine folder?'),
-        content: Text('Supprimer :\n$path',
+        content: Text('Delete:\n$path',
             style: const TextStyle(fontSize: 12, color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
@@ -796,7 +796,7 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
       final result = await _exec('tar -xzf "$_selected" -C "$finalDir" 2>&1');
       _stopProgress();
       if (result.toLowerCase().contains('error') || result.toLowerCase().contains('erreur')) {
-        _appendLog('❌ Erreur : $result');
+        _appendLog('❌ Error: $result');
         setState(() { _processing = false; _step = ''; });
         return;
       }
@@ -808,7 +808,7 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
       final result = await _exec('unsquashfs -d "$finalDir" "$_selected" 2>&1');
       _stopProgress();
       if (result.toLowerCase().contains('error') || result.toLowerCase().contains('erreur')) {
-        _appendLog('❌ Erreur : $result');
+        _appendLog('❌ Error: $result');
         setState(() { _processing = false; _step = ''; });
         return;
       }
@@ -827,7 +827,7 @@ class _DecompressorScreenState extends State<_DecompressorScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
         title: const Text('Delete compressed file?'),
-        content: Text('Supprimer :\n$_selected',
+        content: Text('Delete:\n$_selected',
             style: const TextStyle(fontSize: 12, color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
@@ -1176,7 +1176,7 @@ class _CompressorScreenState extends State<_CompressorScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
         title: const Text('Delete .wine folder?'),
-        content: Text('Supprimer :\n$_selected',
+        content: Text('Delete:\n$_selected',
             style: const TextStyle(fontSize: 12, color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),

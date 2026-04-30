@@ -214,16 +214,18 @@ class SshService {
 
   Future<void> stopRecord() async {
     await execute('batocera-record stop');
-    // Remux MKV → MKV pour régénérer l'index (cues) et permettre le seek.
-    // -c copy = pas de réencodage, ~1s. On écrit dans un fichier temporaire
-    // puis on remplace l'original pour garder le même nom de fichier.
+    // Remux MKV → MKV en arrière-plan pour régénérer l'index (cues) et permettre
+    // le seek. -c copy = pas de réencodage. Détaché via setsid pour ne pas bloquer
+    // l'UI : le fichier sera ré-indexé ~2s après le stop, lecture immédiate OK.
     await execute(
+      'setsid sh -c \''
       'sleep 1; '
-      'mkv=\$(ls -t /userdata/recordings/*.mkv 2>/dev/null | head -1); '
-      '[ -n "\$mkv" ] && [ -s "\$mkv" ] && '
-      'ffmpeg -y -i "\$mkv" -c copy -map 0 "\${mkv%.mkv}.tmp.mkv" '
-      '</dev/null >/dev/null 2>&1 && '
-      'mv -f "\${mkv%.mkv}.tmp.mkv" "\$mkv"',
+      'mkv=\$(ls -t /userdata/recordings/*.mkv 2>/dev/null | grep -v "\\.tmp\\.mkv\$" | head -1); '
+      '[ -n "\$mkv" ] && [ -s "\$mkv" ] || exit 0; '
+      'tmp="\${mkv%.mkv}.tmp.mkv"; '
+      'ffmpeg -y -i "\$mkv" -c copy -map 0 "\$tmp" </dev/null >/dev/null 2>&1; '
+      'if [ -s "\$tmp" ]; then mv -f "\$tmp" "\$mkv"; else rm -f "\$tmp"; fi'
+      '\' </dev/null >/dev/null 2>&1 &',
     );
   }
 

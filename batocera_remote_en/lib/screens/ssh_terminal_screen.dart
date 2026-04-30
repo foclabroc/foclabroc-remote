@@ -96,7 +96,7 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
       session.stderr.drain();
       await session.done;
     } catch (e) {
-      if (mounted) setState(() => _lines.add(_TermLine(text: 'Erreur : $e', type: _LineType.error)));
+      if (mounted) setState(() => _lines.add(_TermLine(text: 'Error: $e', type: _LineType.error)));
     }
     if (mounted) {
       setState(() => _running = false);

@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:flutter/rendering.dart';
-import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'quiz_audio_service.dart';
@@ -18,7 +17,6 @@ const _kBestScoreKey  = 'breakout_best_score';
 const _kBestLevelKey  = 'breakout_best_level';
 const _kBestNameKey   = 'breakout_best_name';
 
-const _brickW       = 72.0;
 const _brickH       = 36.0;
 const _brickCols    = 6;
 const _brickRows    = 5;

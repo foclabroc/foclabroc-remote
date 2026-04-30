@@ -271,7 +271,7 @@ final systems = list
   }
 
   Future<void> _loadLogos(List<Map<String, dynamic>> systems) async {
-    const batchSize = 3;
+    const batchSize = 5;
     for (int i = 0; i < systems.length; i += batchSize) {
       if (!mounted) return;
       final batch = systems.skip(i).take(batchSize).toList();
