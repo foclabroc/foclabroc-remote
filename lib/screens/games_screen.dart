@@ -508,10 +508,19 @@ final systems = list
                   onTap: () async {
                     final running = await _execDirect('curl -s http://127.0.0.1:1234/runningGame');
                     if (running.isNotEmpty && !running.contains('"msg"')) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Fermeture du jeu en cours...', style: TextStyle(color: Colors.white)),
+                          backgroundColor: Color(0xFF1C2230),
+                          behavior: SnackBarBehavior.floating,
+                          duration: Duration(seconds: 3),
+                        ));
+                      }
                       await _execDirect('curl -s http://127.0.0.1:1234/emukill');
                       await Future.delayed(const Duration(seconds: 2));
                     }
                     final state = context.read<AppState>();
+                    state.markLaunchingGame(); // bloque la finalisation des pending pendant le launch
                     final session = await state.ssh.client!.execute('curl -s -X POST http://127.0.0.1:1234/launch -d "${game['path'] ?? ''}"');
                     await session.done;
                   },
@@ -677,11 +686,20 @@ class _GamesListScreenState extends State<_GamesListScreen> {
     try {
       final running = await widget.execDirect('curl -s http://127.0.0.1:1234/runningGame');
       if (running.isNotEmpty && !running.contains('"msg"')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Fermeture du jeu en cours...', style: TextStyle(color: Colors.white)),
+            backgroundColor: Color(0xFF1C2230),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ));
+        }
         await widget.execDirect('curl -s http://127.0.0.1:1234/emukill');
         await Future.delayed(const Duration(seconds: 2));
       }
       // Utilise client SSH direct pour éviter les problèmes de quoting
       final state = context.read<AppState>();
+      state.markLaunchingGame(); // bloque la finalisation des pending pendant le launch
       final session = await state.ssh.client!.execute('curl -s -X POST http://127.0.0.1:1234/launch -d "$path"');
       await session.done;
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

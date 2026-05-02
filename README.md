@@ -13,7 +13,7 @@
 
 [![Download APK](https://img.shields.io/badge/Download-APK-red?style=for-the-badge&logo=android)](https://github.com/foclabroc/foclabroc-remote/releases)
 
-Version Française disponible  
+Version Française disponible
 English version available
 
 ---
@@ -25,18 +25,35 @@ English version available
 - **Connexion automatique** à la dernière IP utilisée au démarrage
 - Reconnexion silencieuse automatique si la connexion est perdue
 - **Vérification instantanée** de la connexion au retour au premier plan
-- Indicateur \"Reconnexion...\" visible sur tous les onglets
+- Indicateur "Reconnexion..." visible sur tous les onglets
 - Historique des 3 dernières adresses IP (effaçable)
 - Informations système détaillées (modèle, CPU, RAM, résolution, OS...)
+- **Détection automatique des scraps en attente** à la connexion avec proposition de finalisation
 
 ### 🎮 Jeu en cours
 - Affichage du jeu en cours : wheel, jaquette, screenshot
 - Chronomètre de session en temps réel
-- Infos : système, émulateur, core
+- Infos : système, émulateur, core, développeur, genre
+- Stats CPU/RAM en temps réel (température, usage, mémoire)
 - Lien RetroAchievements
 - Bouton stop (hotkeygen)
 - Visionneuse PDF pour les manuels
 - Auto-refresh toutes les 5 secondes
+- **🆕 Scrap auto en jeu** :
+  - **Vidéo auto 30s** — capture 30 secondes de gameplay et l'enregistre dans le dossier `media/videos` du système
+  - **Screenshot auto** — capture un screenshot et l'enregistre dans `media/screenshots`
+  - Détection auto de la convention de nommage du système (`media/videos` vs `videos`)
+  - Si une vidéo/image existe déjà → propose de la remplacer en gardant le même chemin
+  - Sauvegarde différée des balises XML (cf. système Pending ci-dessous)
+
+### 🆕 Système Pending Scrap (intelligent)
+EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour mettre à jour playtime/lastplayed). Le système Pending contourne ce comportement :
+- Le média (vidéo/screenshot) est sauvegardé immédiatement sur Batocera
+- Les balises XML à insérer dans le gamelist sont stockées dans `/userdata/system/configs/foclabroc-remote/pending/`
+- À la sortie du jeu (auto-détectée), les balises sont automatiquement injectées dans le gamelist + double `reloadgames` pour forcer ES à les charger en mémoire sans les écraser
+- **Persistance au reboot** : les pending survivent aux redémarrages de l'app et de Batocera
+- **Dialog au démarrage** : si des scraps sont en attente, l'app propose de les finaliser à la connexion avec liste détaillée (nom du jeu, système, type de média)
+- Détection des relaunches via flag `isLaunchingGame` pour éviter d'interrompre un nouveau lancement
 
 ### 📚 Bibliothèque de jeux
 - Grille de tous tes systèmes avec logos
@@ -44,10 +61,11 @@ English version available
 - **Total de jeux** affiché en haut de la grille
 - **Recherche globale** dans tous les jeux de tous les systèmes (avec cache)
 - Liste des jeux par système avec indicateurs : ⭐ favori, 🏆 achievements, 📖 manuel, 🗺️ map
+- **Snackbar "Fermeture du jeu en cours…"** quand un jeu tourne déjà avant de lancer un autre
 - **Fiche détaillée** par jeu :
   - Wheel / marquee, jaquette et screenshot côte à côte (cliquables pour agrandir)
   - Infos : genre, développeur, éditeur, année, description
-  - Bouton **Lancer** (quitte le jeu en cours automatiquement)
+  - Bouton **Lancer** (quitte le jeu en cours automatiquement avec notification)
   - Visionneuse **Manuel** (PDF ou image)
   - Visionneuse **Map** (PDF ou image, zoomable)
   - Lecteur **Vidéo** intégré
@@ -56,12 +74,14 @@ English version available
 ### 📸 Capture
 - Screenshot instantané
 - Capture vidéo avec chronomètre
-- Mode **Auto 30 secondes**
+- Mode **Auto 30 secondes** avec UI optimiste (le compteur disparaît dès la fin pour ne pas bloquer l'UI pendant le post-traitement)
 - Réglages qualité et audio
+- Stop fiable de la capture (kill ffmpeg + nettoyage des fichiers temporaires)
 
 ### 💻 Terminal SSH
 - Terminal intégré avec historique des commandes
 - Texte sélectionnable et copiable
+- Streaming line-by-line de la sortie
 
 ### 📁 Gestionnaire de fichiers
 - Navigation dans `/userdata/` avec fil d'Ariane
@@ -101,6 +121,7 @@ English version available
 - **YouTube TV** — installe YouTube TV dans le menu Ports (Batocera x86_64 uniquement)
 - **Foclabroc Toolbox → Ports** — installe la Toolbox dans le menu Ports pour y accéder depuis Batocera (x86_64)
 - **RGSX** — télécharge et installe RetroGameSets game downloader dans 'Ports'
+- **Eden Nightly** — télécharge automatiquement la dernière version Linux d'Eden Nightly via Gitea
 
 ### 🕹️ Quiz Rétro
 - Un screenshot s'affiche → trouve le jeu parmi 4 propositions
@@ -136,8 +157,9 @@ English version available
 ## 📋 Prérequis
 
 - Android 8.0+
-- Batocera Linux sur le même réseau WiFi
+- Batocera Linux V43+ sur le même réseau WiFi
 - SSH activé sur Batocera (activé par défaut)
+- Python 3.9+ sur Batocera (présent par défaut, requis pour les manipulations XML du gamelist)
 
 **Identifiants SSH par défaut Batocera :**
 ```
@@ -185,6 +207,7 @@ flutter build apk --release
 | **Provider** | Gestion d'état |
 | **video_player** | Lecteur vidéo |
 | **flutter_pdfview** | Visionneuse PDF |
+| **flutter_svg** | Logos de systèmes en SVG |
 | **crypto** | Cache images (MD5) |
 | **path_provider** | Système de fichiers local |
 | **file_picker** | Sélection fichiers Android |
@@ -196,9 +219,49 @@ flutter build apk --release
 
 ---
 
+## 🏗️ Architecture
+
+```
+lib/
+├── main.dart                    # Splash + bootstrap
+├── models/
+│   └── app_state.dart           # ChangeNotifier global (SSH, connexion, launching)
+├── services/
+│   ├── ssh_service.dart         # Wrapper dartssh2 (execute, SFTP, tunnels)
+│   └── pending_scrap_service.dart  # 🆕 Sauvegarde/finalisation des scraps différés
+├── widgets/
+│   ├── back_handler.dart        # Interception bouton retour Android
+│   ├── status_bar.dart          # Barre d'état en bas
+│   └── pending_scraps_dialog.dart  # 🆕 Dialog de proposition de finalisation
+└── screens/
+    ├── connect_screen.dart       # Saisie IP + historique + connexion auto
+    ├── running_game_screen.dart  # Jeu en cours + scrap auto + finalize pending
+    ├── games_screen.dart         # Bibliothèque (grille systèmes + liste jeux)
+    ├── game_detail_screen.dart   # Fiche jeu détaillée + visionneuses
+    ├── capture_screen.dart       # Capture manuelle screenshot/vidéo
+    ├── ssh_terminal_screen.dart  # Terminal SSH interactif avec historique
+    ├── file_manager_screen.dart  # Navigation /userdata + éditeur intégré
+    ├── system_screen.dart        # Volume, alimentation, reboot, logs
+    ├── wine_tools_screen.dart    # Conversion/compression .wine + runners
+    ├── foclabroc_tools_screen.dart # Packs (NES3D, Kodi, Music, fangames…)
+    ├── quiz_screen.dart          # Quiz rétro 10 questions
+    ├── breakout_screen.dart      # Casse-briques avec power-ups
+    ├── links_screen.dart         # Liens utiles (forum, wiki, releases…)
+    └── home_screen.dart          # Drawer 12 onglets + listener pending scraps
+```
+
+**Endpoints API EmulationStation utilisés** (`http://127.0.0.1:1234/`) :
+- `runningGame` — infos du jeu en cours
+- `launch` — lance un jeu (POST avec path en body)
+- `emukill` — quitte le jeu en cours (équivalent hotkeygen)
+- `reloadgames` — relit les gamelist.xml depuis le disque
+- `systems` — liste des systèmes
+
+---
+
 ## 👨‍💻 Auteur
 
-**foclabroc** — Contributeur Batocera  
+**foclabroc** — Contributeur Batocera
 🔗 [GitHub](https://github.com/foclabroc)
 
 ---

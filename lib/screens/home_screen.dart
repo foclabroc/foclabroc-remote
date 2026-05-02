@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
 import '../widgets/back_handler.dart';
+import '../widgets/pending_scraps_dialog.dart';
 import 'connect_screen.dart';
 import 'system_screen.dart';
 import 'capture_screen.dart';
@@ -15,7 +16,7 @@ import 'quiz_screen.dart';
 import 'breakout_screen.dart';
 import 'links_screen.dart';
 
-const kAppVersion = '2.8-FR';
+const kAppVersion = '2.9-FR';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +28,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _popLock = false; // évite les doubles appels MIUI
+
+  bool _wasConnected = false;
+  bool _pendingDialogShown = false; // évite de re-proposer en boucle
 
   static const _tabs = [
     _TabInfo(icon: Icons.wifi_rounded,           label: 'Connexion'),
@@ -50,12 +54,90 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Écoute les changements d'état de connexion
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = context.read<AppState>();
+      _wasConnected = state.isConnected;
+      state.addListener(_onAppStateChanged);
+      // Si déjà connecté au démarrage, déclenche le check
+      if (state.isConnected) _checkPendingScraps();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    try {
+      context.read<AppState>().removeListener(_onAppStateChanged);
+    } catch (_) {}
     super.dispose();
+  }
+
+  void _onAppStateChanged() {
+    final state = context.read<AppState>();
+    final isNow = state.isConnected;
+    if (isNow && !_wasConnected) {
+      // Transition déconnecté → connecté
+      _pendingDialogShown = false;
+      _checkPendingScraps();
+    } else if (!isNow && _wasConnected) {
+      // Reset si on se déconnecte (au prochain reconnect on re-propose)
+      _pendingDialogShown = false;
+    }
+    _wasConnected = isNow;
+  }
+
+  /// Scanne les pending et propose un dialog de finalisation s'il y en a.
+  Future<void> _checkPendingScraps() async {
+    if (_pendingDialogShown) return;
+    _pendingDialogShown = true;
+    final state = context.read<AppState>();
+    try {
+      // Petit délai pour laisser la connexion se stabiliser
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted || !state.isConnected) return;
+      final pending = await state.pendingService.listPending();
+      if (pending.isEmpty || !mounted) return;
+      final gameRunning = await state.pendingService.isGameRunning();
+      if (!mounted) return;
+
+      final result = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        barrierDismissible: false,
+        builder: (_) => PendingScrapsDialog(
+          pending: pending,
+          gameRunning: gameRunning,
+        ),
+      );
+      if (result == true && mounted) {
+        if (gameRunning) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Fermeture du jeu en cours...', style: TextStyle(color: Colors.white)),
+            backgroundColor: Color(0xFF1C2230),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ));
+          await state.pendingService.killRunningGame();
+        }
+        final n = await state.pendingService.finalizePending();
+        if (mounted && n > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 18),
+              const SizedBox(width: 10),
+              Expanded(child: Text(
+                n == 1 ? 'Scrap finalisé dans le gamelist' : '$n scraps finalisés dans le gamelist',
+                style: const TextStyle(color: Colors.white))),
+            ]),
+            backgroundColor: const Color(0xFF1C2230),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+      }
+    } catch (_) {
+      // Échec silencieux : l'utilisateur verra le dialog au prochain démarrage
+    }
   }
 
   @override

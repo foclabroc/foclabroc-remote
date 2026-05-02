@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
 import '../widgets/back_handler.dart';
+import '../widgets/pending_scraps_dialog.dart';
 import 'connect_screen.dart';
 import 'system_screen.dart';
 import 'capture_screen.dart';
@@ -15,7 +16,7 @@ import 'quiz_screen.dart';
 import 'breakout_screen.dart';
 import 'links_screen.dart';
 
-const kAppVersion = '2.8-EN';
+const kAppVersion = '2.9-EN';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +28,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _popLock = false; // prevents double MIUI back calls
+
+  bool _wasConnected = false;
+  bool _pendingDialogShown = false; // avoid re-prompting on each rebuild
 
   static const _tabs = [
     _TabInfo(icon: Icons.wifi_rounded,           label: 'Connection'),
@@ -50,12 +54,88 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Listen to connection state changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = context.read<AppState>();
+      _wasConnected = state.isConnected;
+      state.addListener(_onAppStateChanged);
+      // If already connected at startup, run the check
+      if (state.isConnected) _checkPendingScraps();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    try {
+      context.read<AppState>().removeListener(_onAppStateChanged);
+    } catch (_) {}
     super.dispose();
+  }
+
+  void _onAppStateChanged() {
+    final state = context.read<AppState>();
+    final isNow = state.isConnected;
+    if (isNow && !_wasConnected) {
+      _pendingDialogShown = false;
+      _checkPendingScraps();
+    } else if (!isNow && _wasConnected) {
+      _pendingDialogShown = false;
+    }
+    _wasConnected = isNow;
+  }
+
+  /// Scans for pending scraps and shows a dialog if any are found.
+  Future<void> _checkPendingScraps() async {
+    if (_pendingDialogShown) return;
+    _pendingDialogShown = true;
+    final state = context.read<AppState>();
+    try {
+      // Brief delay to let the connection settle
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted || !state.isConnected) return;
+      final pending = await state.pendingService.listPending();
+      if (pending.isEmpty || !mounted) return;
+      final gameRunning = await state.pendingService.isGameRunning();
+      if (!mounted) return;
+
+      final result = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        barrierDismissible: false,
+        builder: (_) => PendingScrapsDialog(
+          pending: pending,
+          gameRunning: gameRunning,
+        ),
+      );
+      if (result == true && mounted) {
+        if (gameRunning) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Closing current game...', style: TextStyle(color: Colors.white)),
+            backgroundColor: Color(0xFF1C2230),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 3),
+          ));
+          await state.pendingService.killRunningGame();
+        }
+        final n = await state.pendingService.finalizePending();
+        if (mounted && n > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 18),
+              const SizedBox(width: 10),
+              Expanded(child: Text(
+                n == 1 ? 'Scrap finalized in gamelist' : '$n scraps finalized in gamelist',
+                style: const TextStyle(color: Colors.white))),
+            ]),
+            backgroundColor: const Color(0xFF1C2230),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+      }
+    } catch (_) {
+      // Silent fail: dialog will reappear at next app start
+    }
   }
 
   @override

@@ -398,9 +398,18 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                           try {
                             final running = await state.ssh.execute('curl -s http://127.0.0.1:1234/runningGame');
                             if (running.isNotEmpty && !running.contains('"msg"')) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                  content: Text('Fermeture du jeu en cours...', style: TextStyle(color: Colors.white)),
+                                  backgroundColor: Color(0xFF1C2230),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: Duration(seconds: 3),
+                                ));
+                              }
                               await state.ssh.execute('curl -s http://127.0.0.1:1234/emukill');
                               await Future.delayed(const Duration(seconds: 2));
                             }
+                            state.markLaunchingGame(); // bloque finalisation pending
                             final session = await state.ssh.client!.execute('curl -s -X POST http://127.0.0.1:1234/launch -d "$gamePath"');
                             await session.done;
                           } catch (_) {}

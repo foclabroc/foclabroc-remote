@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ssh_service.dart';
+import '../services/pending_scrap_service.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected, error }
 
@@ -22,6 +23,34 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<String> _recentHosts = []; // format: 'name::ip' or just 'ip'
   Timer? _watchdog; // surveille la connexion en continu
 
+  // Flag to signal that a game launch is in progress via the app.
+  // Used by running_game_screen to defer pending scrap finalization and
+  // prevent reloadgames from interrupting the launch.
+  bool _isLaunchingGame = false;
+  Timer? _launchClearTimer;
+  bool get isLaunchingGame => _isLaunchingGame;
+
+  /// Marks that a launch is in progress. The flag auto-clears after [holdMs]
+  /// (default 8s) — long enough for ES to start the emulator and the
+  /// /runningGame polling to detect the new game (which also clears it).
+  void markLaunchingGame({int holdMs = 8000}) {
+    _launchClearTimer?.cancel();
+    _isLaunchingGame = true;
+    notifyListeners();
+    _launchClearTimer = Timer(Duration(milliseconds: holdMs), () {
+      _isLaunchingGame = false;
+      notifyListeners();
+    });
+  }
+
+  /// Immediate clear (used when we detect the new game is running).
+  void clearLaunchingGame() {
+    if (!_isLaunchingGame) return;
+    _launchClearTimer?.cancel();
+    _isLaunchingGame = false;
+    notifyListeners();
+  }
+
   ConnectionStatus get status => _status;
   String get errorMessage => _errorMessage;
   bool get isConnected => _status == ConnectionStatus.connected;
@@ -36,6 +65,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   bool get loadingRoms => _loadingRoms;
   List<String> get recentHosts => _recentHosts;
   SshService get ssh => _ssh;
+
+  PendingScrapService? _pendingService;
+  PendingScrapService get pendingService =>
+      _pendingService ??= PendingScrapService(_ssh);
 
   AppState() {
     _loadPrefs();
