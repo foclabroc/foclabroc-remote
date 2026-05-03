@@ -1103,7 +1103,8 @@ except Exception as e:
                                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: const Color(0xFF1C2230)),
                                   child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
                                 )
-                              else if (_wheelTried && _wheelBytes == null)
+                              else
+                                // Cas : balise <wheel> absente du gamelist OU chargement raté
                                 Container(
                                   width: double.infinity, height: 56,
                                   margin: const EdgeInsets.only(bottom: 8),
@@ -1135,7 +1136,7 @@ except Exception as e:
                                     borderRadius: BorderRadius.circular(10),
                                     child: AspectRatio(
                                       aspectRatio: 16 / 9,
-                                      child: Image.memory(_imageBytes!, fit: BoxFit.cover),
+                                      child: Image.memory(_imageBytes!, fit: BoxFit.contain),
                                     ),
                                   ),
                                 )
@@ -1148,7 +1149,8 @@ except Exception as e:
                                     child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
                                   ),
                                 )
-                              else if (_imageTried && _imageBytes == null)
+                              else
+                                // Cas : balise <image> absente du gamelist OU chargement raté
                                 AspectRatio(
                                   aspectRatio: 16 / 9,
                                   child: Container(

@@ -35,6 +35,9 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
   Uint8List? _imageBytes;
   Uint8List? _thumbBytes;
   Uint8List? _wheelBytes;
+  bool _imageTried = false;
+  bool _thumbTried = false;
+  bool _wheelTried = false;
 
   void _pickRandom() {
     final all = widget.allGames;
@@ -75,15 +78,36 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     await Future.wait([
       if (logoPath != null && logoPath.isNotEmpty)
         _fetchCached(logoPath).then((bytes) {
-          if (mounted && bytes != null) setState(() => _wheelBytes = bytes);
+          if (mounted) setState(() {
+            if (bytes != null) _wheelBytes = bytes;
+            _wheelTried = true;
+          });
+        })
+      else
+        Future.value(null).then((_) {
+          if (mounted) setState(() => _wheelTried = true);
         }),
       if (thumb != null && thumb.isNotEmpty)
         _fetchCached(thumb).then((bytes) {
-          if (mounted && bytes != null) setState(() => _thumbBytes = bytes);
+          if (mounted) setState(() {
+            if (bytes != null) _thumbBytes = bytes;
+            _thumbTried = true;
+          });
+        })
+      else
+        Future.value(null).then((_) {
+          if (mounted) setState(() => _thumbTried = true);
         }),
       if (img != null && img.isNotEmpty)
         _fetchCached(img).then((bytes) {
-          if (mounted && bytes != null) setState(() => _imageBytes = bytes);
+          if (mounted) setState(() {
+            if (bytes != null) _imageBytes = bytes;
+            _imageTried = true;
+          });
+        })
+      else
+        Future.value(null).then((_) {
+          if (mounted) setState(() => _imageTried = true);
         }),
     ]);
   }
@@ -286,71 +310,99 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Logo système + Wheel / Marquee
-            if (_wheelBytes != null || widget.systemLogo != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: Container(
-                  width: double.infinity, height: 60,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3D4F6B),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(children: [
-                    if (widget.systemLogo != null)
-                      Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: widget.systemLogo![0] == 0x3C
-                            ? SizedBox(width: 60, height: 40, child: SvgPicture.memory(widget.systemLogo!, fit: BoxFit.contain))
-                            : Image.memory(widget.systemLogo!, fit: BoxFit.contain, width: 60),
-                      ),
-                    if (widget.systemLogo != null && _wheelBytes != null)
-                      Container(width: 1, height: 40, color: Colors.white10),
-                    if (_wheelBytes != null)
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _showMedia(_wheelBytes!),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.memory(_wheelBytes!, fit: BoxFit.contain),
-                          ),
-                        ),
-                      ),
-                    if (widget.systemLogo == null && _wheelBytes == null)
-                      const SizedBox.shrink(),
-                  ]),
+            // System logo + Wheel / Marquee (always shown)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Container(
+                width: double.infinity, height: 60,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3D4F6B),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
-
-            // Thumbnail + Image côte à côte
-            if (_thumbBytes != null || _imageBytes != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                 child: Row(children: [
-                  if (_thumbBytes != null)
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => _showMedia(_thumbBytes!),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.memory(_thumbBytes!, fit: BoxFit.contain, height: 160),
-                        ),
-                      ),
+                  if (widget.systemLogo != null)
+                    Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: widget.systemLogo![0] == 0x3C
+                          ? SizedBox(width: 60, height: 40, child: SvgPicture.memory(widget.systemLogo!, fit: BoxFit.contain))
+                          : Image.memory(widget.systemLogo!, fit: BoxFit.contain, width: 60),
                     ),
-                  if (_thumbBytes != null && _imageBytes != null) const SizedBox(width: 8),
-                  if (_imageBytes != null)
-                    Expanded(
-                      flex: _thumbBytes != null ? 2 : 1,
-                      child: GestureDetector(
-                        onTap: () => _showMedia(_imageBytes!),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.memory(_imageBytes!, fit: BoxFit.contain, height: 160),
-                        ),
-                      ),
-                    ),
+                  if (widget.systemLogo != null)
+                    Container(width: 1, height: 40, color: Colors.white10),
+                  Expanded(
+                    child: _wheelBytes != null
+                        ? GestureDetector(
+                            onTap: () => _showMedia(_wheelBytes!),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.memory(_wheelBytes!, fit: BoxFit.contain),
+                            ),
+                          )
+                        : Center(
+                            child: _wheelTried
+                                ? const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.image_not_supported_rounded, size: 14, color: Colors.white38),
+                                      SizedBox(width: 6),
+                                      Text('Logo unavailable',
+                                          style: TextStyle(color: Colors.white38, fontSize: 11)),
+                                    ],
+                                  )
+                                : const SizedBox(width: 14, height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white24)),
+                          ),
+                  ),
                 ]),
               ),
+            ),
+
+            // Thumbnail + Image side by side (with placeholders if absent)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Row(children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 160,
+                    child: _thumbBytes != null
+                        ? GestureDetector(
+                            onTap: () => _showMedia(_thumbBytes!),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.memory(_thumbBytes!, fit: BoxFit.contain, height: 160),
+                            ),
+                          )
+                        : _MediaPlaceholder(
+                            tried: _thumbTried,
+                            label: 'Thumbnail unavailable',
+                            iconSize: 28,
+                            fontSize: 11,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 160,
+                    child: _imageBytes != null
+                        ? GestureDetector(
+                            onTap: () => _showMedia(_imageBytes!),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.memory(_imageBytes!, fit: BoxFit.contain, height: 160),
+                            ),
+                          )
+                        : _MediaPlaceholder(
+                            tried: _imageTried,
+                            label: 'Image unavailable',
+                            iconSize: 32,
+                            fontSize: 12,
+                          ),
+                  ),
+                ),
+              ]),
+            ),
 
             Padding(
               padding: const EdgeInsets.all(16),
@@ -696,6 +748,47 @@ class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
               ]),
             )
           : Center(child: CircularProgressIndicator(color: accent)),
+    );
+  }
+}
+
+/// Placeholder for an absent or loading media.
+class _MediaPlaceholder extends StatelessWidget {
+  final bool tried;
+  final String label;
+  final double iconSize;
+  final double fontSize;
+
+  const _MediaPlaceholder({
+    required this.tried,
+    required this.label,
+    this.iconSize = 28,
+    this.fontSize = 11,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFF1C2230),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Center(
+        child: tried
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.image_not_supported_rounded, size: iconSize, color: Colors.white38),
+                  const SizedBox(height: 6),
+                  Text(label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white38, fontSize: fontSize)),
+                ],
+              )
+            : const SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.purpleAccent)),
+      ),
     );
   }
 }

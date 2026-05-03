@@ -1093,7 +1093,8 @@ except Exception as e:
                                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: const Color(0xFF1C2230)),
                                   child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
                                 )
-                              else if (_wheelTried && _wheelBytes == null)
+                              else
+                                // No <wheel> tag in gamelist OR loading failed
                                 Container(
                                   width: double.infinity, height: 56,
                                   margin: const EdgeInsets.only(bottom: 8),
@@ -1125,7 +1126,7 @@ except Exception as e:
                                     borderRadius: BorderRadius.circular(10),
                                     child: AspectRatio(
                                       aspectRatio: 16 / 9,
-                                      child: Image.memory(_imageBytes!, fit: BoxFit.cover),
+                                      child: Image.memory(_imageBytes!, fit: BoxFit.contain),
                                     ),
                                   ),
                                 )
@@ -1138,7 +1139,8 @@ except Exception as e:
                                     child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
                                   ),
                                 )
-                              else if (_imageTried && _imageBytes == null)
+                              else
+                                // No <image> tag in gamelist OR loading failed
                                 AspectRatio(
                                   aspectRatio: 16 / 9,
                                   child: Container(
@@ -1368,7 +1370,7 @@ except Exception as e:
                                   const SizedBox(height: 8),
                                   _StatChip(
                                     icon: Icons.storage_rounded,
-                                    label: '$_ramUsed MB / $_ramTotal MB',
+                                    label: '$_ramUsed Mo / $_ramTotal Mo',
                                     color: Colors.cyanAccent,
                                     fullWidth: true,
                                   ),

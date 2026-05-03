@@ -90,23 +90,83 @@ class _GamesScreenState extends State<GamesScreen> {
     } catch (_) { return null; }
   }
 
-  Future<Uint8List?> _fetchImage(String path) async {
+  /// Gets the remote mtime of a file (in Unix seconds).
+  /// Returns -1 if undeterminable.
+  Future<int> _remoteMTime(String path) async {
+    try {
+      final state = context.read<AppState>();
+      // Direct filesystem path → stat
+      if (path.startsWith('/usr/') || path.startsWith('/userdata/') || path.startsWith('/tmp/')) {
+        final r = await _execDirect("stat -c %Y ${_shQ(path)} 2>/dev/null");
+        return int.tryParse(r.trim()) ?? -1;
+      }
+      // ES API route → try Last-Modified via curl HEAD
+      final url = 'http://127.0.0.1:1234$path';
+      final session = await state.ssh.client!.execute('curl -sI --max-time 5 "$url" 2>/dev/null | grep -i "^last-modified" | head -1');
+      final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      await session.done;
+      final header = utf8.decode(bytes).trim().toLowerCase();
+      if (header.startsWith('last-modified:')) {
+        final dateStr = header.substring(14).trim();
+        try {
+          final dt = HttpDate.parse(dateStr);
+          return dt.millisecondsSinceEpoch ~/ 1000;
+        } catch (_) {}
+      }
+      return -1;
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  String _shQ(String s) => "'${s.replaceAll("'", "'\\''")}'";
+
+  Future<Uint8List?> _fetchImage(String path) => _fetchImageInternal(path, validateMtime: true);
+
+  /// Variant without mtime validation: used for system logos, whose paths
+  /// can return empty/404 temporarily (ES still loading, theme switching…).
+  /// Keep existing cache as long as it's valid in size/format.
+  Future<Uint8List?> _fetchImageNoMtime(String path) => _fetchImageInternal(path, validateMtime: false);
+
+  Future<Uint8List?> _fetchImageInternal(String path, {required bool validateMtime}) async {
     try {
       final cacheDir = await getTemporaryDirectory();
       final cacheFolder = Directory('${cacheDir.path}/batocera_img_cache');
       if (!await cacheFolder.exists()) await cacheFolder.create(recursive: true);
       final key = md5.convert(utf8.encode(path)).toString();
       final cacheFile = File('${cacheFolder.path}/$key');
+      final mtimeFile = File('${cacheFolder.path}/$key.mtime');
 
-      // Cache valide si > 100 bytes ET image valide
+      // Check cache: size OK AND (if validateMtime) remote mtime == stored mtime
       if (await cacheFile.exists()) {
         final len = await cacheFile.length();
         if (len > 100) {
           final cached = await cacheFile.readAsBytes();
-          if (_isValidImage(cached)) return cached;
+          if (_isValidImage(cached)) {
+            if (!validateMtime) {
+              // No mtime validation → cache always good as long as it exists
+              return cached;
+            }
+            int storedMtime = -1;
+            if (await mtimeFile.exists()) {
+              storedMtime = int.tryParse((await mtimeFile.readAsString()).trim()) ?? -1;
+            }
+            final remoteMtime = await _remoteMTime(path);
+            // Cache valid if we have stored mtime AND it matches
+            if (remoteMtime > 0 && storedMtime > 0 && remoteMtime == storedMtime) {
+              return cached;
+            }
+            // Cache valid if we have stored mtime AND remote mtime is indeterminable (API route)
+            // → trust the cache since we can't verify
+            if (remoteMtime == -1 && storedMtime > 0) {
+              return cached;
+            }
+            // Otherwise (no stored mtime OR mtime differs): invalidate and re-download
+          }
         }
-        // Cache corrompu → supprimer et réessayer
-        await cacheFile.delete();
+        // Invalid / stale cache → remove
+        try { await cacheFile.delete(); } catch (_) {}
+        try { if (await mtimeFile.exists()) await mtimeFile.delete(); } catch (_) {}
       }
 
       final state = context.read<AppState>();
@@ -125,16 +185,26 @@ class _GamesScreenState extends State<GamesScreen> {
       }
 
       if (result.length > 100) {
-        // SVG trop complexe (>50KB) → convertir en PNG via rsvg-convert
+        // Complex SVG (>50KB) → convert to PNG via rsvg-convert
         if (_isSvg(result)) {
           final png = await _svgToPng(result, key, state);
           if (png != null) {
             await cacheFile.writeAsBytes(png);
+            // Save mtime for future validation
+            if (validateMtime) {
+              final mt = await _remoteMTime(path);
+              if (mt > 0) await mtimeFile.writeAsString(mt.toString());
+            }
             return png;
           }
         }
         if (_isValidImage(result)) {
           await cacheFile.writeAsBytes(result);
+          // Save mtime for future validation
+          if (validateMtime) {
+            final mt = await _remoteMTime(path);
+            if (mt > 0) await mtimeFile.writeAsString(mt.toString());
+          }
         }
         return result;
       }
@@ -145,6 +215,11 @@ class _GamesScreenState extends State<GamesScreen> {
   Future<void> _loadSystems() async {
     setState(() => _loadingSystems = true);
     try {
+      // Clear in-memory game cache to force fresh fetch.
+      // ES serves from its memory; to pick up gamelist.xml changes, the
+      // pending scraps dialog at startup triggers reloadgames when relevant,
+      // without interrupting the user.
+      _allGames = [];
       final raw = await _execDirect('curl -s http://127.0.0.1:1234/systems');
       final list = jsonDecode(raw) as List;
 final systems = list
@@ -278,18 +353,33 @@ final systems = list
       await Future.wait(batch.map((sys) async {
         final sysName = sys['name']?.toString() ?? '';
         if (sysName.isEmpty) return;
-        if (_logoCache.containsKey(sysName)) return;
 
         final sysNameL = sysName.toLowerCase();
-        final paths = <String>[
+
+        // 1) Try ES API paths first (priority to current theme's logo).
+        // No mtime validation: if API responds, take it; otherwise fallback.
+        final apiPaths = <String>[
           if ((sys['logo']?.toString() ?? '').isNotEmpty) sys['logo'].toString(),
           '/systems/$sysName/logo',
+        ];
+        for (final logoPath in apiPaths) {
+          final bytes = await _fetchImageNoMtime(logoPath);
+          if (mounted && bytes != null) {
+            setState(() => _logoCache[sysName] = bytes);
+            return;
+          }
+        }
+
+        // 2) If API gave nothing AND we already have an in-memory cache → keep old
+        if (_logoCache.containsKey(sysName)) return;
+
+        // 3) Otherwise fallback to default theme files (es-theme-carbon)
+        final fsPaths = <String>[
           '/usr/share/emulationstation/themes/es-theme-carbon/art/logos/$sysNameL.svg',
           '/usr/share/emulationstation/themes/es-theme-carbon/art/logos/$sysNameL.png',
         ];
-
-        for (final logoPath in paths) {
-          final bytes = await _fetchImage(logoPath);
+        for (final logoPath in fsPaths) {
+          final bytes = await _fetchImageNoMtime(logoPath);
           if (mounted && bytes != null) {
             setState(() => _logoCache[sysName] = bytes);
             break;
