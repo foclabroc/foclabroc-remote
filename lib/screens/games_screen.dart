@@ -266,7 +266,10 @@ final systems = list
       final sysName = g['_systemName']?.toString() ?? '';
       if (sysName.isNotEmpty) counts[sysName] = (counts[sysName] ?? 0) + 1;
     }
-    if (mounted) setState(() => _gameCounts.addAll(counts));
+    if (mounted) setState(() {
+      _gameCounts.clear();
+      _gameCounts.addAll(counts);
+    });
   }
 
   Future<File> _getCacheFile() async {
@@ -436,7 +439,7 @@ final systems = list
                           final logoFolder = Directory('${cacheDir.path}/batocera_img_cache');
                           if (await logoFolder.exists()) await logoFolder.delete(recursive: true);
                         } catch (_) {}
-                        setState(() { _allGames = []; _logoCache.clear(); _systems = []; });
+                        setState(() { _allGames = []; _logoCache.clear(); _systems = []; _gameCounts.clear(); });
                         _loadSystems();
                       } : null,
                       child: Column(
