@@ -455,58 +455,6 @@ except Exception:
     await session.done;
   }
 
-  /// Met à jour gamelist.xml : ajoute/remplace le <video> du jeu courant.
-  Future<bool> _updateGamelistVideo(
-      String systemName, String romPath, String videoRelPath) async {
-    final gamelist = '/userdata/roms/$systemName/gamelist.xml';
-    final romBase = romPath.split('/').last;
-    final gameName = _gameInfo['name'] ?? romBase;
-    const script = r'''
-import xml.etree.ElementTree as ET, sys, os
-gl = sys.argv[1]; rb = sys.argv[2]; videoPath = sys.argv[3]; gameName = sys.argv[4]
-try:
-    if not os.path.exists(gl):
-        root = ET.Element("gameList")
-        tree = ET.ElementTree(root)
-    else:
-        tree = ET.parse(gl)
-        root = tree.getroot()
-    target = None
-    for g in root.findall("game"):
-        p = g.find("path")
-        if p is not None and p.text and os.path.basename(p.text) == rb:
-            target = g; break
-    if target is None:
-        target = ET.SubElement(root, "game")
-        pe = ET.SubElement(target, "path"); pe.text = "./" + rb
-        ne = ET.SubElement(target, "name"); ne.text = gameName
-    ve = target.find("video")
-    if ve is None:
-        ve = ET.SubElement(target, "video")
-    ve.text = videoPath
-    try:
-        ET.indent(tree, space="\t")  # Python 3.9+ : re-indente proprement tout l'arbre
-    except AttributeError:
-        pass  # Fallback silencieux pour Python <3.9
-    tree.write(gl, encoding="utf-8", xml_declaration=True)
-    print("OK")
-except Exception as e:
-    print("ERR:" + str(e))
-''';
-    final tmpScript = '/tmp/.batoremote_updgl_${DateTime.now().millisecondsSinceEpoch}.py';
-    await _writeRemoteFile(tmpScript, script);
-    final result = await _execDirect(
-      'python3 ${_shQ(tmpScript)} ${_shQ(gamelist)} ${_shQ(romBase)} ${_shQ(videoRelPath)} ${_shQ(gameName)} 2>&1; rm -f ${_shQ(tmpScript)}',
-    );
-    return result.contains('OK');
-  }
-
-  /// Demande à EmulationStation de relire les gamelist.xml depuis le disque
-  /// (équivalent du bouton "Reload" du menu web ES). ES n'écrit pas pendant
-  /// cet appel, donc nos modifications sont préservées.
-  Future<void> _reloadEsGamelist() =>
-      context.read<AppState>().pendingService.reloadEsGamelist();
-
   // ─── Système de scraps "pending" ──────────────────────────────────────────
   // Quand l'utilisateur scrappe pendant un jeu, on ne peut pas écrire dans
   // gamelist.xml immédiatement car ES écrasera nos balises au quit du jeu
@@ -790,53 +738,6 @@ print("\n")
     final img = (lines.isNotEmpty && lines[0].trim().isNotEmpty) ? lines[0].trim() : null;
     final scr = (lines.length > 1 && lines[1].trim().isNotEmpty) ? lines[1].trim() : null;
     return (img, scr);
-  }
-
-  /// Met à jour les balises <image> et <screenshot> du jeu dans gamelist.xml.
-  Future<bool> _updateGamelistImages(
-      String systemName, String romPath, String imageRelPath, String screenshotRelPath) async {
-    final gamelist = '/userdata/roms/$systemName/gamelist.xml';
-    final romBase = romPath.split('/').last;
-    final gameName = _gameInfo['name'] ?? romBase;
-    const script = r'''
-import xml.etree.ElementTree as ET, sys, os
-gl = sys.argv[1]; rb = sys.argv[2]; imgPath = sys.argv[3]; scrPath = sys.argv[4]; gameName = sys.argv[5]
-try:
-    if not os.path.exists(gl):
-        root = ET.Element("gameList")
-        tree = ET.ElementTree(root)
-    else:
-        tree = ET.parse(gl)
-        root = tree.getroot()
-    target = None
-    for g in root.findall("game"):
-        p = g.find("path")
-        if p is not None and p.text and os.path.basename(p.text) == rb:
-            target = g; break
-    if target is None:
-        target = ET.SubElement(root, "game")
-        pe = ET.SubElement(target, "path"); pe.text = "./" + rb
-        ne = ET.SubElement(target, "name"); ne.text = gameName
-    for tag, val in (("image", imgPath), ("screenshot", scrPath)):
-        e = target.find(tag)
-        if e is None:
-            e = ET.SubElement(target, tag)
-        e.text = val
-    try:
-        ET.indent(tree, space="\t")
-    except AttributeError:
-        pass
-    tree.write(gl, encoding="utf-8", xml_declaration=True)
-    print("OK")
-except Exception as e:
-    print("ERR:" + str(e))
-''';
-    final tmpScript = '/tmp/.batoremote_updimg_${DateTime.now().millisecondsSinceEpoch}.py';
-    await _writeRemoteFile(tmpScript, script);
-    final result = await _execDirect(
-      'python3 ${_shQ(tmpScript)} ${_shQ(gamelist)} ${_shQ(romBase)} ${_shQ(imageRelPath)} ${_shQ(screenshotRelPath)} ${_shQ(gameName)} 2>&1; rm -f ${_shQ(tmpScript)}',
-    );
-    return result.contains('OK');
   }
 
   /// Workflow complet screenshot : capture + déplacement + update gamelist (image + screenshot).

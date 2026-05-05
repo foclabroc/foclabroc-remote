@@ -138,6 +138,47 @@ class PendingScrapService {
     return result;
   }
 
+  /// Applies all pending entries to gamelist WITHOUT any ES reload.
+  /// Used when the caller wants to group pending application with other
+  /// gamelist modifications (e.g. metadata edits) to minimize the number
+  /// of ES reloads.
+  ///
+  /// The caller MUST:
+  ///   1. Ensure no game is running, otherwise ES will rewrite gamelist
+  ///      from memory on game quit and our tags will be lost.
+  ///   2. Trigger an ES reload BEFORE calling this method (with a small
+  ///      delay) to force ES to flush its in-memory state (playtime /
+  ///      lastplayed / playcount) to disk; otherwise it could overwrite
+  ///      our tags on a later dump.
+  ///   3. Trigger an ES reload AFTER its own final write to gamelist so
+  ///      that the changes become visible on Batocera.
+  ///
+  /// Returns the number of pending entries successfully processed.
+  Future<int> applyPendingNoReload() async {
+    final files = await listPendingFiles();
+    if (files.isEmpty) return 0;
+    int processed = 0;
+    for (final file in files) {
+      try {
+        final bytes = await ssh.downloadFile(file);
+        final json = utf8.decode(bytes);
+        final data = jsonDecode(json) as Map<String, dynamic>;
+        final systemName = data['systemName'] as String? ?? '';
+        final romPath = data['romPath'] as String? ?? '';
+        final gameName = data['gameName'] as String? ?? '';
+        final tags = Map<String, String>.from(data['tags'] as Map? ?? {});
+        if (systemName.isEmpty || romPath.isEmpty) continue;
+        final ok = await _applyTagsToGamelist(systemName, romPath, gameName, tags);
+        if (ok) processed++;
+        // Always remove the pending file (otherwise infinite loop)
+        await _execDirect('rm -f ${_shQ(file)}');
+      } catch (_) {
+        // Error: leave the pending file for later retry
+      }
+    }
+    return processed;
+  }
+
   /// Finalizes all pending: flushes ES memory state, applies tags to gamelist,
   /// reloads ES, removes processed pending files.
   Future<int> finalizePending() async {

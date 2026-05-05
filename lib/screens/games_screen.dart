@@ -347,7 +347,9 @@ final systems = list
         systemLogo: _logoCache[game['_systemName']?.toString() ?? ''],
         allGames: _allGames,
       ),
-    ));
+    )).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _loadLogos(List<Map<String, dynamic>> systems) async {
@@ -584,7 +586,9 @@ final systems = list
                 systemLogo: _logoCache[game['_systemName']?.toString() ?? ''],
                 allGames: _allGames,
               ),
-            )),
+            )).then((_) {
+              if (mounted) setState(() {});
+            }),
             borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -897,16 +901,26 @@ class _GamesListScreenState extends State<_GamesListScreen> {
                             return Card(
                               margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
                               child: InkWell(
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => GameDetailScreen(
-                                      game: game,
-                                      fetchImage: widget.fetchImage,
-                                      systemLogo: widget.systemLogo,
-                                      allGames: widget.allGames,
+                                onTap: () {
+                                  // Injecte _systemName une seule fois sur le map
+                                  // d'origine pour que les modifs dans GameDetailScreen
+                                  // se propagent à notre cache _games (même référence).
+                                  game['_systemName'] = widget.systemName;
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => GameDetailScreen(
+                                        game: game,
+                                        fetchImage: widget.fetchImage,
+                                        systemLogo: widget.systemLogo,
+                                        allGames: widget.allGames,
+                                      ),
                                     ),
-                                  ),
-                                ),
+                                  ).then((_) {
+                                    // Fiche détail fermée → rebuild la liste pour
+                                    // afficher les éventuelles modifs métadonnées.
+                                    if (mounted) setState(() {});
+                                  });
+                                },
                                 borderRadius: BorderRadius.circular(16),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(

@@ -28,14 +28,14 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
   Timer? _timeRefresh;
   Timer? _statsRefresh;
 
-  // System stats
+  // Stats système
   double _cpuTemp = 0;
   double _cpuUsage = 0;
   int _ramUsed = 0;
   int _ramTotal = 0;
   List<int> _prevCpu = [];
 
-  // 30s video capture
+  // Capture vidéo 30s
   bool _capturing = false;
   int _captureRemaining = 0;
   Timer? _captureTimer;
@@ -43,9 +43,9 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
   // Pending scrap tracking (to finalize when the game ends)
   bool _hasPendingScrap = false;
-  String? _previousRomPath; // to detect running → idle transition
-  Timer? _finalizeTimer;    // debounce finalize to avoid race with relaunch
-  bool _finalizing = false; // re-entry guard
+  String? _previousRomPath; // pour détecter la transition running → idle
+  Timer? _finalizeTimer;    // débounce de la finalisation pour éviter race avec relaunch
+  bool _finalizing = false; // évite réentrance
 
   @override
   void initState() {
@@ -54,8 +54,8 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       final state = context.read<AppState>();
       if (state.isConnected) {
         _fetchGameInfo();
-        // If the app was killed while a scrap was pending and no game is
-        // running now → finalize.
+        // Si l'app a été tuée pendant qu'un scrap était pending et qu'aucun jeu
+        // ne tourne actuellement → finalise.
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted && _gameInfo.isEmpty) _autoFinalizePending();
         });
@@ -69,7 +69,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
         _fetchPlayTime();
       }
     });
-    // Stats CPU/RAM every 3s
+    // Stats CPU/RAM toutes les 3s
     _statsRefresh = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted && context.read<AppState>().isConnected) _fetchStats();
     });
@@ -147,11 +147,11 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
   Future<void> _fetchPlayTime() async {
     try {
-      // 1. Look for emulatorlauncher (most emulators)
+      // 1. Cherche emulatorlauncher (la plupart des émulateurs)
       String t = await _execDirect(
         "ps -o etime= -C emulatorlauncher 2>/dev/null | head -1 | tr -d '[:blank:]'",
       );
-      // 2. If empty, look for emulators that launch directly (Switch, PS3...)
+      // 2. Si vide, cherche les émulateurs qui se lancent directement (Switch, PS3...)
       if (t.isEmpty) {
         const directProcs = [
           'ryujinx', 'yuzu', 'suyu', 'torzu',
@@ -207,9 +207,9 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       } catch (_) {}
 
       if (info['name'] == null) {
-        // Game running → none transition: schedule finalization in 1s. Short
-        // debounce because the AppState isLaunchingGame flag already protects
-        // against relaunches via the app.
+        // Transition jeu en cours → aucun jeu : programme la finalisation
+        // dans 1s. Court débounce car le flag isLaunchingGame d'AppState
+        // protège déjà des relaunches via l'app.
         if (_previousRomPath != null) {
           _previousRomPath = null;
           _finalizeTimer?.cancel();
@@ -225,11 +225,11 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
       final newName = info['name'] ?? '';
       final oldName = _gameInfo['name'] ?? '';
-      // A game is running → cancel any pending finalize + clear the launching
-      // flag (launch succeeded since the game is now visible).
+      // Un jeu tourne → annuler toute finalisation en attente + clear le flag
+      // launching (le launch a réussi puisque le jeu apparaît).
       if (_finalizeTimer?.isActive ?? false) _finalizeTimer?.cancel();
       context.read<AppState>().clearLaunchingGame();
-      _previousRomPath = info['path']; // track "running" state
+      _previousRomPath = info['path']; // tracker l'état "running"
       setState(() { _gameInfo = info; _loading = false; });
 
       if (newName != oldName) {
@@ -245,8 +245,8 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
     }
   }
 
-  /// Reloads wheel + image from the API (after game change or after a scrap).
-  /// Resets flags and bytes before re-fetching.
+  /// Recharge wheel + image depuis l'API (après changement de jeu ou scrap).
+  /// Reset les flags et bytes avant de refetcher.
   void _reloadImages(Map<String, String> info) {
     setState(() {
       _imageBytes = null;
@@ -300,7 +300,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Loading manual...'),
+                Text('Chargement du manuel...'),
               ],
             ),
           ),
@@ -315,7 +315,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
       if (bytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to load manual', style: TextStyle(color: Colors.white)),
+          content: Text('Impossible de charger le manuel', style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
         return;
@@ -328,14 +328,14 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
-          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manual'),
+          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manuel'),
         ),
       );
     } catch (e) {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -355,26 +355,26 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Stop the game?'),
-        content: const Text('The current game will be closed.'),
+        title: const Text('Arrêter le jeu ?'),
+        content: const Text('Le jeu en cours va être fermé.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Annuler'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Stop'),
+            child: const Text('Arrêter'),
           ),
         ],
       ),
     );
     if (confirmed == true) {
-      // Clean stop via hotkeygen (works for all emulators including Switch)
+      // Arrêt propre via hotkeygen (fonctionne pour tous les émulateurs dont Switch)
       await state.ssh.execute('hotkeygen --send exit');
       await Future.delayed(const Duration(seconds: 3));
-      // If game is still running, force kill via ES API
+      // Si le jeu tourne encore, force kill via l'API ES
       final stillRunning = await _execDirect('curl -s http://127.0.0.1:1234/runningGame 2>/dev/null');
       if (stillRunning.isNotEmpty && stillRunning != 'null') {
         await state.ssh.execute('curl -s http://127.0.0.1:1234/emukill');
@@ -384,12 +384,12 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
     }
   }
 
-  // ─── 30s video capture with move to system's videos folder ─────────────
+  // ─── Capture vidéo 30s avec déplacement vers dossier vidéos du système ────
 
-  /// Quote a string for safe use as a single-quoted shell argument.
+  /// Échappe une string pour usage en argument shell entre simples quotes.
   String _shQ(String s) => "'${s.replaceAll("'", "'\\''")}'";
 
-  /// Sanitize a game name into a safe filename.
+  /// Sanitize un nom de jeu pour en faire un nom de fichier sûr.
   String _sanitizeFilename(String name) {
     var s = name.replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
     s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -397,8 +397,8 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
     return s;
   }
 
-  /// Detects the videos subdirectory of the system (./media/videos or ./videos).
-  /// Returns the relative path without trailing slash, e.g. "media/videos".
+  /// Détecte le sous-dossier vidéos du système (./media/videos ou ./videos).
+  /// Retourne le chemin relatif sans slash final, ex "media/videos".
   Future<String> _detectVideosDir(String systemName) async {
     final gamelist = '/userdata/roms/$systemName/gamelist.xml';
     final raw = await _execDirect(
@@ -415,8 +415,8 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
     return 'media/videos';
   }
 
-  /// Looks up the `<video>` of the current game in gamelist.xml.
-  /// Returns the relative path (e.g. "./media/videos/sonic.mkv") or null.
+  /// Cherche le `<video>` du jeu courant dans gamelist.xml.
+  /// Retourne le chemin relatif (ex "./media/videos/sonic.mkv") ou null.
   Future<String?> _findExistingVideo(String systemName, String romPath) async {
     final gamelist = '/userdata/roms/$systemName/gamelist.xml';
     final romBase = romPath.split('/').last;
@@ -435,6 +435,7 @@ try:
 except Exception:
     pass
 ''';
+    // Écrit le script dans /tmp, l'exécute, le supprime — évite les pb de quoting bash
     final tmpScript = '/tmp/.batoremote_findvid_${DateTime.now().millisecondsSinceEpoch}.py';
     await _writeRemoteFile(tmpScript, script);
     final out = await _execDirect(
@@ -443,7 +444,7 @@ except Exception:
     return out.trim().isEmpty ? null : out.trim();
   }
 
-  /// Writes text content to a remote file via base64 (safe for scripts).
+  /// Écrit du contenu texte dans un fichier distant via base64 (safe pour scripts).
   Future<void> _writeRemoteFile(String path, String content) async {
     final b64 = base64.encode(utf8.encode(content));
     final state = context.read<AppState>();
@@ -454,67 +455,16 @@ except Exception:
     await session.done;
   }
 
-  /// Updates gamelist.xml: adds/replaces the <video> entry for the current game.
-  Future<bool> _updateGamelistVideo(
-      String systemName, String romPath, String videoRelPath) async {
-    final gamelist = '/userdata/roms/$systemName/gamelist.xml';
-    final romBase = romPath.split('/').last;
-    final gameName = _gameInfo['name'] ?? romBase;
-    const script = r'''
-import xml.etree.ElementTree as ET, sys, os
-gl = sys.argv[1]; rb = sys.argv[2]; videoPath = sys.argv[3]; gameName = sys.argv[4]
-try:
-    if not os.path.exists(gl):
-        root = ET.Element("gameList")
-        tree = ET.ElementTree(root)
-    else:
-        tree = ET.parse(gl)
-        root = tree.getroot()
-    target = None
-    for g in root.findall("game"):
-        p = g.find("path")
-        if p is not None and p.text and os.path.basename(p.text) == rb:
-            target = g; break
-    if target is None:
-        target = ET.SubElement(root, "game")
-        pe = ET.SubElement(target, "path"); pe.text = "./" + rb
-        ne = ET.SubElement(target, "name"); ne.text = gameName
-    ve = target.find("video")
-    if ve is None:
-        ve = ET.SubElement(target, "video")
-    ve.text = videoPath
-    try:
-        ET.indent(tree, space="\t")  # Python 3.9+: re-indents the whole tree cleanly
-    except AttributeError:
-        pass  # Silent fallback for Python <3.9
-    tree.write(gl, encoding="utf-8", xml_declaration=True)
-    print("OK")
-except Exception as e:
-    print("ERR:" + str(e))
-''';
-    final tmpScript = '/tmp/.batoremote_updgl_${DateTime.now().millisecondsSinceEpoch}.py';
-    await _writeRemoteFile(tmpScript, script);
-    final result = await _execDirect(
-      'python3 ${_shQ(tmpScript)} ${_shQ(gamelist)} ${_shQ(romBase)} ${_shQ(videoRelPath)} ${_shQ(gameName)} 2>&1; rm -f ${_shQ(tmpScript)}',
-    );
-    return result.contains('OK');
-  }
+  // ─── Système de scraps "pending" ──────────────────────────────────────────
+  // Quand l'utilisateur scrappe pendant un jeu, on ne peut pas écrire dans
+  // gamelist.xml immédiatement car ES écrasera nos balises au quit du jeu
+  // (il réécrit le fichier depuis sa mémoire pour mettre à jour gametime/
+  // lastplayed/playcount). On stocke donc les balises dans /userdata/system
+  // et on les applique automatiquement quand le jeu se termine.
+  // La logique métier est dans PendingScrapService (lib/services/).
 
-  /// Asks EmulationStation to re-read gamelist.xml files from disk (equivalent
-  /// to the "Reload" button in the ES web menu). ES does NOT write during this
-  /// call, so our modifications are preserved.
-  Future<void> _reloadEsGamelist() =>
-      context.read<AppState>().pendingService.reloadEsGamelist();
-
-  // ─── Pending scraps system ───────────────────────────────────────────────
-  // When the user scraps during a running game, we cannot write to gamelist.xml
-  // immediately because ES will overwrite our tags when the game quits (it
-  // rewrites the file from memory to update gametime/lastplayed/playcount).
-  // So we store the tags in /userdata/system and apply them when the game ends.
-  // Business logic lives in PendingScrapService (lib/services/).
-
-  /// Wrapper for saving a pending scrap (used from _finishCapture and
-  /// _scrapScreenshot).
+  /// Wrapper pour la sauvegarde d'un pending (utilisé depuis _finishCapture
+  /// et _scrapScreenshot).
   Future<bool> _savePending({
     required String systemName,
     required String romPath,
@@ -529,17 +479,18 @@ except Exception as e:
     );
   }
 
-  /// Auto-finalize: called on game→idle transition or on app start.
+  /// Auto-finalisation : appelée à la transition jeu → idle ou au démarrage.
   Future<void> _autoFinalizePending() async {
-    if (_finalizing) return; // re-entry guard
+    if (_finalizing) return; // évite réentrance
     final state = context.read<AppState>();
-    // If a launch is in progress via the app, don't finalize now: reloadgames
-    // would cancel the launch. We'll retry once the launch is confirmed
-    // (game detected → flag cleared) and the new game ends.
+    // Si un launch est en cours via l'app, on ne finalise pas maintenant :
+    // reloadgames annulerait le launch. On retentera quand le launch sera
+    // confirmé (jeu détecté → flag clear) puis sortie du nouveau jeu.
     if (state.isLaunchingGame) return;
     _finalizing = true;
     try {
-      // Late re-check: was a game launched between transition and debounce?
+      // Re-check tardif : un jeu a-t-il été lancé entre la transition et
+      // l'expiration du débounce ?
       if (_gameInfo.isNotEmpty) return;
       final files = await state.pendingService.listPendingFiles();
       if (files.isEmpty) return;
@@ -548,8 +499,8 @@ except Exception as e:
         setState(() => _hasPendingScrap = false);
         if (n > 0) {
           _showSuccess(n == 1
-              ? 'Scrap finalized in gamelist'
-              : '$n scraps finalized in gamelist');
+              ? 'Scrap finalisé dans le gamelist'
+              : '$n scraps finalisés dans le gamelist');
         }
       }
     } finally {
@@ -557,47 +508,47 @@ except Exception as e:
     }
   }
 
-  /// Full workflow: 30s capture + move + gamelist update.
+  /// Workflow complet : capture 30s + déplacement + update gamelist.
   Future<void> _captureVideo30s(AppState state) async {
     if (_capturing) return;
     final gameName = _gameInfo['name'] ?? '';
     final systemName = _gameInfo['systemName'] ?? '';
     final romPath = _gameInfo['path'] ?? '';
     if (gameName.isEmpty || systemName.isEmpty || romPath.isEmpty) {
-      _showError('Incomplete game info');
+      _showError('Infos du jeu incomplètes');
       return;
     }
 
-    // Check for an existing video: if found, reuse the exact same path
-    // (so the gamelist stays consistent).
+    // Cherche une vidéo existante : si oui, on récupère son nom pour réutiliser exactement
+    // le même chemin (et garder la cohérence avec le gamelist).
     final existingVideo = await _findExistingVideo(systemName, romPath);
-    String? overridePath; // null = generate <gameName>.mkv
+    String? overridePath; // null = on génère <gameName>.mkv
     if (existingVideo != null) {
       final ok = await showDialog<bool>(
         context: context,
         useRootNavigator: true,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1C2230),
-          title: const Text('Existing video'),
+          title: const Text('Vidéo existante'),
           content: Text(
-            '"$gameName" already has a video:\n$existingVideo\n\n'
-            'Replace it (filename will be preserved)?',
+            'Le jeu "$gameName" a déjà une vidéo :\n$existingVideo\n\n'
+            'La remplacer (le nom de fichier sera conservé) ?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('Annuler'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-              child: const Text('Replace'),
+              child: const Text('Remplacer'),
             ),
           ],
         ),
       );
       if (ok != true) return;
-      overridePath = existingVideo;
+      overridePath = existingVideo; // on réutilisera ce nom exact
     }
 
     setState(() {
@@ -608,7 +559,7 @@ except Exception as e:
     try {
       await state.ssh.startRecord();
     } catch (e) {
-      if (mounted) _showError('Start error: $e');
+      if (mounted) _showError('Erreur démarrage : $e');
       setState(() => _capturing = false);
       return;
     }
@@ -631,33 +582,33 @@ except Exception as e:
     try {
       await state.ssh.execute('batocera-record stop');
       await Future.delayed(const Duration(milliseconds: 500));
-      // client.execute() direct because the command contains single quotes
+      // client.execute() direct car la commande contient des single quotes
       final s = await state.ssh.client!.execute(
         "mkv=\$(ls -t /userdata/recordings/*.mkv 2>/dev/null | grep -v '\\.tmp\\.mkv\$' | head -1); "
         "[ -n \"\$mkv\" ] && rm -f \"\$mkv\" \"\${mkv%.mkv}.tmp.mkv\" 2>/dev/null",
       );
       await s.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
       await s.done;
-      _showSuccess('Capture cancelled');
+      _showSuccess('Capture annulée');
     } catch (_) {}
   }
 
   Future<void> _finishCapture(AppState state, String gameName,
       String systemName, String romPath, String? overridePath) async {
-    // Optimistic UI: exit "capturing" state immediately so the counter goes
-    // away, then show a provisional snackbar while post-processing (stop, mv,
-    // pending) runs in background.
+    // UI optimiste : on sort du mode "capturing" tout de suite pour que le
+    // compteur disparaisse, puis on affiche un snackbar provisoire pendant
+    // que le post-traitement (stop, mv, pending) se fait en arrière-plan.
     if (mounted) setState(() => _capturing = false);
-    _showInfo('Processing video…');
+    _showInfo('Traitement de la vidéo…');
 
     try {
       await state.ssh.execute('batocera-record stop');
 
-      // Determine destDir, fileName, destPath, videoRelPath based on case
+      // Détermine destDir, fileName, destPath, videoRelPath en fonction du cas
       final String videosDir;
       final String fileName;
       if (overridePath != null) {
-        // Reuse the exact path of the existing video (relative to system root)
+        // Réutilise le chemin exact de la vidéo existante (relatif au système)
         var rel = overridePath;
         if (rel.startsWith('./')) rel = rel.substring(2);
         final lastSlash = rel.lastIndexOf('/');
@@ -675,9 +626,9 @@ except Exception as e:
       final destDir = '/userdata/roms/$systemName/$videosDir';
       final destPath = '$destDir/$fileName';
 
-      // Short wait for ffmpeg remux end (max ~3s) to avoid race between our
-      // mv and the remux's mv. Past that we kill ffmpeg and take the
-      // non-reindexed source file (linear playback OK, seek degraded).
+      // Courte attente de la fin du remux ffmpeg (max ~3s) pour éviter la race
+      // entre notre `mv` et le `mv` du remux. Au-delà on tue ffmpeg et on prend
+      // le fichier source non-réindexé (lecture linéaire OK, seek dégradé).
       bool ffmpegRunning = true;
       for (int i = 0; i < 6 && ffmpegRunning; i++) {
         await Future.delayed(const Duration(milliseconds: 500));
@@ -686,7 +637,7 @@ except Exception as e:
         ffmpegRunning = r.contains('R');
       }
       if (ffmpegRunning) {
-        // ffmpeg still running → kill it to avoid the race on mv
+        // ffmpeg pas encore fini → on le tue pour éviter la race au mv
         await _execDirect("pkill -9 -f 'ffmpeg.*tmp.mkv' 2>/dev/null; rm -f /userdata/recordings/*.tmp.mkv 2>/dev/null");
       }
 
@@ -694,12 +645,12 @@ except Exception as e:
         "ls -t /userdata/recordings/*.mkv 2>/dev/null | grep -v '\\.tmp\\.mkv\$' | head -1",
       );
       if (mkv.trim().isEmpty) {
-        _showError('Capture file not found');
+        _showError('Fichier capture introuvable');
         return;
       }
 
-      // mkdir + mv via client.execute() direct to avoid the bash -l -c '...' wrapper
-      // breaking quoting on paths with spaces or apostrophes.
+      // mkdir + mv via client.execute() direct pour éviter le wrapping bash -l -c '...'
+      // qui casserait le quoting des chemins contenant des espaces ou apostrophes.
       final src = mkv.trim();
       final mvSession = await state.ssh.client!.execute(
         'mkdir -p ${_shQ(destDir)} && mv -f ${_shQ(src)} ${_shQ(destPath)}',
@@ -707,10 +658,10 @@ except Exception as e:
       await mvSession.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
       await mvSession.done;
 
-      // Update gamelist.xml only when it's a new video (path didn't change otherwise).
-      // We CANNOT write to gamelist.xml directly while a game is running:
-      // ES rewrites the file on quit from its memory state and our tags would be lost.
-      // So we save as pending and apply on game quit (auto-detected).
+      // Met à jour gamelist.xml uniquement si nouvelle vidéo (sinon le chemin n'a pas changé)
+      // On ne peut PAS écrire dans gamelist.xml directement pendant qu'un jeu tourne :
+      // ES réécrit le fichier au quit avec son état mémoire et nos balises sont perdues.
+      // On stocke donc en pending et on applique au quit du jeu (auto-détecté).
       if (overridePath == null) {
         final videoRelPath = './$videosDir/$fileName';
         await _savePending(
@@ -724,23 +675,24 @@ except Exception as e:
 
       if (mounted) {
         if (overridePath == null) {
-          _showSuccess('Video saved: $videosDir/$fileName\n'
-              'Will be finalized when the game ends');
+          _showSuccess('Vidéo enregistrée : $videosDir/$fileName\n'
+              'Sera finalisée à la sortie du jeu');
         } else {
-          _showSuccess('Video replaced: $videosDir/$fileName');
+          _showSuccess('Vidéo remplacée : $videosDir/$fileName');
         }
       }
     } catch (e) {
-      if (mounted) _showError('Error: $e');
+      if (mounted) _showError('Erreur : $e');
     }
   }
 
-  // ─── Screenshot scrap ─────────────────────────────────────────────────────
+  // ─── Scrap screenshot ─────────────────────────────────────────────────────
 
-  /// Detects the system's images subdirectory (./media/screenshots or ./images).
-  /// Returns the relative path without trailing slash.
+  /// Détecte le sous-dossier images du système (./media/screenshots ou ./images).
+  /// Retourne le chemin relatif sans slash final.
   Future<String> _detectImagesDir(String systemName) async {
     final gamelist = '/userdata/roms/$systemName/gamelist.xml';
+    // On regarde plusieurs balises image susceptibles de pointer vers le dossier
     final raw = await _execDirect(
       "grep -oE '<(image|screenshot|thumbnail)>[^<]+</\\1>' ${_shQ(gamelist)} 2>/dev/null | head -10",
     );
@@ -752,11 +704,11 @@ except Exception as e:
       final idx = p.lastIndexOf('/');
       if (idx > 0) return p.substring(0, idx);
     }
-    return 'media/screenshots';
+    return 'media/screenshots'; // convention par défaut Batocera moderne
   }
 
-  /// Looks up existing `<image>` and `<screenshot>` paths in gamelist.xml.
-  /// Returns (imagePath, screenshotPath) — null if missing.
+  /// Cherche les chemins existants `<image>` et `<screenshot>` dans gamelist.xml.
+  /// Retourne (imagePath, screenshotPath) — null si absent.
   Future<(String?, String?)> _findExistingImages(String systemName, String romPath) async {
     final gamelist = '/userdata/roms/$systemName/gamelist.xml';
     final romBase = romPath.split('/').last;
@@ -788,64 +740,18 @@ print("\n")
     return (img, scr);
   }
 
-  /// Updates <image> and <screenshot> entries for the current game in gamelist.xml.
-  Future<bool> _updateGamelistImages(
-      String systemName, String romPath, String imageRelPath, String screenshotRelPath) async {
-    final gamelist = '/userdata/roms/$systemName/gamelist.xml';
-    final romBase = romPath.split('/').last;
-    final gameName = _gameInfo['name'] ?? romBase;
-    const script = r'''
-import xml.etree.ElementTree as ET, sys, os
-gl = sys.argv[1]; rb = sys.argv[2]; imgPath = sys.argv[3]; scrPath = sys.argv[4]; gameName = sys.argv[5]
-try:
-    if not os.path.exists(gl):
-        root = ET.Element("gameList")
-        tree = ET.ElementTree(root)
-    else:
-        tree = ET.parse(gl)
-        root = tree.getroot()
-    target = None
-    for g in root.findall("game"):
-        p = g.find("path")
-        if p is not None and p.text and os.path.basename(p.text) == rb:
-            target = g; break
-    if target is None:
-        target = ET.SubElement(root, "game")
-        pe = ET.SubElement(target, "path"); pe.text = "./" + rb
-        ne = ET.SubElement(target, "name"); ne.text = gameName
-    for tag, val in (("image", imgPath), ("screenshot", scrPath)):
-        e = target.find(tag)
-        if e is None:
-            e = ET.SubElement(target, tag)
-        e.text = val
-    try:
-        ET.indent(tree, space="\t")
-    except AttributeError:
-        pass
-    tree.write(gl, encoding="utf-8", xml_declaration=True)
-    print("OK")
-except Exception as e:
-    print("ERR:" + str(e))
-''';
-    final tmpScript = '/tmp/.batoremote_updimg_${DateTime.now().millisecondsSinceEpoch}.py';
-    await _writeRemoteFile(tmpScript, script);
-    final result = await _execDirect(
-      'python3 ${_shQ(tmpScript)} ${_shQ(gamelist)} ${_shQ(romBase)} ${_shQ(imageRelPath)} ${_shQ(screenshotRelPath)} ${_shQ(gameName)} 2>&1; rm -f ${_shQ(tmpScript)}',
-    );
-    return result.contains('OK');
-  }
-
-  /// Full screenshot workflow: capture + move + gamelist update (image + screenshot).
+  /// Workflow complet screenshot : capture + déplacement + update gamelist (image + screenshot).
   Future<void> _scrapScreenshot(AppState state) async {
     if (_capturing) return;
     final gameName = _gameInfo['name'] ?? '';
     final systemName = _gameInfo['systemName'] ?? '';
     final romPath = _gameInfo['path'] ?? '';
     if (gameName.isEmpty || systemName.isEmpty || romPath.isEmpty) {
-      _showError('Incomplete game info');
+      _showError('Infos du jeu incomplètes');
       return;
     }
 
+    // 1. Vérifier si <image> ou <screenshot> existe → confirmation
     final (existingImg, existingScr) = await _findExistingImages(systemName, romPath);
     final hasAny = existingImg != null || existingScr != null;
     if (hasAny) {
@@ -855,20 +761,20 @@ except Exception as e:
         useRootNavigator: true,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1C2230),
-          title: const Text('Existing image'),
+          title: const Text('Image existante'),
           content: Text(
-            '"$gameName" already has a scraped image:\n$shown\n\n'
-            'Replace it (filename will be preserved)?',
+            'Le jeu "$gameName" a déjà une image scrapée :\n$shown\n\n'
+            'La remplacer (le nom de fichier sera conservé) ?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('Annuler'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-              child: const Text('Replace'),
+              child: const Text('Remplacer'),
             ),
           ],
         ),
@@ -876,10 +782,12 @@ except Exception as e:
       if (ok != true) return;
     }
 
-    setState(() => _capturing = true);
+    setState(() => _capturing = true); // bloque le menu pendant le scrap
 
     try {
-      // 1. Snapshot of /userdata/screenshots before triggering
+      // 2. Lance le screenshot Batocera
+      // batocera-screenshot dépose un png dans /userdata/screenshots avec timestamp
+      // On note la liste avant pour identifier le nouveau fichier après
       final beforeRaw = await _execDirect(
         "ls -t /userdata/screenshots/*.png 2>/dev/null | head -5",
       );
@@ -888,6 +796,7 @@ except Exception as e:
       await state.ssh.screenshot();
       await Future.delayed(const Duration(milliseconds: 1200));
 
+      // 3. Trouver le nouveau png
       final afterRaw = await _execDirect(
         "ls -t /userdata/screenshots/*.png 2>/dev/null | head -5",
       );
@@ -898,11 +807,12 @@ except Exception as e:
         if (!beforeSet.contains(p)) { newShot = p; break; }
       }
       if (newShot == null) {
-        _showError('Screenshot not found');
+        _showError('Screenshot introuvable');
         if (mounted) setState(() => _capturing = false);
         return;
       }
 
+      // 4. Déterminer destDir + fileName (réutilise existant, sinon génère)
       String? overrideRel = existingScr ?? existingImg;
       final String imagesDir;
       final String fileName;
@@ -924,6 +834,7 @@ except Exception as e:
       final destDir = '/userdata/roms/$systemName/$imagesDir';
       final destPath = '$destDir/$fileName';
 
+      // 5. mkdir + mv (client.execute() direct pour éviter le wrapping bash)
       final mvSession = await state.ssh.client!.execute(
         'mkdir -p ${_shQ(destDir)} && mv -f ${_shQ(newShot)} ${_shQ(destPath)}',
       );
@@ -931,9 +842,9 @@ except Exception as e:
       await mvSession.done;
 
       final relPath = './$imagesDir/$fileName';
-      // If <image>/<screenshot> already existed: no need to touch the gamelist
-      // (we just overwrote the file on disk, the path is unchanged).
-      // Otherwise we save as pending and apply when the game quits (see note in _finishCapture).
+      // Si <image>/<screenshot> existaient déjà : pas besoin de toucher au gamelist
+      // (on a juste écrasé le fichier sur disque, le chemin est inchangé).
+      // Sinon on stocke en pending pour appliquer au quit du jeu (cf. note dans _finishCapture).
       final isNewEntry = (existingImg == null && existingScr == null);
       if (isNewEntry) {
         await _savePending(
@@ -945,8 +856,8 @@ except Exception as e:
         if (mounted) setState(() => _hasPendingScrap = true);
       }
 
-      // Load the new PNG directly via SFTP (from destPath) to bypass any
-      // EmulationStation API cache that hasn't yet seen the updated gamelist.
+      // Charge le nouveau PNG directement via SFTP (depuis destPath) pour éviter
+      // tout cache de l'API EmulationStation qui n'a pas encore vu le nouveau gamelist.
       Uint8List? newBytes;
       try {
         newBytes = await state.ssh.downloadFile(destPath);
@@ -954,13 +865,13 @@ except Exception as e:
 
       if (mounted) {
         if (isNewEntry) {
-          _showSuccess('Screenshot saved: $imagesDir/$fileName\n'
-              'Will be finalized when the game ends');
+          _showSuccess('Screenshot enregistré : $imagesDir/$fileName\n'
+              'Sera finalisé à la sortie du jeu');
         } else {
-          _showSuccess('Screenshot replaced: $imagesDir/$fileName');
+          _showSuccess('Screenshot remplacé : $imagesDir/$fileName');
         }
-        // Update _gameInfo (paths) and inject bytes directly so the new visual
-        // shows without going through the ES API.
+        // Met à jour _gameInfo (chemins) et injecte directement les bytes pour
+        // afficher le nouveau visuel sans repasser par l'API ES.
         final updated = Map<String, String>.from(_gameInfo);
         updated['image'] = relPath;
         updated['screenshot'] = relPath;
@@ -970,12 +881,12 @@ except Exception as e:
             _imageBytes = newBytes;
             _imageTried = true;
           } else {
-            _reloadImages(updated); // fallback if SFTP failed
+            _reloadImages(updated); // fallback si SFTP a échoué
           }
         });
       }
     } catch (e) {
-      if (mounted) _showError('Error: $e');
+      if (mounted) _showError('Erreur : $e');
     } finally {
       if (mounted) setState(() => _capturing = false);
     }
@@ -1044,7 +955,7 @@ except Exception as e:
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Running game', style: Theme.of(context).textTheme.headlineMedium),
+                      Text('Jeu en cours', style: Theme.of(context).textTheme.headlineMedium),
                       Text('Auto 5s', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10)),
                     ],
                   ),
@@ -1066,9 +977,9 @@ except Exception as e:
 
             Expanded(
               child: !state.isConnected
-                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Not connected')
+                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Non connecté')
                   : !hasGame
-                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'No game running')
+                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'Aucun jeu en cours')
                       : SingleChildScrollView(
                           child: Padding(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -1094,7 +1005,7 @@ except Exception as e:
                                   child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: accent)),
                                 )
                               else
-                                // No <wheel> tag in gamelist OR loading failed
+                                // Cas : balise <wheel> absente du gamelist OU chargement raté
                                 Container(
                                   width: double.infinity, height: 56,
                                   margin: const EdgeInsets.only(bottom: 8),
@@ -1109,7 +1020,7 @@ except Exception as e:
                                       children: [
                                         Icon(Icons.image_not_supported_rounded, size: 16, color: Colors.white38),
                                         SizedBox(width: 8),
-                                        Text('Logo unavailable',
+                                        Text('Logo indisponible',
                                             style: TextStyle(color: Colors.white38, fontSize: 12)),
                                       ],
                                     ),
@@ -1140,7 +1051,7 @@ except Exception as e:
                                   ),
                                 )
                               else
-                                // No <image> tag in gamelist OR loading failed
+                                // Cas : balise <image> absente du gamelist OU chargement raté
                                 AspectRatio(
                                   aspectRatio: 16 / 9,
                                   child: Container(
@@ -1156,7 +1067,7 @@ except Exception as e:
                                         children: [
                                           Icon(Icons.image_not_supported_rounded, size: 32, color: Colors.white38),
                                           SizedBox(height: 6),
-                                          Text('Image unavailable',
+                                          Text('Image indisponible',
                                               style: TextStyle(color: Colors.white38, fontSize: 12)),
                                         ],
                                       ),
@@ -1181,7 +1092,7 @@ except Exception as e:
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                _gameInfo['name'] ?? 'Unknown game',
+                                                _gameInfo['name'] ?? 'Jeu inconnu',
                                                 style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -1243,7 +1154,7 @@ except Exception as e:
                                           Row(children: [
                                             Icon(Icons.people_rounded, size: 12, color: Colors.white38),
                                             const SizedBox(width: 4),
-                                            Text('${_gameInfo['players']} player(s)',
+                                            Text('${_gameInfo['players']} joueur(s)',
                                                 style: const TextStyle(color: Colors.white38, fontSize: 11)),
                                           ]),
                                         if (_gameInfo['emulator'] != null)
@@ -1279,7 +1190,7 @@ except Exception as e:
                                             children: [
                                               Icon(Icons.picture_as_pdf_rounded, size: 14),
                                               SizedBox(width: 6),
-                                              Flexible(child: Text('Manual',
+                                              Flexible(child: Text('Manuel',
                                                   style: TextStyle(fontSize: 12),
                                                   overflow: TextOverflow.ellipsis,
                                                   maxLines: 1)),
@@ -1332,7 +1243,7 @@ except Exception as e:
                                           children: [
                                             Icon(Icons.stop_circle_rounded, size: 14),
                                             SizedBox(width: 6),
-                                            Flexible(child: Text('Stop',
+                                            Flexible(child: Text('Arrêter',
                                                 style: TextStyle(fontSize: 12),
                                                 overflow: TextOverflow.ellipsis,
                                                 maxLines: 1)),
@@ -1370,14 +1281,14 @@ except Exception as e:
                                   const SizedBox(height: 8),
                                   _StatChip(
                                     icon: Icons.storage_rounded,
-                                    label: '$_ramUsed Mo / $_ramTotal Mo',
+                                    label: '$_ramUsed MB / $_ramTotal MB',
                                     color: Colors.cyanAccent,
                                     fullWidth: true,
                                   ),
                                 ],
                               ],
 
-                              // ── Scrap button (video / screenshot) ────────
+                              // ── Bouton scrap (vidéo / screenshot) ────────
                               const SizedBox(height: 12),
                               SizedBox(
                                 width: double.infinity,
@@ -1386,7 +1297,7 @@ except Exception as e:
                                         onPressed: () => _cancelCapture(state),
                                         icon: const Icon(Icons.cancel_rounded, size: 14),
                                         label: Text(
-                                          'Cancel capture (${_captureRemaining}s)',
+                                          'Annuler capture (${_captureRemaining}s)',
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                         style: OutlinedButton.styleFrom(
@@ -1414,7 +1325,7 @@ except Exception as e:
                                             child: Row(children: [
                                               Icon(Icons.videocam_rounded, size: 16, color: Color(0xFFE02020)),
                                               SizedBox(width: 10),
-                                              Text('Auto 30s video scrap', style: TextStyle(color: Colors.white)),
+                                              Text('Scrap vidéo auto 30s', style: TextStyle(color: Colors.white)),
                                             ]),
                                           ),
                                           PopupMenuItem(
@@ -1422,7 +1333,7 @@ except Exception as e:
                                             child: Row(children: [
                                               Icon(Icons.photo_camera_rounded, size: 16, color: Color(0xFFE02020)),
                                               SizedBox(width: 10),
-                                              Text('Auto screenshot scrap', style: TextStyle(color: Colors.white)),
+                                              Text('Scrap screenshot auto', style: TextStyle(color: Colors.white)),
                                             ]),
                                           ),
                                         ],
@@ -1438,7 +1349,7 @@ except Exception as e:
                                               Icon(Icons.auto_awesome_rounded, size: 14, color: Color(0xFFE02020)),
                                               SizedBox(width: 8),
                                               Text(
-                                                'Auto scrap…',
+                                                'Scrap auto…',
                                                 style: TextStyle(fontSize: 12, color: Color(0xFFE02020), fontWeight: FontWeight.w600),
                                               ),
                                               SizedBox(width: 4),
@@ -1524,7 +1435,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
             onPageChanged: (page, total) => setState(() { _currentPage = page ?? 0; _totalPages = total ?? 0; }),
             onViewCreated: (controller) => _controller = controller,
             onError: (error) => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('PDF error: $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
+              SnackBar(content: Text('Erreur PDF : $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
             ),
           ),
           if (!_isReady)

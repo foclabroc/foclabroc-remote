@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ssh_service.dart';
 import '../services/pending_scrap_service.dart';
+import '../services/metadata_service.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected, error }
 
@@ -69,6 +70,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   PendingScrapService? _pendingService;
   PendingScrapService get pendingService =>
       _pendingService ??= PendingScrapService(_ssh);
+
+  MetadataService? _metadataService;
+  MetadataService get metadataService =>
+      _metadataService ??= MetadataService(_ssh);
 
   AppState() {
     _loadPrefs();

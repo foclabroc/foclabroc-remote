@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/app_state.dart';
+import '../services/metadata_service.dart';
+import '../widgets/metadata_editor_dialog.dart';
 
 class GameDetailScreen extends StatefulWidget {
   final Map<String, dynamic> game;
@@ -110,6 +112,166 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
           if (mounted) setState(() => _imageTried = true);
         }),
     ]);
+  }
+
+  Future<void> _editMetadata() async {
+    final game = widget.game;
+    final systemName = game['_systemName']?.toString() ?? '';
+    final romPath = game['path']?.toString() ?? '';
+    final gameName = game['name']?.toString() ?? '';
+    if (systemName.isEmpty || romPath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Incomplete game info'),
+        backgroundColor: Color(0xFF1C2230),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    final state = context.read<AppState>();
+    final svc = MetadataService(state.ssh);
+
+    // 1) Build initial values from in-memory game data (fast)
+    final initial = <String, String>{};
+    for (final k in MetadataService.editableTags) {
+      final v = game[k]?.toString() ?? '';
+      if (v.isNotEmpty) initial[k] = v;
+    }
+
+    // 2) Read XML for tags ES might not expose in its JSON API (e.g. region).
+    //    Merge with `initial`: XML values override since they're authoritative.
+    try {
+      final fromXml = await svc.readMetadata(systemName, romPath);
+      for (final k in MetadataService.editableTags) {
+        final v = fromXml[k];
+        if (v != null && v.isNotEmpty) initial[k] = v;
+      }
+    } catch (_) {}
+    if (!mounted) return;
+
+    // 3) Open editor dialog
+    final changes = await showDialog<Map<String, String>>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => MetadataEditorDialog(
+        initialValues: initial,
+        gameName: gameName.isNotEmpty ? gameName : romPath.split('/').last,
+      ),
+    );
+    if (changes == null || changes.isEmpty || !mounted) return;
+
+    // 3) If a game is running, ask confirmation to close it
+    final running = await svc.isGameRunning();
+    if (!mounted) return;
+    if (running) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Game running', style: TextStyle(fontSize: 15)),
+          ]),
+          content: const Text(
+            'A game is currently running.\n'
+            'To save metadata, it must be closed.\n\n'
+            'Continue?',
+            style: TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE02020)),
+              child: const Text('Close game and save'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Closing current game...', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF1C2230),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 3),
+      ));
+      await svc.killRunningGame();
+      if (!mounted) return;
+    }
+
+    // 4) Timestamped backup of gamelist
+    final backupOk = await svc.backupGamelist(systemName);
+    if (!mounted) return;
+
+    // 5) Check if there are pending entries to apply here. If yes (or if
+    //    we just killed a running game), we must ask ES to flush its
+    //    in-memory state (playtime/lastplayed/playcount) BEFORE writing
+    //    to gamelist, otherwise ES would overwrite our tags on next dump.
+    final pendingFiles = await state.pendingService.listPendingFiles();
+    if (!mounted) return;
+    final hasPending = pendingFiles.isNotEmpty;
+
+    if (running || hasPending) {
+      await svc.reloadEsGamelist();
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+    }
+
+    // 6) Apply pending entries (no reload: a single one is done at the end)
+    int pendingApplied = 0;
+    if (hasPending) {
+      try {
+        pendingApplied = await state.pendingService.applyPendingNoReload();
+      } catch (_) {}
+      if (!mounted) return;
+    }
+
+    // 7) Write the changes
+    final ok = await svc.writeMetadata(systemName, romPath, gameName, changes);
+    if (!mounted) return;
+
+    // 8) Reload ES (final) so changes are reflected on Batocera
+    if (ok) await svc.reloadEsGamelist();
+    if (!mounted) return;
+
+    // 9) Apply changes locally so the detail screen reflects them immediately
+    //    (no need to go back to the games list to refresh)
+    if (ok) {
+      setState(() {
+        for (final entry in changes.entries) {
+          if (entry.value.isEmpty) {
+            widget.game.remove(entry.key);
+          } else {
+            widget.game[entry.key] = entry.value;
+          }
+        }
+      });
+    }
+
+    // User notification
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        Icon(ok ? Icons.check_circle_rounded : Icons.error_rounded,
+            color: ok ? Colors.greenAccent : Colors.redAccent, size: 18),
+        const SizedBox(width: 10),
+        Expanded(child: Text(
+          ok
+              ? 'Metadata saved'
+                  '${backupOk ? " (backup created)" : ""}'
+                  '${pendingApplied > 0 ? " · $pendingApplied pending applied" : ""}'
+              : 'Save failed',
+          style: const TextStyle(color: Colors.white))),
+      ]),
+      backgroundColor: const Color(0xFF1C2230),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 3),
+    ));
   }
 
   void _showMedia(Uint8List bytes) {
@@ -555,6 +717,24 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                       ),
                     ),
                   ],
+
+                  // "Edit metadata" button — always shown at the bottom
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _editMetadata,
+                      icon: const Icon(Icons.edit_note_rounded, size: 18, color: Color(0xFFE02020)),
+                      label: const Text('Edit metadata',
+                          style: TextStyle(color: Color(0xFFE02020))),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE02020),
+                        side: const BorderSide(color: Color(0xFFE02020)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

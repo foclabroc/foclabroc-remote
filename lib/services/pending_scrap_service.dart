@@ -138,6 +138,47 @@ class PendingScrapService {
     return result;
   }
 
+  /// Applique tous les pending au gamelist SANS aucun reload ES.
+  /// Utilisé quand l'appelant veut grouper l'application des pending avec
+  /// d'autres modifications du gamelist (ex : édition de métadonnées) pour
+  /// minimiser le nombre de reload ES.
+  ///
+  /// L'appelant DOIT :
+  ///   1. S'assurer qu'aucun jeu ne tourne, sinon ES réécrira le gamelist
+  ///      depuis sa mémoire au quit du jeu et nos balises seront perdues.
+  ///   2. Déclencher un reload ES AVANT cette méthode (avec un petit délai)
+  ///      pour forcer ES à flusher son état mémoire (playtime / lastplayed /
+  ///      playcount) sur disque ; sinon il pourrait écraser nos balises lors
+  ///      d'un dump ultérieur.
+  ///   3. Déclencher un reload ES APRÈS sa propre écriture finale au gamelist
+  ///      pour que les changements soient visibles côté Batocera.
+  ///
+  /// Renvoie le nombre de pending traités avec succès.
+  Future<int> applyPendingNoReload() async {
+    final files = await listPendingFiles();
+    if (files.isEmpty) return 0;
+    int processed = 0;
+    for (final file in files) {
+      try {
+        final bytes = await ssh.downloadFile(file);
+        final json = utf8.decode(bytes);
+        final data = jsonDecode(json) as Map<String, dynamic>;
+        final systemName = data['systemName'] as String? ?? '';
+        final romPath = data['romPath'] as String? ?? '';
+        final gameName = data['gameName'] as String? ?? '';
+        final tags = Map<String, String>.from(data['tags'] as Map? ?? {});
+        if (systemName.isEmpty || romPath.isEmpty) continue;
+        final ok = await _applyTagsToGamelist(systemName, romPath, gameName, tags);
+        if (ok) processed++;
+        // Supprime le pending dans tous les cas (sinon boucle infinie)
+        await _execDirect('rm -f ${_shQ(file)}');
+      } catch (_) {
+        // Erreur : on laisse le pending pour retry ultérieur
+      }
+    }
+    return processed;
+  }
+
   /// Finalise tous les pending : flush l'état mémoire ES, applique les balises
   /// au gamelist, recharge ES, supprime les pending traités.
   Future<int> finalizePending() async {
