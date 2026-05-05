@@ -300,7 +300,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Chargement du manuel...'),
+                Text('Loading manual...'),
               ],
             ),
           ),
@@ -315,7 +315,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
 
       if (bytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Impossible de charger le manuel', style: TextStyle(color: Colors.white)),
+          content: Text('Cannot load manual', style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
         return;
@@ -328,7 +328,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       if (!mounted) return;
       Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
-          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manuel'),
+          builder: (_) => _PdfViewerScreen(filePath: file.path, title: _gameInfo['name'] ?? 'Manual'),
         ),
       );
     } catch (e) {
@@ -355,17 +355,17 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text('Arrêter le jeu ?'),
-        content: const Text('Le jeu en cours va être fermé.'),
+        title: const Text('Stop the game?'),
+        content: const Text('The running game will be closed.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Arrêter'),
+            child: const Text('Stop'),
           ),
         ],
       ),
@@ -499,8 +499,8 @@ except Exception:
         setState(() => _hasPendingScrap = false);
         if (n > 0) {
           _showSuccess(n == 1
-              ? 'Scrap finalisé dans le gamelist'
-              : '$n scraps finalisés dans le gamelist');
+              ? 'Scrap finalized in gamelist'
+              : '$n scraps finalized in gamelist');
         }
       }
     } finally {
@@ -515,7 +515,7 @@ except Exception:
     final systemName = _gameInfo['systemName'] ?? '';
     final romPath = _gameInfo['path'] ?? '';
     if (gameName.isEmpty || systemName.isEmpty || romPath.isEmpty) {
-      _showError('Infos du jeu incomplètes');
+      _showError('Incomplete game info');
       return;
     }
 
@@ -529,15 +529,15 @@ except Exception:
         useRootNavigator: true,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1C2230),
-          title: const Text('Vidéo existante'),
+          title: const Text('Existing video'),
           content: Text(
-            'Le jeu "$gameName" a déjà une vidéo :\n$existingVideo\n\n'
-            'La remplacer (le nom de fichier sera conservé) ?',
+            'The game "$gameName" already has a video:\n$existingVideo\n\n'
+            'Replace it (filename will be preserved)?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-              child: const Text('Annuler'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
@@ -559,7 +559,7 @@ except Exception:
     try {
       await state.ssh.startRecord();
     } catch (e) {
-      if (mounted) _showError('Erreur démarrage : $e');
+      if (mounted) _showError('Start error: $e');
       setState(() => _capturing = false);
       return;
     }
@@ -589,7 +589,7 @@ except Exception:
       );
       await s.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
       await s.done;
-      _showSuccess('Capture annulée');
+      _showSuccess('Capture cancelled');
     } catch (_) {}
   }
 
@@ -599,7 +599,7 @@ except Exception:
     // compteur disparaisse, puis on affiche un snackbar provisoire pendant
     // que le post-traitement (stop, mv, pending) se fait en arrière-plan.
     if (mounted) setState(() => _capturing = false);
-    _showInfo('Traitement de la vidéo…');
+    _showInfo('Processing video…');
 
     try {
       await state.ssh.execute('batocera-record stop');
@@ -645,7 +645,7 @@ except Exception:
         "ls -t /userdata/recordings/*.mkv 2>/dev/null | grep -v '\\.tmp\\.mkv\$' | head -1",
       );
       if (mkv.trim().isEmpty) {
-        _showError('Fichier capture introuvable');
+        _showError('Capture file not found');
         return;
       }
 
@@ -675,10 +675,10 @@ except Exception:
 
       if (mounted) {
         if (overridePath == null) {
-          _showSuccess('Vidéo enregistrée : $videosDir/$fileName\n'
-              'Sera finalisée à la sortie du jeu');
+          _showSuccess('Video saved: $videosDir/$fileName\n'
+              'Will be finalized when the game exits');
         } else {
-          _showSuccess('Vidéo remplacée : $videosDir/$fileName');
+          _showSuccess('Video replaced: $videosDir/$fileName');
         }
       }
     } catch (e) {
@@ -747,7 +747,7 @@ print("\n")
     final systemName = _gameInfo['systemName'] ?? '';
     final romPath = _gameInfo['path'] ?? '';
     if (gameName.isEmpty || systemName.isEmpty || romPath.isEmpty) {
-      _showError('Infos du jeu incomplètes');
+      _showError('Incomplete game info');
       return;
     }
 
@@ -763,13 +763,13 @@ print("\n")
           backgroundColor: const Color(0xFF1C2230),
           title: const Text('Image existante'),
           content: Text(
-            'Le jeu "$gameName" a déjà une image scrapée :\n$shown\n\n'
-            'La remplacer (le nom de fichier sera conservé) ?',
+            'The game "$gameName" already has a scraped image:\n$shown\n\n'
+            'Replace it (filename will be preserved)?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
-              child: const Text('Annuler'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
@@ -807,7 +807,7 @@ print("\n")
         if (!beforeSet.contains(p)) { newShot = p; break; }
       }
       if (newShot == null) {
-        _showError('Screenshot introuvable');
+        _showError('Screenshot not found');
         if (mounted) setState(() => _capturing = false);
         return;
       }
@@ -865,10 +865,10 @@ print("\n")
 
       if (mounted) {
         if (isNewEntry) {
-          _showSuccess('Screenshot enregistré : $imagesDir/$fileName\n'
-              'Sera finalisé à la sortie du jeu');
+          _showSuccess('Screenshot saved: $imagesDir/$fileName\n'
+              'Will be finalized when the game exits');
         } else {
-          _showSuccess('Screenshot remplacé : $imagesDir/$fileName');
+          _showSuccess('Screenshot replaced: $imagesDir/$fileName');
         }
         // Met à jour _gameInfo (chemins) et injecte directement les bytes pour
         // afficher le nouveau visuel sans repasser par l'API ES.
@@ -955,7 +955,7 @@ print("\n")
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Jeu en cours', style: Theme.of(context).textTheme.headlineMedium),
+                      Text('Running game', style: Theme.of(context).textTheme.headlineMedium),
                       Text('Auto 5s', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10)),
                     ],
                   ),
@@ -977,9 +977,9 @@ print("\n")
 
             Expanded(
               child: !state.isConnected
-                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Non connecté')
+                  ? _EmptyState(icon: Icons.wifi_off_rounded, message: 'Not connected')
                   : !hasGame
-                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'Aucun jeu en cours')
+                      ? _EmptyState(icon: Icons.sports_esports_outlined, message: 'No game running')
                       : SingleChildScrollView(
                           child: Padding(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -1190,7 +1190,7 @@ print("\n")
                                             children: [
                                               Icon(Icons.picture_as_pdf_rounded, size: 14),
                                               SizedBox(width: 6),
-                                              Flexible(child: Text('Manuel',
+                                              Flexible(child: Text('Manual',
                                                   style: TextStyle(fontSize: 12),
                                                   overflow: TextOverflow.ellipsis,
                                                   maxLines: 1)),
@@ -1243,7 +1243,7 @@ print("\n")
                                           children: [
                                             Icon(Icons.stop_circle_rounded, size: 14),
                                             SizedBox(width: 6),
-                                            Flexible(child: Text('Arrêter',
+                                            Flexible(child: Text('Stop',
                                                 style: TextStyle(fontSize: 12),
                                                 overflow: TextOverflow.ellipsis,
                                                 maxLines: 1)),
@@ -1297,7 +1297,7 @@ print("\n")
                                         onPressed: () => _cancelCapture(state),
                                         icon: const Icon(Icons.cancel_rounded, size: 14),
                                         label: Text(
-                                          'Annuler capture (${_captureRemaining}s)',
+                                          'Cancel capture (${_captureRemaining}s)',
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                         style: OutlinedButton.styleFrom(
@@ -1325,7 +1325,7 @@ print("\n")
                                             child: Row(children: [
                                               Icon(Icons.videocam_rounded, size: 16, color: Color(0xFFE02020)),
                                               SizedBox(width: 10),
-                                              Text('Scrap vidéo auto 30s', style: TextStyle(color: Colors.white)),
+                                              Text('Auto video scrap 30s', style: TextStyle(color: Colors.white)),
                                             ]),
                                           ),
                                           PopupMenuItem(
@@ -1333,7 +1333,7 @@ print("\n")
                                             child: Row(children: [
                                               Icon(Icons.photo_camera_rounded, size: 16, color: Color(0xFFE02020)),
                                               SizedBox(width: 10),
-                                              Text('Scrap screenshot auto', style: TextStyle(color: Colors.white)),
+                                              Text('Auto screenshot scrap', style: TextStyle(color: Colors.white)),
                                             ]),
                                           ),
                                         ],
@@ -1349,7 +1349,7 @@ print("\n")
                                               Icon(Icons.auto_awesome_rounded, size: 14, color: Color(0xFFE02020)),
                                               SizedBox(width: 8),
                                               Text(
-                                                'Scrap auto…',
+                                                'Auto scrap…',
                                                 style: TextStyle(fontSize: 12, color: Color(0xFFE02020), fontWeight: FontWeight.w600),
                                               ),
                                               SizedBox(width: 4),
