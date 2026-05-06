@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/app_state.dart';
+import '../services/update_check_service.dart';
 import '../widgets/back_handler.dart';
 import '../widgets/pending_scraps_dialog.dart';
 import 'connect_screen.dart';
@@ -16,7 +18,7 @@ import 'quiz_screen.dart';
 import 'breakout_screen.dart';
 import 'links_screen.dart';
 
-const kAppVersion = '3.1-EN';
+const kAppVersion = '3.2-EN';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool _wasConnected = false;
   bool _pendingDialogShown = false; // avoid re-prompting on each rebuild
+  bool _updateChecked = false; // check update once per lifecycle
 
   static const _tabs = [
     _TabInfo(icon: Icons.wifi_rounded,           label: 'Connection'),
@@ -61,6 +64,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       state.addListener(_onAppStateChanged);
       // If already connected at startup, run the check
       if (state.isConnected) _checkPendingScraps();
+      // Update check is independent of SSH connection
+      _checkUpdate();
     });
   }
 
@@ -136,6 +141,80 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {
       // Silent fail: dialog will reappear at next app start
     }
+  }
+
+  /// Checks if a newer version of the app is available on GitHub.
+  /// Called once at HomeScreen startup; silent fail if no internet — user
+  /// just won't be notified this time.
+  Future<void> _checkUpdate() async {
+    if (_updateChecked) return;
+    _updateChecked = true;
+
+    final variant = kAppVersion.toUpperCase().contains('FR') ? 'FR' : 'EN';
+    final info = await UpdateCheckService.check(
+      currentVersion: kAppVersion,
+      variant: variant,
+    );
+    if (info == null || !mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: Row(children: const [
+          Icon(Icons.system_update_rounded, color: Color(0xFFE02020)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Update available',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
+          ),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Current version: ${info.currentVersion}',
+                style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 4),
+            Text('New version: ${info.latestVersion}',
+                style: const TextStyle(color: Colors.white, fontSize: 14)),
+            const SizedBox(height: 12),
+            const Text(
+              'Do you want to download the update now?',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Later'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              // Try direct APK; fall back to release page on failure.
+              bool ok = false;
+              try {
+                ok = await launchUrl(Uri.parse(info.apkUrl),
+                    mode: LaunchMode.externalApplication);
+              } catch (_) {}
+              if (!ok) {
+                try {
+                  await launchUrl(Uri.parse(info.releasePageUrl),
+                      mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              }
+              if (mounted) Navigator.of(ctx).pop();
+            },
+            icon: const Icon(Icons.download_rounded, size: 16),
+            label: const Text('Download'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE02020)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

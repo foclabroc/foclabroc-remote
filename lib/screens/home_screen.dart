@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/app_state.dart';
+import '../services/update_check_service.dart';
 import '../widgets/back_handler.dart';
 import '../widgets/pending_scraps_dialog.dart';
 import 'connect_screen.dart';
@@ -16,7 +18,7 @@ import 'quiz_screen.dart';
 import 'breakout_screen.dart';
 import 'links_screen.dart';
 
-const kAppVersion = '3.1-FR';
+const kAppVersion = '3.2-FR';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool _wasConnected = false;
   bool _pendingDialogShown = false; // évite de re-proposer en boucle
+  bool _updateChecked = false; // check update une fois par lifecycle
 
   static const _tabs = [
     _TabInfo(icon: Icons.wifi_rounded,           label: 'Connexion'),
@@ -61,6 +64,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       state.addListener(_onAppStateChanged);
       // Si déjà connecté au démarrage, déclenche le check
       if (state.isConnected) _checkPendingScraps();
+      // Check update GitHub indépendant de la connexion SSH
+      _checkUpdate();
     });
   }
 
@@ -138,6 +143,80 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } catch (_) {
       // Échec silencieux : l'utilisateur verra le dialog au prochain démarrage
     }
+  }
+
+  /// Vérifie si une nouvelle version de l'app est disponible sur GitHub.
+  /// Appelé une fois au démarrage du HomeScreen ; silent fail s'il n'y a pas
+  /// d'internet, l'utilisateur ne sera juste pas notifié cette fois-ci.
+  Future<void> _checkUpdate() async {
+    if (_updateChecked) return;
+    _updateChecked = true;
+
+    final variant = kAppVersion.toUpperCase().contains('FR') ? 'FR' : 'EN';
+    final info = await UpdateCheckService.check(
+      currentVersion: kAppVersion,
+      variant: variant,
+    );
+    if (info == null || !mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: Row(children: const [
+          Icon(Icons.system_update_rounded, color: Color(0xFFE02020)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text('Mise à jour disponible',
+                style: TextStyle(color: Colors.white, fontSize: 16)),
+          ),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Version actuelle : ${info.currentVersion}',
+                style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 4),
+            Text('Nouvelle version : ${info.latestVersion}',
+                style: const TextStyle(color: Colors.white, fontSize: 14)),
+            const SizedBox(height: 12),
+            const Text(
+              'Voulez-vous télécharger la mise à jour maintenant ?',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Plus tard'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              // Tente l'APK direct ; en cas d'échec ouvre la page release.
+              bool ok = false;
+              try {
+                ok = await launchUrl(Uri.parse(info.apkUrl),
+                    mode: LaunchMode.externalApplication);
+              } catch (_) {}
+              if (!ok) {
+                try {
+                  await launchUrl(Uri.parse(info.releasePageUrl),
+                      mode: LaunchMode.externalApplication);
+                } catch (_) {}
+              }
+              if (mounted) Navigator.of(ctx).pop();
+            },
+            icon: const Icon(Icons.download_rounded, size: 16),
+            label: const Text('Télécharger'),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE02020)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
