@@ -194,23 +194,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: const Text('Plus tard'),
           ),
           ElevatedButton.icon(
-            onPressed: () async {
-              // Tente l'APK direct ; en cas d'échec ouvre la page release.
-              bool ok = false;
-              try {
-                ok = await launchUrl(Uri.parse(info.apkUrl),
-                    mode: LaunchMode.externalApplication);
-              } catch (_) {}
-              if (!ok) {
-                try {
-                  await launchUrl(Uri.parse(info.releasePageUrl),
-                      mode: LaunchMode.externalApplication);
-                } catch (_) {}
-              }
-              if (mounted) Navigator.of(ctx).pop();
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              launchUrl(Uri.parse(info.releasePageUrl),
+                  mode: LaunchMode.externalApplication);
             },
-            icon: const Icon(Icons.download_rounded, size: 16),
-            label: const Text('Télécharger'),
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: const Text('Voir la release'),
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFE02020)),
           ),
