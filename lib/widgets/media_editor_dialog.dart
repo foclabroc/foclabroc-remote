@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'in_app_file_picker.dart';
 
@@ -65,64 +64,10 @@ class _MediaEditorDialogState extends State<MediaEditorDialog> {
   final Set<String> _deletions = {};
 
   Future<void> _pickFile(String tag) async {
-    // Dialog de choix entre les 2 explorateurs.
-    // - Basique = picker in-app (pas d'intent système, pas de doublon MIUI,
-    //   limité aux dossiers MediaStore standards).
-    // - Externe = FilePicker.platform système (accès total grâce au SAF mais
-    //   peut déclencher une duplication MIUI dans Pictures/ avec un nom
-    //   préfixé/timestampé pour les images sélectionnées depuis la galerie).
-    final choice = await showDialog<String>(
-      context: context,
-      useRootNavigator: true,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
-        title: const Row(children: [
-          Icon(Icons.folder_open_rounded, color: Color(0xFFE02020), size: 22),
-          SizedBox(width: 8),
-          Text('Source du fichier', style: TextStyle(fontSize: 15)),
-        ]),
-        content: const Text(
-          'Quel explorateur utiliser pour choisir l\'image ?',
-          style: TextStyle(fontSize: 13),
-        ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(null),
-            child: const Text('Annuler'),
-          ),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            TextButton.icon(
-              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop('builtin'),
-              icon: const Icon(Icons.apps_rounded, size: 16, color: Color(0xFFE02020)),
-              label: const Text('Basique', style: TextStyle(color: Color(0xFFE02020))),
-            ),
-            const SizedBox(width: 4),
-            TextButton.icon(
-              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop('external'),
-              icon: const Icon(Icons.open_in_browser_rounded, size: 16, color: Colors.white70),
-              label: const Text('Externe', style: TextStyle(color: Colors.white70)),
-            ),
-          ]),
-        ],
-      ),
-    );
-    if (choice == null || !mounted) return;
-
-    if (choice == 'builtin') {
-      await _pickFileBuiltin(tag);
-    } else {
-      await _pickFileExternal(tag);
-    }
-  }
-
-  /// Picker INTERNE (pas d'intent système → pas de doublon MIUI).
-  Future<void> _pickFileBuiltin(String tag) async {
     try {
       final results = await Navigator.of(context, rootNavigator: true).push<List<InAppFilePickerResult>>(
         MaterialPageRoute(
           builder: (_) => const InAppFilePicker(
-            // Filtre images uniquement, pas de multi-sélection ici (un cadre = 1 média)
             allowedExtensions: {'png','jpg','jpeg','webp','gif','bmp'},
             allowMultiple: false,
           ),
@@ -133,40 +78,6 @@ class _MediaEditorDialogState extends State<MediaEditorDialog> {
       final result = results.first;
       setState(() {
         _picks[tag] = MediaPick(localPath: result.localPath, ext: result.ext);
-        _deletions.remove(tag);
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Erreur sélection : $e', style: const TextStyle(color: Colors.white)),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-      ));
-    }
-  }
-
-  /// Picker EXTERNE (FilePicker.platform — SAF système, accès total mais
-  /// peut dupliquer dans Pictures/ via MIUI Gallery).
-  Future<void> _pickFileExternal(String tag) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final f = result.files.first;
-      final p = f.path;
-      if (p == null) return;
-      var ext = (f.extension ?? '').toLowerCase();
-      if (ext.isEmpty) {
-        final dot = f.name.lastIndexOf('.');
-        if (dot > 0) ext = f.name.substring(dot + 1).toLowerCase();
-      }
-      if (ext.isEmpty) ext = 'png';
-      if (!mounted) return;
-      setState(() {
-        _picks[tag] = MediaPick(localPath: p, ext: ext);
         _deletions.remove(tag);
       });
     } catch (e) {

@@ -54,13 +54,53 @@ class _Shortcut {
   const _Shortcut(this.label, this.path, this.icon);
 }
 
-const List<_Shortcut> _shortcuts = [
-  _Shortcut('Pictures',  '/storage/emulated/0/Pictures',  Icons.image_rounded),
-  _Shortcut('DCIM',      '/storage/emulated/0/DCIM',      Icons.camera_alt_rounded),
-  _Shortcut('Downloads', '/storage/emulated/0/Download', Icons.download_rounded),
-  _Shortcut('Documents', '/storage/emulated/0/Documents', Icons.description_rounded),
-  _Shortcut('Movies',    '/storage/emulated/0/Movies',    Icons.movie_rounded),
+/// Static shortcuts to standard Android folders.
+const List<_Shortcut> _staticShortcuts = [
+  _Shortcut('Internal storage', '/storage/emulated/0',            Icons.phone_android_rounded),
+  _Shortcut('Pictures',         '/storage/emulated/0/Pictures',   Icons.image_rounded),
+  _Shortcut('DCIM',             '/storage/emulated/0/DCIM',       Icons.camera_alt_rounded),
+  _Shortcut('Downloads',        '/storage/emulated/0/Download',   Icons.download_rounded),
+  _Shortcut('Documents',        '/storage/emulated/0/Documents',  Icons.description_rounded),
+  _Shortcut('Movies',           '/storage/emulated/0/Movies',     Icons.movie_rounded),
+  _Shortcut('Music',            '/storage/emulated/0/Music',      Icons.music_note_rounded),
+  _Shortcut('Podcasts',         '/storage/emulated/0/Podcasts',   Icons.podcasts_rounded),
+  _Shortcut('Ringtones',        '/storage/emulated/0/Ringtones',  Icons.ring_volume_rounded),
+  _Shortcut('Notifications',    '/storage/emulated/0/Notifications', Icons.notifications_rounded),
+  _Shortcut('Alarms',           '/storage/emulated/0/Alarms',     Icons.alarm_rounded),
+  _Shortcut('Android/media',    '/storage/emulated/0/Android/media', Icons.perm_media_rounded),
 ];
+
+/// Detects SD cards mounted under /storage/ (excluding emulated and self).
+List<_Shortcut> _detectSdCards() {
+  try {
+    final storageDir = Directory('/storage');
+    if (!storageDir.existsSync()) return [];
+    final entries = storageDir.listSync(followLinks: true);
+    final sdCards = <_Shortcut>[];
+    for (final e in entries) {
+      final name = e.path.split('/').last;
+      if (name == 'emulated' || name == 'self') continue;
+      if (FileSystemEntity.isDirectorySync(e.path)) {
+        sdCards.add(_Shortcut('SD: $name', e.path, Icons.sd_card_rounded));
+      }
+    }
+    return sdCards;
+  } catch (_) {
+    return [];
+  }
+}
+
+/// Builds the final list: static shortcuts (filtered by existence) + SD cards.
+List<_Shortcut> _buildShortcuts() {
+  final shortcuts = <_Shortcut>[];
+  for (final s in _staticShortcuts) {
+    if (Directory(s.path).existsSync()) {
+      shortcuts.add(s);
+    }
+  }
+  shortcuts.addAll(_detectSdCards());
+  return shortcuts;
+}
 
 /// Extensions images (pour décider si afficher une miniature ou une icône).
 const Set<String> _imageExts = {'png','jpg','jpeg','webp','gif','bmp'};
@@ -105,6 +145,9 @@ enum _PermState { checking, granted, denied, permanentlyDenied }
 class _InAppFilePickerState extends State<InAppFilePicker> {
   // ── Permissions ──
   _PermState _permState = _PermState.checking;
+
+  // ── Shortcuts (built after permissions are granted) ──
+  List<_Shortcut> _shortcuts = [];
 
   // ── Navigation ──
   final List<String> _stack = [];
@@ -169,7 +212,10 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
 
     if (!mounted) return;
     if (granted) {
-      setState(() => _permState = _PermState.granted);
+      setState(() {
+        _permState = _PermState.granted;
+        _shortcuts = _buildShortcuts();
+      });
     } else if (permanent) {
       setState(() => _permState = _PermState.permanentlyDenied);
     } else {

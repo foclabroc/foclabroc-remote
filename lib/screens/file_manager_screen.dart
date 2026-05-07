@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -393,71 +392,18 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   }
 
   Future<void> _uploadFile() async {
-    // Dialog de choix entre les 2 explorateurs (mêmes options qu'Edit media).
-    final choice = await showDialog<String>(
-      context: context,
-      useRootNavigator: true,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
-        title: const Row(children: [
-          Icon(Icons.folder_open_rounded, color: Color(0xFFE02020), size: 22),
-          SizedBox(width: 8),
-          Text('Source du fichier', style: TextStyle(fontSize: 15)),
-        ]),
-        content: const Text(
-          'Quel explorateur utiliser pour choisir le(s) fichier(s) ?',
-          style: TextStyle(fontSize: 13),
-        ),
-        actionsAlignment: MainAxisAlignment.spaceBetween,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(null),
-            child: const Text('Annuler'),
-          ),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            TextButton.icon(
-              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop('builtin'),
-              icon: const Icon(Icons.apps_rounded, size: 16, color: Color(0xFFE02020)),
-              label: const Text('Basique', style: TextStyle(color: Color(0xFFE02020))),
-            ),
-            const SizedBox(width: 4),
-            TextButton.icon(
-              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop('external'),
-              icon: const Icon(Icons.open_in_browser_rounded, size: 16, color: Colors.white70),
-              label: const Text('Externe', style: TextStyle(color: Colors.white70)),
-            ),
-          ]),
-        ],
+    // Ouvre directement le picker in-app (multi-sélection via long-press).
+    final results = await Navigator.of(context, rootNavigator: true).push<List<InAppFilePickerResult>>(
+      MaterialPageRoute(
+        builder: (_) => const InAppFilePicker(allowMultiple: true),
+        fullscreenDialog: true,
       ),
     );
-    if (choice == null || !mounted) return;
-
-    // Récupère la liste de fichiers (path + nom) selon le picker choisi.
-    final List<({String path, String name})> files;
-    if (choice == 'builtin') {
-      // Picker INTERNE : tous fichiers, multi-sélection activable au long-press
-      final results = await Navigator.of(context, rootNavigator: true).push<List<InAppFilePickerResult>>(
-        MaterialPageRoute(
-          builder: (_) => const InAppFilePicker(allowMultiple: true),
-          fullscreenDialog: true,
-        ),
-      );
-      if (results == null || results.isEmpty || !mounted) return;
-      files = results.map((r) => (
-        path: r.localPath,
-        name: r.localPath.split('/').last,
-      )).toList();
-    } else {
-      // Picker EXTERNE : FilePicker.platform (SAF système)
-      // withData: false pour éviter OOM sur gros fichiers — on lit via path
-      final result = await FilePicker.platform.pickFiles(allowMultiple: true, withData: false);
-      if (result == null || result.files.isEmpty || !mounted) return;
-      files = result.files
-          .where((f) => f.path != null)
-          .map((f) => (path: f.path!, name: f.name))
-          .toList();
-      if (files.isEmpty) return;
-    }
+    if (results == null || results.isEmpty || !mounted) return;
+    final files = results.map((r) => (
+      path: r.localPath,
+      name: r.localPath.split('/').last,
+    )).toList();
 
     final state = context.read<AppState>();
     int success = 0;
