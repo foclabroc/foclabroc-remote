@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/app_state.dart';
 import '../widgets/back_handler.dart';
+import '../widgets/in_app_file_picker.dart';
 
 class FileManagerScreen extends StatefulWidget {
   final String initialPath;
@@ -41,6 +42,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   static const _imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
   static const _videoExts = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'flv', 'm4v'];
+  static const _audioExts = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'opus', 'aac'];
   static const _pdfExts = ['pdf'];
   static const _textExts = ['txt', 'cfg', 'conf', 'ini', 'log', 'sh', 'xml', 'json', 'yaml', 'yml', 'md'];
   static const _editableExts = ['cfg', 'conf', 'ini', 'txt', 'sh', 'xml', 'json', 'yaml', 'yml', 'md'];
@@ -391,12 +393,75 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   }
 
   Future<void> _uploadFile() async {
-    // withData: false pour éviter OOM sur gros fichiers — on lit via path
-    final result = await FilePicker.platform.pickFiles(allowMultiple: true, withData: false);
-    if (result == null || result.files.isEmpty) return;
+    // Dialog de choix entre les 2 explorateurs (mêmes options qu'Edit media).
+    final choice = await showDialog<String>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.folder_open_rounded, color: Color(0xFFE02020), size: 22),
+          SizedBox(width: 8),
+          Text('Source du fichier', style: TextStyle(fontSize: 15)),
+        ]),
+        content: const Text(
+          'Quel explorateur utiliser pour choisir le(s) fichier(s) ?',
+          style: TextStyle(fontSize: 13),
+        ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(null),
+            child: const Text('Annuler'),
+          ),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            TextButton.icon(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop('builtin'),
+              icon: const Icon(Icons.apps_rounded, size: 16, color: Color(0xFFE02020)),
+              label: const Text('Basique', style: TextStyle(color: Color(0xFFE02020))),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop('external'),
+              icon: const Icon(Icons.open_in_browser_rounded, size: 16, color: Colors.white70),
+              label: const Text('Externe', style: TextStyle(color: Colors.white70)),
+            ),
+          ]),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+
+    // Récupère la liste de fichiers (path + nom) selon le picker choisi.
+    final List<({String path, String name})> files;
+    if (choice == 'builtin') {
+      // Picker INTERNE : tous fichiers, multi-sélection activable au long-press
+      final results = await Navigator.of(context, rootNavigator: true).push<List<InAppFilePickerResult>>(
+        MaterialPageRoute(
+          builder: (_) => const InAppFilePicker(allowMultiple: true),
+          fullscreenDialog: true,
+        ),
+      );
+      if (results == null || results.isEmpty || !mounted) return;
+      files = results.map((r) => (
+        path: r.localPath,
+        name: r.localPath.split('/').last,
+      )).toList();
+    } else {
+      // Picker EXTERNE : FilePicker.platform (SAF système)
+      // withData: false pour éviter OOM sur gros fichiers — on lit via path
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true, withData: false);
+      if (result == null || result.files.isEmpty || !mounted) return;
+      files = result.files
+          .where((f) => f.path != null)
+          .map((f) => (path: f.path!, name: f.name))
+          .toList();
+      if (files.isEmpty) return;
+    }
+
     final state = context.read<AppState>();
     int success = 0;
-    final total = result.files.length;
+    final total = files.length;
 
     setState(() {
       _uploading = true;
@@ -406,28 +471,42 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     });
 
     try {
-      for (int i = 0; i < result.files.length; i++) {
-        final file = result.files[i];
-        try {
-          final path = file.path;
-          if (path == null) continue;
-          setState(() {
-            _uploadCurrentFile = i + 1;
-            _uploadingFileName = file.name;
-            _uploadProgress = 0.0;
-          });
-          // Stream depuis le disque sans charger en RAM
-          await state.ssh.uploadFileFromPath(
-            path,
-            '$_currentPath/${file.name}',
-            onProgress: (sent, fileTotal) {
-              if (mounted) {
-                setState(() => _uploadProgress = fileTotal > 0 ? sent / fileTotal : 0.0);
-              }
-            },
-          );
-          success++;
-        } catch (_) {}
+      for (int i = 0; i < files.length; i++) {
+        final file = files[i];
+        setState(() {
+          _uploadCurrentFile = i + 1;
+          _uploadingFileName = file.name;
+          _uploadProgress = 0.0;
+        });
+
+        // Tente l'upload jusqu'à 2 fois : si la 1re tente échoue (typique-
+        // ment SSH timeout après que l'utilisateur ait laissé l'app en
+        // background pendant la sélection des fichiers), on tente une
+        // reconnexion silencieuse puis on retry.
+        bool uploaded = false;
+        for (int attempt = 0; attempt < 2 && !uploaded; attempt++) {
+          if (attempt > 0) {
+            // Avant de retenter : s'assure que la connexion SSH est vivante
+            final ok = await state.ensureConnected();
+            if (!ok) break; // reconnexion impossible, on abandonne ce fichier
+            if (mounted) setState(() => _uploadProgress = 0.0);
+          }
+          try {
+            await state.ssh.uploadFileFromPath(
+              file.path,
+              '$_currentPath/${file.name}',
+              onProgress: (sent, fileTotal) {
+                if (mounted) {
+                  setState(() => _uploadProgress = fileTotal > 0 ? sent / fileTotal : 0.0);
+                }
+              },
+            );
+            uploaded = true;
+          } catch (_) {
+            // 1re tentative ratée → on boucle pour reconnecter et retry
+          }
+        }
+        if (uploaded) success++;
       }
     } finally {
       _resetUploadState();
@@ -484,6 +563,48 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         Navigator.of(context, rootNavigator: true).pop();
         Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => _FmVideoPlayer(filePath: localFile.path, title: item.name, preloadedController: controller),
+        ));
+      } catch (e) {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+          _showSnack('Erreur : $e', isError: true);
+        }
+      }
+      return;
+    }
+
+    if (_audioExts.contains(ext)) {
+      // Lecteur audio in-app : on réutilise VideoPlayerController qui gère
+      // aussi les flux audio purs (pas besoin d'une dépendance audioplayers).
+      // L'UI dédiée _FmAudioPlayer affiche une grosse icône à la place de
+      // la frame vidéo.
+      showDialog(
+        context: context,
+        useRootNavigator: true,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: Card(
+          child: Padding(padding: EdgeInsets.all(28),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.music_note_rounded, color: Colors.greenAccent, size: 32),
+              SizedBox(height: 16),
+              CircularProgressIndicator(color: Colors.greenAccent),
+              SizedBox(height: 12),
+              Text('Chargement...', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ]),
+          ),
+        )),
+      );
+      try {
+        await state.ssh.downloadFileToDisk(item.fullPath, localFile.path);
+        if (!mounted) return;
+
+        final controller = VideoPlayerController.file(localFile);
+        await controller.initialize();
+
+        if (!mounted) { controller.dispose(); return; }
+        Navigator.of(context, rootNavigator: true).pop();
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => _FmAudioPlayer(title: item.name, preloadedController: controller),
         ));
       } catch (e) {
         if (mounted) {
@@ -1568,6 +1689,181 @@ class _FmVideoPlayerState extends State<_FmVideoPlayer> {
               ]),
             )
           : Center(child: CircularProgressIndicator(color: accent)),
+    );
+  }
+}
+
+// ─── Audio Player ─────────────────────────────────────────────────────────────
+
+class _FmAudioPlayer extends StatefulWidget {
+  final String title;
+  final VideoPlayerController preloadedController;
+  const _FmAudioPlayer({required this.title, required this.preloadedController});
+  @override
+  State<_FmAudioPlayer> createState() => _FmAudioPlayerState();
+}
+
+class _FmAudioPlayerState extends State<_FmAudioPlayer> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = widget.preloadedController;
+    _controller.setLooping(false);
+    _controller.play();
+    _controller.addListener(() { if (mounted) setState(() {}); });
+  }
+
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+
+  String _fmtDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final h = d.inHours;
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _controller.value;
+    final position = value.position;
+    final duration = value.duration;
+    final accent = Theme.of(context).colorScheme.primary;
+    final progress = duration.inMilliseconds > 0
+        ? position.inMilliseconds / duration.inMilliseconds
+        : 0.0;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0F14),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF161A22),
+        elevation: 0,
+        title: Text(widget.title,
+            style: const TextStyle(fontSize: 14),
+            overflow: TextOverflow.ellipsis),
+      ),
+      body: SafeArea(
+        child: Column(children: [
+          // Grosse "pochette" centrale (icône note de musique) + nom du fichier
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C2230),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.greenAccent.withOpacity(0.15),
+                          blurRadius: 30,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.music_note_rounded,
+                      color: Colors.greenAccent,
+                      size: 100,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Slider de progression interactif
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: accent,
+                inactiveTrackColor: Colors.white12,
+                thumbColor: accent,
+                overlayColor: accent.withOpacity(0.2),
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+              ),
+              child: Slider(
+                value: progress.clamp(0.0, 1.0),
+                onChanged: (v) {
+                  if (duration.inMilliseconds > 0) {
+                    _controller.seekTo(Duration(
+                      milliseconds: (v * duration.inMilliseconds).toInt(),
+                    ));
+                  }
+                },
+              ),
+            ),
+          ),
+          // Position / durée totale
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(_fmtDuration(position),
+                    style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                Text(_fmtDuration(duration),
+                    style: const TextStyle(color: Colors.white60, fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Contrôles : -10s / play-pause / +10s
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.replay_10_rounded, color: Colors.white70, size: 32),
+                onPressed: () {
+                  final newPos = position - const Duration(seconds: 10);
+                  _controller.seekTo(newPos < Duration.zero ? Duration.zero : newPos);
+                },
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                iconSize: 56,
+                icon: Icon(
+                  value.isPlaying ? Icons.pause_circle_rounded : Icons.play_circle_rounded,
+                  color: Colors.greenAccent,
+                ),
+                onPressed: () =>
+                    value.isPlaying ? _controller.pause() : _controller.play(),
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                icon: const Icon(Icons.forward_10_rounded, color: Colors.white70, size: 32),
+                onPressed: () {
+                  final newPos = position + const Duration(seconds: 10);
+                  _controller.seekTo(newPos > duration ? duration : newPos);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ]),
+      ),
     );
   }
 }

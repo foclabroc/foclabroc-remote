@@ -120,9 +120,13 @@ except Exception as e:
     final gamelist = '/userdata/roms/$systemName/gamelist.xml';
     final romBase = romPath.split('/').last;
     final tagsJson = jsonEncode(tags);
-    const script = r'''
-import xml.etree.ElementTree as ET, sys, os, json
-gl = sys.argv[1]; rb = sys.argv[2]; gameName = sys.argv[3]; tagsJson = sys.argv[4]
+    // Encode tagsJson en base64 et l'embarque dans le script pour éviter tout
+    // problème de quoting shell (apostrophes, parenthèses, args longs…).
+    final tagsB64 = base64.encode(utf8.encode(tagsJson));
+    final script = '''
+import xml.etree.ElementTree as ET, sys, os, json, base64
+gl = sys.argv[1]; rb = sys.argv[2]; gameName = sys.argv[3]
+tagsJson = base64.b64decode("$tagsB64").decode("utf-8")
 try:
     tags = json.loads(tagsJson)
     if not os.path.exists(gl):
@@ -142,14 +146,11 @@ try:
         ne = ET.SubElement(target, "name"); ne.text = gameName
     for tag, val in tags.items():
         existing = target.find(tag)
-        # Cas spécial : favorite=false équivaut à l'absence de la balise.
-        # Batocera/ES considère qu'un jeu sans <favorite> n'est pas un favori.
         if tag == "favorite" and val.lower() == "false":
             if existing is not None:
                 target.remove(existing)
             continue
         if val == "":
-            # Valeur vide → supprime la balise
             if existing is not None:
                 target.remove(existing)
         else:
@@ -157,7 +158,7 @@ try:
                 existing = ET.SubElement(target, tag)
             existing.text = val
     try:
-        ET.indent(tree, space="\t")
+        ET.indent(tree, space="\\t")
     except AttributeError:
         pass
     tree.write(gl, encoding="utf-8", xml_declaration=True)
@@ -168,7 +169,7 @@ except Exception as e:
     final tmpScript = '/tmp/.batoremote_meta_${DateTime.now().millisecondsSinceEpoch}.py';
     await _writeRemoteFile(tmpScript, script);
     final result = await _execDirect(
-      'python3 ${_shQ(tmpScript)} ${_shQ(gamelist)} ${_shQ(romBase)} ${_shQ(gameName)} ${_shQ(tagsJson)} 2>&1; rm -f ${_shQ(tmpScript)}',
+      'python3 ${_shQ(tmpScript)} ${_shQ(gamelist)} ${_shQ(romBase)} ${_shQ(gameName)} 2>&1; rm -f ${_shQ(tmpScript)}',
     );
     return result.contains('OK');
   }

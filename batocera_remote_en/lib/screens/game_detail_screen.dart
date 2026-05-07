@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -12,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/app_state.dart';
 import '../services/metadata_service.dart';
 import '../widgets/metadata_editor_dialog.dart';
+import '../widgets/media_editor_dialog.dart';
 
 class GameDetailScreen extends StatefulWidget {
   final Map<String, dynamic> game;
@@ -112,6 +115,51 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
           if (mounted) setState(() => _imageTried = true);
         }),
     ]);
+  }
+
+  /// Invalidates the local disk cache for this game's media then reloads.
+  /// The paths in widget.game are reliable (updated on _editMedia save with
+  /// the paths we just uploaded ourselves), no need to re-fetch the API:
+  /// that was causing image disappearance when the API returned a JSON
+  /// where new tags hadn't appeared yet (ES out-of-sync after
+  /// reloadEsGamelist).
+  Future<void> _refreshImages() async {
+    // 1) Clear the local disk cache to force a re-download via HTTP.
+    try {
+      final cacheDir = await getTemporaryDirectory();
+      final cacheFolder = Directory('${cacheDir.path}/batocera_img_cache');
+      if (await cacheFolder.exists()) {
+        final paths = <String?>[
+          widget.game['wheel']?.toString(),
+          widget.game['marquee']?.toString(),
+          widget.game['thumbnail']?.toString(),
+          widget.game['image']?.toString(),
+        ];
+        for (final p in paths) {
+          if (p == null || p.isEmpty) continue;
+          final key = md5.convert(utf8.encode(p)).toString();
+          final f = File('${cacheFolder.path}/$key');
+          final mtime = File('${cacheFolder.path}/$key.mtime');
+          if (await f.exists()) { try { await f.delete(); } catch (_) {} }
+          if (await mtime.exists()) { try { await mtime.delete(); } catch (_) {} }
+        }
+      }
+    } catch (_) {}
+    if (!mounted) return;
+
+    // 2) Reset bytes + reload _loadImages. For /userdata/ paths (after
+    //    _editMedia save), _fetchImage uses direct SFTP so no need to wait
+    //    on ES. For ES API route paths (game's initial paths), an immediate
+    //    retry succeeds in the vast majority of cases.
+    setState(() {
+      _wheelBytes = null;
+      _thumbBytes = null;
+      _imageBytes = null;
+      _wheelTried = false;
+      _thumbTried = false;
+      _imageTried = false;
+    });
+    await _loadImages();
   }
 
   Future<void> _editMetadata() async {
@@ -232,7 +280,11 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
       if (!mounted) return;
     }
 
-    // 7) Write the changes
+    // 7) Reload ES first so it flushes any in-memory playtime data to disk,
+    //    then write our changes, then reload ES again for Batocera to pick them up.
+    await svc.reloadEsGamelist();
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
     final ok = await svc.writeMetadata(systemName, romPath, gameName, changes);
     if (!mounted) return;
 
@@ -266,6 +318,314 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                   '${backupOk ? " (backup created)" : ""}'
                   '${pendingApplied > 0 ? " · $pendingApplied pending applied" : ""}'
               : 'Save failed',
+          style: const TextStyle(color: Colors.white))),
+      ]),
+      backgroundColor: const Color(0xFF1C2230),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
+  /// Sanitize un nom de jeu pour en faire un nom de fichier sûr
+  /// (mêmes règles que `running_game_screen._sanitizeFilename`).
+  String _sanitizeFilename(String name) {
+    var s = name.replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
+    s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (s.isEmpty) s = 'game';
+    return s;
+  }
+
+  /// Filename suffix used when generating a new file (empty system or new
+  /// tag). Native Batocera convention: e.g. fightmix-image.png, fightmix-thumb.png.
+  static const Map<String, String> _suffixForTag = {
+    'wheel':     'wheel',
+    'marquee':   'marquee',
+    'thumbnail': 'thumb',
+    'image':     'image',
+  };
+
+  Future<void> _editMedia() async {
+    final game = widget.game;
+    final systemName = game['_systemName']?.toString() ?? '';
+    final romPath = game['path']?.toString() ?? '';
+    final gameName = game['name']?.toString() ?? '';
+    if (systemName.isEmpty || romPath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Incomplete game info'),
+        backgroundColor: Color(0xFF1C2230),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    final state = context.read<AppState>();
+    final mediaSvc = state.mediaService;
+    final metaSvc = state.metadataService;
+
+    // 1) Determine the tag to use for the logo. Rule:
+    //    - first look at the SYSTEM convention (majority wheel/marquee in the
+    //      gamelist) — avoids a single stray <wheel> in a mostly-<marquee>
+    //      system from imposing 'wheel' on every newly-scraped game.
+    //    - but if THIS game already has a logo in the other tag, we respect
+    //      what's there to avoid creating a duplicate in its entry.
+    final wheelExisting   = await mediaSvc.findExistingMedia(systemName, romPath, 'wheel');
+    final marqueeExisting = await mediaSvc.findExistingMedia(systemName, romPath, 'marquee');
+    final String logoTag;
+    if (wheelExisting != null && marqueeExisting == null) {
+      logoTag = 'wheel';
+    } else if (marqueeExisting != null && wheelExisting == null) {
+      logoTag = 'marquee';
+    } else {
+      // both or neither → follow the system majority
+      logoTag = await mediaSvc.detectLogoTag(systemName);
+    }
+    final logoExisting = (logoTag == 'wheel') ? wheelExisting : marqueeExisting;
+
+    final thumbExisting = await mediaSvc.findExistingMedia(systemName, romPath, 'thumbnail');
+    final imageExisting = await mediaSvc.findExistingMedia(systemName, romPath, 'image');
+    if (!mounted) return;
+
+    // 2) Open the dialog with existing paths + bytes (for instant preview
+    //    without a new fetch — we reuse those already loaded by _loadImages).
+    final result = await showDialog<MediaEditResult>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => MediaEditorDialog(
+        gameName: gameName.isNotEmpty ? gameName : romPath.split('/').last,
+        logoTag: logoTag,
+        existingPaths: {
+          if (logoExisting != null)  logoTag:    logoExisting,
+          if (thumbExisting != null) 'thumbnail': thumbExisting,
+          if (imageExisting != null) 'image':    imageExisting,
+        },
+        existingBytes: {
+          logoTag:     _wheelBytes,
+          'thumbnail': _thumbBytes,
+          'image':     _imageBytes,
+        },
+      ),
+    );
+    if (result == null || result.isEmpty || !mounted) return;
+    final picks = result.picks;
+    final deletions = result.deletions;
+
+    // 3) If a game is running, ask confirmation to close it (same logic as
+    //    metadata: ES would overwrite gamelist on game quit).
+    final running = await metaSvc.isGameRunning();
+    if (!mounted) return;
+    if (running) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Game running', style: TextStyle(fontSize: 15)),
+          ]),
+          content: const Text(
+            'A game is currently running.\n'
+            'To save media, it must be closed.\n\n'
+            'Continue?',
+            style: TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE02020)),
+              child: const Text('Close game and save'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Closing current game...', style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF1C2230),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 3),
+      ));
+      await metaSvc.killRunningGame();
+      if (!mounted) return;
+    }
+
+    // 4) Timestamped backup of gamelist (same logic as _editMetadata)
+    final backupOk = await metaSvc.backupGamelist(systemName);
+    if (!mounted) return;
+
+    // 5) Flush ES if the game was killed or pending exist (avoid overwrite)
+    final pendingFiles = await state.pendingService.listPendingFiles();
+    if (!mounted) return;
+    final hasPending = pendingFiles.isNotEmpty;
+    if (running || hasPending) {
+      await metaSvc.reloadEsGamelist();
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+    }
+
+    // 6) Apply pending entries without reload (single reload at the end)
+    int pendingApplied = 0;
+    if (hasPending) {
+      try {
+        pendingApplied = await state.pendingService.applyPendingNoReload();
+      } catch (_) {}
+      if (!mounted) return;
+    }
+
+    // 7) Upload files and build the tags map to write.
+    //    `tagsToWrite` holds the relative `./media/...` paths that go into
+    //    gamelist.xml (Batocera standard format).
+    //    `absPathsByTag` holds the absolute filesystem paths that go into
+    //    widget.game (consumed by _fetchImage which detects /userdata/ and
+    //    switches to direct SFTP — independent of the ES cache, so reliable
+    //    immediately after save).
+    final tagsToWrite = <String, String>{};
+    final absPathsByTag = <String, String>{};
+    int uploaded = 0;
+    int deleted = 0;
+    final List<String> failures = [];
+
+    for (final entry in picks.entries) {
+      final tag  = entry.key;
+      final pick = entry.value;
+      try {
+        // Determine destination dir + filename
+        String? existingRel;
+        if (tag == logoTag) existingRel = logoExisting;
+        if (tag == 'thumbnail') existingRel = thumbExisting;
+        if (tag == 'image')     existingRel = imageExisting;
+
+        final String relDir;
+        final String fileName;
+        if (existingRel != null && existingRel.isNotEmpty) {
+          // Reuse existing path (overwrite: same name = same tag value)
+          var rel = existingRel;
+          if (rel.startsWith('./')) rel = rel.substring(2);
+          final lastSlash = rel.lastIndexOf('/');
+          if (lastSlash > 0) {
+            relDir   = rel.substring(0, lastSlash);
+            fileName = rel.substring(lastSlash + 1);
+          } else {
+            relDir   = await mediaSvc.detectMediaDir(systemName, tag);
+            fileName = rel;
+          }
+        } else {
+          relDir = await mediaSvc.detectMediaDir(systemName, tag);
+          // Extension is taken from the local path (we don't read bytes)
+          final ext = pick.ext.isNotEmpty ? pick.ext : 'png';
+          final suffix = _suffixForTag[tag] ?? tag;
+          fileName = '${_sanitizeFilename(gameName)}-$suffix.$ext';
+        }
+
+        final destDir  = '/userdata/roms/$systemName/$relDir';
+        final destPath = '$destDir/$fileName';
+        final relPath  = './$relDir/$fileName';
+
+        await mediaSvc.ensureRemoteDir(destDir);
+        await state.ssh.uploadFileFromPath(pick.localPath, destPath);
+
+        tagsToWrite[tag]    = relPath;
+        absPathsByTag[tag]  = destPath; // absolute path for _fetchImage SFTP
+        uploaded++;
+      } catch (e) {
+        failures.add(tag);
+      }
+    }
+    if (!mounted) return;
+
+    // 7b) Deletions: rm the file on disk + write empty tag in gamelist
+    //     (writeMetadata removes the tag when val == "").
+    for (final tag in deletions) {
+      try {
+        String? existingRel;
+        if (tag == logoTag) existingRel = logoExisting;
+        if (tag == 'thumbnail') existingRel = thumbExisting;
+        if (tag == 'image')     existingRel = imageExisting;
+        if (existingRel != null && existingRel.isNotEmpty) {
+          var rel = existingRel;
+          if (rel.startsWith('./')) rel = rel.substring(2);
+          final absPath = '/userdata/roms/$systemName/$rel';
+          await mediaSvc.deleteRemoteFile(absPath);
+        }
+        tagsToWrite[tag] = ''; // clears the tag in gamelist
+        deleted++;
+      } catch (_) {
+        failures.add(tag);
+      }
+    }
+    if (!mounted) return;
+
+    // 8) Write tags into gamelist.xml.
+    //    First reload ES so it flushes any in-memory playtime data to disk,
+    //    then write our tags, then reload ES again so it picks up our changes.
+    bool writeOk = true;
+    if (tagsToWrite.isNotEmpty) {
+      await metaSvc.reloadEsGamelist();
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+      writeOk = await metaSvc.writeMetadata(systemName, romPath, gameName, tagsToWrite);
+      if (!mounted) return;
+      if (writeOk) await metaSvc.reloadEsGamelist();
+      if (!mounted) return;
+    }
+
+    // 9) Update widget.game (paths) then re-fetch media from Batocera. We
+    //    avoid any readAsBytes on the local file to prevent MIUI from
+    //    indexing the image into the Pictures/ gallery.
+    if (writeOk && tagsToWrite.isNotEmpty) {
+      setState(() {
+        for (final entry in tagsToWrite.entries) {
+          if (entry.value.isEmpty) {
+            // Deletion: drop the key from widget.game
+            widget.game.remove(entry.key);
+          } else {
+            // Upload: store the ABSOLUTE filesystem path (not the ./media/...
+            // that goes into gamelist.xml). _fetchImage detects /userdata/
+            // and switches to direct SFTP, independent of ES HTTP cache —
+            // so the image is available immediately after upload.
+            final abs = absPathsByTag[entry.key];
+            if (abs != null) widget.game[entry.key] = abs;
+          }
+        }
+      });
+      // Refresh: invalidate local disk cache + reload _loadImages. With the
+      // /userdata/ paths above, _fetchImage uses direct SFTP → no need to
+      // wait for ES to re-serve the gamelist.
+      await _refreshImages();
+      if (!mounted) return;
+    }
+
+    // User notification
+    final totalChanges = uploaded + deleted;
+    final ok = writeOk && totalChanges > 0 && failures.isEmpty;
+    final partial = totalChanges > 0 && (failures.isNotEmpty || !writeOk);
+    final parts = <String>[];
+    if (uploaded > 0) parts.add('$uploaded uploaded');
+    if (deleted > 0)  parts.add('$deleted deleted');
+    final summary = parts.join(' · ');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        Icon(
+          ok ? Icons.check_circle_rounded : (partial ? Icons.warning_amber_rounded : Icons.error_rounded),
+          color: ok ? Colors.greenAccent : (partial ? Colors.orangeAccent : Colors.redAccent),
+          size: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Text(
+          ok
+              ? '$summary'
+                  '${backupOk ? " (backup created)" : ""}'
+                  '${pendingApplied > 0 ? " · $pendingApplied pending applied" : ""}'
+              : (totalChanges == 0
+                  ? 'Save failed'
+                  : '$summary'
+                    '${failures.isNotEmpty ? " · ${failures.length} failed" : " · gamelist write failed"}'),
           style: const TextStyle(color: Colors.white))),
       ]),
       backgroundColor: const Color(0xFF1C2230),
@@ -465,6 +825,11 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                 mode: LaunchMode.externalApplication,
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white54, size: 20),
+            onPressed: _refreshImages,
+            tooltip: 'Refresh media',
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -726,6 +1091,24 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                       onPressed: _editMetadata,
                       icon: const Icon(Icons.edit_note_rounded, size: 18, color: Color(0xFFE02020)),
                       label: const Text('Edit metadata',
+                          style: TextStyle(color: Color(0xFFE02020))),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE02020),
+                        side: const BorderSide(color: Color(0xFFE02020)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+
+                  // "Edit media" button — below "Edit metadata"
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _editMedia,
+                      icon: const Icon(Icons.image_rounded, size: 18, color: Color(0xFFE02020)),
+                      label: const Text('Edit media',
                           style: TextStyle(color: Color(0xFFE02020))),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFE02020),

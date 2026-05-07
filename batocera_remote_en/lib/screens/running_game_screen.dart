@@ -198,7 +198,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       final info = <String, String>{};
       try {
         final json = jsonDecode(raw) as Map<String, dynamic>;
-        for (final f in ['name', 'systemName', 'emulator', 'core', 'image', 'wheel', 'manual', 'cheevosId', 'developer', 'players', 'rating', 'genre', 'path']) {
+        for (final f in ['name', 'systemName', 'emulator', 'core', 'image', 'wheel', 'marquee', 'manual', 'cheevosId', 'developer', 'players', 'rating', 'genre', 'path']) {
           final v = json[f];
           if (v != null && v.toString().isNotEmpty && v.toString() != 'null') {
             info[f] = v.toString();
@@ -255,8 +255,13 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       _wheelTried = false;
     });
 
-    if (info.containsKey('wheel')) {
-      _fetchImageDirect(info['wheel']!).then((bytes) {
+    // Logo = wheel first, else marquee (depends on what the ES API returns)
+    final logoKey = info.containsKey('wheel') ? 'wheel'
+        : info.containsKey('marquee') ? 'marquee'
+        : null;
+
+    if (logoKey != null) {
+      _fetchImageDirect(info[logoKey]!).then((bytes) {
         if (!mounted) return;
         setState(() {
           if (bytes != null) _wheelBytes = bytes;
@@ -335,7 +340,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Erreur : $e', style: const TextStyle(color: Colors.white)),
+          content: Text('Error: $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.redAccent,
         ));
       }
@@ -542,13 +547,13 @@ except Exception:
             ElevatedButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-              child: const Text('Remplacer'),
+              child: const Text('Replace'),
             ),
           ],
         ),
       );
       if (ok != true) return;
-      overridePath = existingVideo; // on réutilisera ce nom exact
+      overridePath = existingVideo; // reuse this exact name
     }
 
     setState(() {
@@ -682,7 +687,7 @@ except Exception:
         }
       }
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError('Error: $e');
     }
   }
 
@@ -751,19 +756,18 @@ print("\n")
       return;
     }
 
-    // 1. Vérifier si <image> ou <screenshot> existe → confirmation
+    // 1. Vérifier si <image> existe → confirmation
+    //    (<screenshot> orphelin sans <image> = pas bloquant, on l'écrase silencieusement)
     final (existingImg, existingScr) = await _findExistingImages(systemName, romPath);
-    final hasAny = existingImg != null || existingScr != null;
-    if (hasAny) {
-      final shown = existingScr ?? existingImg ?? '';
+    if (existingImg != null) {
       final ok = await showDialog<bool>(
         context: context,
         useRootNavigator: true,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1C2230),
-          title: const Text('Image existante'),
+          title: const Text('Existing image'),
           content: Text(
-            'The game "$gameName" already has a scraped image:\n$shown\n\n'
+            'The game "$gameName" already has a scraped image:\n$existingImg\n\n'
             'Replace it (filename will be preserved)?',
           ),
           actions: [
@@ -774,7 +778,7 @@ print("\n")
             ElevatedButton(
               onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
               style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
-              child: const Text('Remplacer'),
+              child: const Text('Replace'),
             ),
           ],
         ),
@@ -813,7 +817,7 @@ print("\n")
       }
 
       // 4. Déterminer destDir + fileName (réutilise existant, sinon génère)
-      String? overrideRel = existingScr ?? existingImg;
+      String? overrideRel = existingImg;
       final String imagesDir;
       final String fileName;
       if (overrideRel != null) {
@@ -829,7 +833,7 @@ print("\n")
         }
       } else {
         imagesDir = await _detectImagesDir(systemName);
-        fileName = '${_sanitizeFilename(gameName)}-screenshot.png';
+        fileName = '${_sanitizeFilename(gameName)}-image.png';
       }
       final destDir = '/userdata/roms/$systemName/$imagesDir';
       final destPath = '$destDir/$fileName';
@@ -842,16 +846,15 @@ print("\n")
       await mvSession.done;
 
       final relPath = './$imagesDir/$fileName';
-      // Si <image>/<screenshot> existaient déjà : pas besoin de toucher au gamelist
-      // (on a juste écrasé le fichier sur disque, le chemin est inchangé).
-      // Sinon on stocke en pending pour appliquer au quit du jeu (cf. note dans _finishCapture).
-      final isNewEntry = (existingImg == null && existingScr == null);
+      // Si <image> existait déjà : on a juste écrasé le fichier, le chemin gamelist
+      // est inchangé. Sinon on crée le tag <image>.
+      final isNewEntry = (existingImg == null);
       if (isNewEntry) {
         await _savePending(
           systemName: systemName,
           romPath: romPath,
           gameName: gameName,
-          tags: {'image': relPath, 'screenshot': relPath},
+          tags: {'image': relPath},
         );
         if (mounted) setState(() => _hasPendingScrap = true);
       }
@@ -874,7 +877,6 @@ print("\n")
         // afficher le nouveau visuel sans repasser par l'API ES.
         final updated = Map<String, String>.from(_gameInfo);
         updated['image'] = relPath;
-        updated['screenshot'] = relPath;
         setState(() {
           _gameInfo = updated;
           if (newBytes != null && newBytes.isNotEmpty) {
@@ -886,7 +888,7 @@ print("\n")
         });
       }
     } catch (e) {
-      if (mounted) _showError('Erreur : $e');
+      if (mounted) _showError('Error: $e');
     } finally {
       if (mounted) setState(() => _capturing = false);
     }
@@ -1020,7 +1022,7 @@ print("\n")
                                       children: [
                                         Icon(Icons.image_not_supported_rounded, size: 16, color: Colors.white38),
                                         SizedBox(width: 8),
-                                        Text('Logo indisponible',
+                                        Text('Logo unavailable',
                                             style: TextStyle(color: Colors.white38, fontSize: 12)),
                                       ],
                                     ),
@@ -1067,7 +1069,7 @@ print("\n")
                                         children: [
                                           Icon(Icons.image_not_supported_rounded, size: 32, color: Colors.white38),
                                           SizedBox(height: 6),
-                                          Text('Image indisponible',
+                                          Text('Image unavailable',
                                               style: TextStyle(color: Colors.white38, fontSize: 12)),
                                         ],
                                       ),
@@ -1435,7 +1437,7 @@ class _PdfViewerScreenState extends State<_PdfViewerScreen> {
             onPageChanged: (page, total) => setState(() { _currentPage = page ?? 0; _totalPages = total ?? 0; }),
             onViewCreated: (controller) => _controller = controller,
             onError: (error) => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur PDF : $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
+              SnackBar(content: Text('PDF error: $error', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.redAccent),
             ),
           ),
           if (!_isReady)

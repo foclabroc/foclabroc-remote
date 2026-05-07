@@ -198,7 +198,7 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       final info = <String, String>{};
       try {
         final json = jsonDecode(raw) as Map<String, dynamic>;
-        for (final f in ['name', 'systemName', 'emulator', 'core', 'image', 'wheel', 'manual', 'cheevosId', 'developer', 'players', 'rating', 'genre', 'path']) {
+        for (final f in ['name', 'systemName', 'emulator', 'core', 'image', 'wheel', 'marquee', 'manual', 'cheevosId', 'developer', 'players', 'rating', 'genre', 'path']) {
           final v = json[f];
           if (v != null && v.toString().isNotEmpty && v.toString() != 'null') {
             info[f] = v.toString();
@@ -255,8 +255,13 @@ class _RunningGameScreenState extends State<RunningGameScreen> {
       _wheelTried = false;
     });
 
-    if (info.containsKey('wheel')) {
-      _fetchImageDirect(info['wheel']!).then((bytes) {
+    // Logo = wheel en priorité, sinon marquee (selon ce que l'API ES retourne)
+    final logoKey = info.containsKey('wheel') ? 'wheel'
+        : info.containsKey('marquee') ? 'marquee'
+        : null;
+
+    if (logoKey != null) {
+      _fetchImageDirect(info[logoKey]!).then((bytes) {
         if (!mounted) return;
         setState(() {
           if (bytes != null) _wheelBytes = bytes;
@@ -751,11 +756,10 @@ print("\n")
       return;
     }
 
-    // 1. Vérifier si <image> ou <screenshot> existe → confirmation
+    // 1. Vérifier si <image> existe → confirmation
+    //    (<screenshot> orphelin sans <image> = pas bloquant, on l'écrase silencieusement)
     final (existingImg, existingScr) = await _findExistingImages(systemName, romPath);
-    final hasAny = existingImg != null || existingScr != null;
-    if (hasAny) {
-      final shown = existingScr ?? existingImg ?? '';
+    if (existingImg != null) {
       final ok = await showDialog<bool>(
         context: context,
         useRootNavigator: true,
@@ -763,7 +767,7 @@ print("\n")
           backgroundColor: const Color(0xFF1C2230),
           title: const Text('Image existante'),
           content: Text(
-            'Le jeu "$gameName" a déjà une image scrapée :\n$shown\n\n'
+            'Le jeu "$gameName" a déjà une image scrapée :\n$existingImg\n\n'
             'La remplacer (le nom de fichier sera conservé) ?',
           ),
           actions: [
@@ -813,7 +817,7 @@ print("\n")
       }
 
       // 4. Déterminer destDir + fileName (réutilise existant, sinon génère)
-      String? overrideRel = existingScr ?? existingImg;
+      String? overrideRel = existingImg;
       final String imagesDir;
       final String fileName;
       if (overrideRel != null) {
@@ -829,7 +833,7 @@ print("\n")
         }
       } else {
         imagesDir = await _detectImagesDir(systemName);
-        fileName = '${_sanitizeFilename(gameName)}-screenshot.png';
+        fileName = '${_sanitizeFilename(gameName)}-image.png';
       }
       final destDir = '/userdata/roms/$systemName/$imagesDir';
       final destPath = '$destDir/$fileName';
@@ -842,16 +846,15 @@ print("\n")
       await mvSession.done;
 
       final relPath = './$imagesDir/$fileName';
-      // Si <image>/<screenshot> existaient déjà : pas besoin de toucher au gamelist
-      // (on a juste écrasé le fichier sur disque, le chemin est inchangé).
-      // Sinon on stocke en pending pour appliquer au quit du jeu (cf. note dans _finishCapture).
-      final isNewEntry = (existingImg == null && existingScr == null);
+      // Si <image> existait déjà : on a juste écrasé le fichier, le chemin gamelist
+      // est inchangé. Sinon on crée le tag <image>.
+      final isNewEntry = (existingImg == null);
       if (isNewEntry) {
         await _savePending(
           systemName: systemName,
           romPath: romPath,
           gameName: gameName,
-          tags: {'image': relPath, 'screenshot': relPath},
+          tags: {'image': relPath},
         );
         if (mounted) setState(() => _hasPendingScrap = true);
       }
@@ -874,7 +877,6 @@ print("\n")
         // afficher le nouveau visuel sans repasser par l'API ES.
         final updated = Map<String, String>.from(_gameInfo);
         updated['image'] = relPath;
-        updated['screenshot'] = relPath;
         setState(() {
           _gameInfo = updated;
           if (newBytes != null && newBytes.isNotEmpty) {

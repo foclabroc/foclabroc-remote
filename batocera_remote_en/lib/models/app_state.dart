@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ssh_service.dart';
 import '../services/pending_scrap_service.dart';
 import '../services/metadata_service.dart';
+import '../services/media_service.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected, error }
 
@@ -24,16 +25,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   List<String> _recentHosts = []; // format: 'name::ip' or just 'ip'
   Timer? _watchdog; // surveille la connexion en continu
 
-  // Flag to signal that a game launch is in progress via the app.
-  // Used by running_game_screen to defer pending scrap finalization and
-  // prevent reloadgames from interrupting the launch.
+  // Flag pour signaler qu'un launch de jeu est en cours via l'app.
+  // Utilisé par running_game_screen pour différer la finalisation des scraps
+  // pending et éviter que reloadgames n'interrompe le launch.
   bool _isLaunchingGame = false;
   Timer? _launchClearTimer;
   bool get isLaunchingGame => _isLaunchingGame;
 
-  /// Marks that a launch is in progress. The flag auto-clears after [holdMs]
-  /// (default 8s) — long enough for ES to start the emulator and the
-  /// /runningGame polling to detect the new game (which also clears it).
+  /// Marque qu'un launch est en cours. Le flag se clear automatiquement
+  /// après [holdMs] (défaut 8s) — assez de temps pour qu'ES démarre l'émulateur
+  /// et que le polling /runningGame détecte le nouveau jeu (qui clear aussi).
   void markLaunchingGame({int holdMs = 8000}) {
     _launchClearTimer?.cancel();
     _isLaunchingGame = true;
@@ -44,7 +45,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  /// Immediate clear (used when we detect the new game is running).
+  /// Clear immédiat (utilisé quand on détecte que le nouveau jeu tourne).
   void clearLaunchingGame() {
     if (!_isLaunchingGame) return;
     _launchClearTimer?.cancel();
@@ -74,6 +75,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   MetadataService? _metadataService;
   MetadataService get metadataService =>
       _metadataService ??= MetadataService(_ssh);
+
+  MediaService? _mediaService;
+  MediaService get mediaService =>
+      _mediaService ??= MediaService(_ssh);
 
   AppState() {
     _loadPrefs();
@@ -106,7 +111,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // On resume: always check even if we think we're connected
+      // Au retour au premier plan : toujours vérifier même si on croit être connecté
       if (_host.isNotEmpty && _status != ConnectionStatus.connecting) {
         _checkAndReconnect();
       }
@@ -117,7 +122,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // Quick ping to check if connection is alive
+  // Ping rapide pour vérifier si la connexion est vivante
   Future<void> _checkAndReconnect() async {
     if (_status == ConnectionStatus.connecting) return;
     bool alive = false;
@@ -128,6 +133,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (!alive) {
       await _silentReconnect();
     }
+  }
+
+  /// Vérifie que la connexion SSH est vivante (ping rapide), et reconnecte
+  /// si nécessaire. Retourne `true` si la connexion est OK à la fin de
+  /// l'appel. Utilisé avant les opérations SFTP longues qui peuvent suivre
+  /// un retour de background où la session a pu être tuée par timeout.
+  Future<bool> ensureConnected() async {
+    if (_host.isEmpty) return false;
+    await _checkAndReconnect();
+    return _status == ConnectionStatus.connected && _ssh.isConnected;
   }
 
   Future<void> _silentReconnect() async {
@@ -276,7 +291,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await refreshVolume();
     } else {
       _status = ConnectionStatus.error;
-      _errorMessage = 'Unable to connect to $host:$port';
+      _errorMessage = 'Impossible de se connecter à $host:$port';
     }
     notifyListeners();
   }

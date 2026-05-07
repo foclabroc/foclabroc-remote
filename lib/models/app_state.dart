@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ssh_service.dart';
 import '../services/pending_scrap_service.dart';
 import '../services/metadata_service.dart';
+import '../services/media_service.dart';
 
 enum ConnectionStatus { disconnected, connecting, connected, error }
 
@@ -75,6 +76,10 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
   MetadataService get metadataService =>
       _metadataService ??= MetadataService(_ssh);
 
+  MediaService? _mediaService;
+  MediaService get mediaService =>
+      _mediaService ??= MediaService(_ssh);
+
   AppState() {
     _loadPrefs();
     WidgetsBinding.instance.addObserver(this);
@@ -128,6 +133,16 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
     if (!alive) {
       await _silentReconnect();
     }
+  }
+
+  /// Vérifie que la connexion SSH est vivante (ping rapide), et reconnecte
+  /// si nécessaire. Retourne `true` si la connexion est OK à la fin de
+  /// l'appel. Utilisé avant les opérations SFTP longues qui peuvent suivre
+  /// un retour de background où la session a pu être tuée par timeout.
+  Future<bool> ensureConnected() async {
+    if (_host.isEmpty) return false;
+    await _checkAndReconnect();
+    return _status == ConnectionStatus.connected && _ssh.isConnected;
   }
 
   Future<void> _silentReconnect() async {
