@@ -44,7 +44,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   static const _audioExts = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'opus', 'aac'];
   static const _pdfExts = ['pdf'];
   static const _textExts = ['txt', 'cfg', 'conf', 'ini', 'log', 'sh', 'xml', 'json', 'yaml', 'yml', 'md'];
-  static const _editableExts = ['cfg', 'conf', 'ini', 'txt', 'sh', 'xml', 'json', 'yaml', 'yml', 'md'];
+  static const _editableExts = ['txt', 'cfg', 'conf', 'ini', 'log', 'sh', 'xml', 'json', 'yaml', 'yml', 'md'];
 
   @override
   void initState() {
@@ -93,9 +93,10 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   String _ext(String name) => name.contains('.') ? name.split('.').last.toLowerCase() : '';
   bool _isImage(String name) => _imageExts.contains(_ext(name));
   bool _isVideo(String name) => _videoExts.contains(_ext(name));
+  bool _isAudio(String name) => _audioExts.contains(_ext(name));
   bool _isText(String name) => _textExts.contains(_ext(name));
   bool _isEditable(String name) => _editableExts.contains(_ext(name));
-  bool _isOpenable(String name) => _isImage(name) || _isVideo(name) || _isText(name);
+  bool _isOpenable(String name) => _isImage(name) || _isVideo(name) || _isAudio(name) || _isText(name);
 
   Future<void> _loadDir(String path) async {
     final state = context.read<AppState>();
@@ -663,29 +664,25 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                     style: TextStyle(color: Colors.white38, fontSize: 11)),
                 onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _openEditor(item); },
               ),
-            if (_isOpenable(item.name))
+            if (_isOpenable(item.name) && !_isText(item.name))
               ListTile(
                 leading: Icon(
                   _isImage(item.name) ? Icons.image_rounded
                       : _isVideo(item.name) ? Icons.play_circle_rounded
+                      : _isAudio(item.name) ? Icons.music_note_rounded
                       : Icons.open_in_new_rounded,
                   color: Colors.greenAccent,
                 ),
                 title: Text(
                   _isImage(item.name) ? 'Voir l\'image'
                       : _isVideo(item.name) ? 'Lire la vidéo'
-                      : 'Ouvrir sur le téléphone',
+                      : _isAudio(item.name) ? 'Lire l\'audio'
+                      : 'Ouvrir',
                   style: const TextStyle(color: Colors.white70),
                 ),
                 onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _openFile(item); },
               ),
-            if (_isText(item.name) && !_isEditable(item.name))
-              ListTile(
-                leading: const Icon(Icons.visibility_rounded, color: Colors.blueAccent),
-                title: const Text('Voir dans l\'app', style: TextStyle(color: Colors.white70)),
-                onTap: () { Navigator.of(ctx, rootNavigator: true).pop(); _viewFileInApp(item); },
-              ),
-            if (!_isOpenable(item.name))
+            if (_isText(item.name))
               ListTile(
                 leading: const Icon(Icons.visibility_rounded, color: Colors.blueAccent),
                 title: const Text('Voir le contenu', style: TextStyle(color: Colors.white70)),
@@ -723,9 +720,15 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     String content;
     try {
       final state = context.read<AppState>();
-      // Vérifie si texte puis lit sans bash -l
-      final fileType = await state.ssh.execute('file "${item.fullPath}" | grep -o text || echo binary');
-      if (fileType.contains('text')) {
+      // Extensions texte connues → lire directement sans check binaire.
+      // Le `file` de BusyBox sur Batocera peut mal identifier certains fichiers (ex: .log).
+      final knownText = _isText(item.name) || _isEditable(item.name);
+      bool isText = knownText;
+      if (!knownText) {
+        final fileType = await state.ssh.execute('file "${item.fullPath}" | grep -o text || echo binary');
+        isText = fileType.contains('text');
+      }
+      if (isText) {
         content = await state.ssh.readFile(item.fullPath);
       } else {
         content = '[Fichier binaire — aperçu non disponible]';
@@ -760,7 +763,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             ),
             const Divider(color: Colors.white10, height: 1),
             Expanded(child: SingleChildScrollView(
-              controller: scrollCtrl, padding: const EdgeInsets.all(16),
+              controller: scrollCtrl, padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(context).padding.bottom),
               child: SelectableText(capturedContent.isEmpty ? '(fichier vide)' : capturedContent,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.white70, height: 1.6)),
             )),
@@ -1309,18 +1312,21 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
             ),
           ],
         ),
-        body: TextField(
-          controller: _ctrl,
-          maxLines: null,
-          expands: true,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.white70, height: 1.6),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.all(16),
+        body: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+          child: TextField(
+            controller: _ctrl,
+            maxLines: null,
+            expands: true,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 13, color: Colors.white70, height: 1.6),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.all(16),
+            ),
+            keyboardType: TextInputType.multiline,
+            autocorrect: false,
+            enableSuggestions: false,
           ),
-          keyboardType: TextInputType.multiline,
-          autocorrect: false,
-          enableSuggestions: false,
         ),
       ),
     );

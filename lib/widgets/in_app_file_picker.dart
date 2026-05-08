@@ -65,8 +65,6 @@ const List<_Shortcut> _staticShortcuts = [
   _Shortcut('Music',            '/storage/emulated/0/Music',      Icons.music_note_rounded),
   _Shortcut('Podcasts',         '/storage/emulated/0/Podcasts',   Icons.podcasts_rounded),
   _Shortcut('Ringtones',        '/storage/emulated/0/Ringtones',  Icons.ring_volume_rounded),
-  _Shortcut('Notifications',    '/storage/emulated/0/Notifications', Icons.notifications_rounded),
-  _Shortcut('Alarms',           '/storage/emulated/0/Alarms',     Icons.alarm_rounded),
   _Shortcut('Android/media',    '/storage/emulated/0/Android/media', Icons.perm_media_rounded),
 ];
 
@@ -421,7 +419,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
 
   Widget _buildShortcutsHome() {
     return ListView.separated(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.of(context).padding.bottom),
       itemCount: _shortcuts.length,
       separatorBuilder: (_, __) => const SizedBox(height: 6),
       itemBuilder: (_, i) {
@@ -473,7 +471,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
       ));
     }
     return GridView.builder(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + MediaQuery.of(context).padding.bottom),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 6,

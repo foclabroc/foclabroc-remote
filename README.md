@@ -31,7 +31,7 @@ English version available
 - **Détection automatique des scraps en attente** à la connexion avec proposition de finalisation
 
 ### 🎮 Jeu en cours
-- Affichage du jeu en cours : wheel, jaquette, screenshot
+- Affichage du jeu en cours : wheel/marquee (fallback automatique), jaquette, screenshot
 - Chronomètre de session en temps réel
 - Infos : système, émulateur, core, développeur, genre
 - Stats CPU/RAM en temps réel (température, usage, mémoire)
@@ -41,9 +41,10 @@ English version available
 - Auto-refresh toutes les 5 secondes
 - **🆕 Scrap auto en jeu** :
   - **Vidéo auto 30s** — capture 30 secondes de gameplay et l'enregistre dans le dossier `media/videos` du système
-  - **Screenshot auto** — capture un screenshot et l'enregistre dans `media/screenshots`
+  - **Screenshot auto** — capture un screenshot et l'enregistre comme `image` dans le dossier média du système
   - Détection auto de la convention de nommage du système (`media/videos` vs `videos`)
   - Si une vidéo/image existe déjà → propose de la remplacer en gardant le même chemin
+  - **Flush playtime** avant chaque écriture gamelist (reload ES → écriture → reload ES)
   - Sauvegarde différée des balises XML (cf. système Pending ci-dessous)
 
 ### 🆕 Système Pending Scrap (intelligent)
@@ -66,6 +67,9 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
   - Wheel / marquee, jaquette et screenshot côte à côte (cliquables pour agrandir)
   - Infos : genre, développeur, éditeur, année, description
   - Bouton **Lancer** (quitte le jeu en cours automatiquement avec notification)
+  - **🆕 Éditer métadonnées** — 12 champs éditables (genre, langue, région, note, date, favori...)
+  - **🆕 Éditer médias** — upload/suppression Logo, Jaquette, Image avec preview + undo
+  - Bouton **🔄 Refresh** (invalide le cache local + reload)
   - Visionneuse **Manuel** (PDF ou image)
   - Visionneuse **Map** (PDF ou image, zoomable)
   - Lecteur **Vidéo** intégré
@@ -87,8 +91,16 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 - Navigation dans `/userdata/` avec fil d'Ariane
 - **Bouton retour Android** pour remonter dans l'arborescence
 - Visionneuse intégrée : images (zoomable), PDF, vidéos
-- Éditeur de texte intégré pour `.cfg`, `.conf`, `.ini`, `.sh`...
+- **🆕 Lecteur audio in-app** pour `.mp3`, `.wav`, `.ogg`, `.flac`, `.m4a`, `.opus`, `.aac` (plein écran avec seek, ±10s, play/pause)
+- Éditeur de texte intégré pour `.cfg`, `.conf`, `.ini`, `.sh`, `.log`, `.xml`, `.json`, `.yaml`, `.yml`, `.md`, `.txt`
+- **🆕 Picker de fichiers in-app** (sans intent système, évite la duplication MIUI) avec :
+  - 12 raccourcis (Stockage interne, Pictures, DCIM, Downloads, Documents, Movies, Music, Podcasts, Ringtones, Notifications, Alarms, Android/media)
+  - **Détection automatique des cartes SD**
+  - Permissions Android runtime (photos/vidéos/audio API 33+, storage < 33)
+  - Miniatures images dans la grille
+  - Multi-sélection via long-press
 - Upload depuis le téléphone avec barre de progression
+- **Retry automatique** sur upload échoué (reconnexion silencieuse)
 - Sélection multiple : copier, couper, coller, renommer, supprimer
 
 ### ⚙️ Système
@@ -98,6 +110,7 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 - Redémarrage EmulationStation, reboot, arrêt
 - Logs `stderr` et `stdout` partageables
 - **Vider le cache** images et vidéos de l'application
+- **🆕 Vérification automatique des mises à jour** au démarrage (lien vers la page release GitHub)
 
 ### 🍷 Wine Tools
 - **.PC Converter** — convertit un dossier `.pc` en `.wine` avec compression optionnelle
@@ -210,7 +223,7 @@ flutter build apk --release
 | **flutter_svg** | Logos de systèmes en SVG |
 | **crypto** | Cache images (MD5) |
 | **path_provider** | Système de fichiers local |
-| **file_picker** | Sélection fichiers Android |
+| **permission_handler** | Permissions Android runtime |
 | **open_filex** | Ouverture fichiers natifs |
 | **share_plus** | Partage de logs et scores |
 | **url_launcher** | Liens externes (RetroAchievements) |
@@ -228,11 +241,19 @@ lib/
 │   └── app_state.dart           # ChangeNotifier global (SSH, connexion, launching)
 ├── services/
 │   ├── ssh_service.dart         # Wrapper dartssh2 (execute, SFTP, tunnels)
-│   └── pending_scrap_service.dart  # 🆕 Sauvegarde/finalisation des scraps différés
+│   ├── metadata_service.dart    # 🆕 Lecture/écriture gamelist.xml (Python via base64)
+│   ├── media_service.dart       # 🆕 Détection dossiers médias + paths
+│   ├── pending_scrap_service.dart  # Sauvegarde/finalisation des scraps différés
+│   └── update_check_service.dart   # 🆕 Vérification nouvelle version GitHub
 ├── widgets/
 │   ├── back_handler.dart        # Interception bouton retour Android
 │   ├── status_bar.dart          # Barre d'état en bas
-│   └── pending_scraps_dialog.dart  # 🆕 Dialog de proposition de finalisation
+│   ├── status_badge.dart        # Badge indicateur
+│   ├── in_app_file_picker.dart  # 🆕 Picker fichiers in-app (permissions runtime + SD)
+│   ├── media_editor_dialog.dart # 🆕 Édition médias (3 cadres : logo/jaquette/image)
+│   ├── metadata_editor_dialog.dart # 🆕 Édition métadonnées (12 champs)
+│   ├── pending_scraps_dialog.dart  # Dialog de proposition de finalisation
+│   └── update_dialog.dart       # 🆕 Dialog mise à jour
 └── screens/
     ├── connect_screen.dart       # Saisie IP + historique + connexion auto
     ├── running_game_screen.dart  # Jeu en cours + scrap auto + finalize pending

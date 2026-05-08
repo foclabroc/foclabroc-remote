@@ -18,7 +18,7 @@ import 'quiz_screen.dart';
 import 'breakout_screen.dart';
 import 'links_screen.dart';
 
-const kAppVersion = '3.3-EN';
+const kAppVersion = '3.4-EN';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
