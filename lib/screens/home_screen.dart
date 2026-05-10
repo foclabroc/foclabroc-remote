@@ -6,6 +6,7 @@ import '../services/update_check_service.dart';
 import '../widgets/back_handler.dart';
 import '../widgets/pending_scraps_dialog.dart';
 import 'connect_screen.dart';
+import 'virtual_pad_screen.dart';
 import 'system_screen.dart';
 import 'capture_screen.dart';
 import 'ssh_terminal_screen.dart';
@@ -18,7 +19,7 @@ import 'quiz_screen.dart';
 import 'breakout_screen.dart';
 import 'links_screen.dart';
 
-const kAppVersion = '3.4-FR';
+const kAppVersion = '3.5-FR';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   static const _tabs = [
     _TabInfo(icon: Icons.wifi_rounded,           label: 'Connexion'),
+    _TabInfo(icon: Icons.gamepad_rounded,        label: 'Pad virtuel'),
     _TabInfo(icon: Icons.sports_esports_rounded, label: 'Jeu en cours'),
     _TabInfo(icon: Icons.library_books_rounded,  label: 'Bibliothèque'),
     _TabInfo(icon: Icons.camera_alt_rounded,     label: 'Capture'),
@@ -51,7 +53,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List.generate(12, (_) => GlobalKey<NavigatorState>());
+      List.generate(13, (_) => GlobalKey<NavigatorState>());
 
   @override
   void initState() {
@@ -246,16 +248,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     key: _navigatorKeys[index],
     onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => switch (index) {
       0 => const ConnectScreen(),
-      1 => const RunningGameScreen(),
-      2 => const GamesScreen(),
-      3 => const CaptureScreen(),
-      4 => const SshTerminalScreen(),
-      5 => const FileManagerScreen(),
-      6 => const SystemScreen(),
-      7 => const WineToolsScreen(),
-      8 => const FoclabroctoolsScreen(),
-      9 => const QuizScreen(),
-      10 => const BreakoutScreen(),
+      1 => const VirtualPadScreen(),
+      2 => const RunningGameScreen(),
+      3 => const GamesScreen(),
+      4 => const CaptureScreen(),
+      5 => const SshTerminalScreen(),
+      6 => const FileManagerScreen(),
+      7 => const SystemScreen(),
+      8 => const WineToolsScreen(),
+      9 => const FoclabroctoolsScreen(),
+      10 => const QuizScreen(),
+      11 => const BreakoutScreen(),
       _ => const LinksScreen(),
     }),
   );
@@ -278,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       key: _scaffoldKey,
       drawer: _buildDrawer(state, connected, accent),
       body: Stack(children: [
-        Stack(children: List.generate(12, (i) => Offstage(
+        Stack(children: List.generate(13, (i) => Offstage(
           offstage: _index != i,
           child: _buildScreen(i),
         ))),
