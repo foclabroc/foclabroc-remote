@@ -4,7 +4,14 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
-## v3.3.1+34 — Mai 2026
+## v3.5.0+35 — Mai 2026
+
+### ✨ Améliorations
+- **Ajouts pad/clavier virtuel** — clavier et manette virtuel connectable dans onglet "pad virtuel"
+
+---
+
+## v3.3.0+34 — Mai 2026
 
 ### 🐛 Correctifs
 - **Picker in-app : fichiers invisibles** — ajout des permissions Android runtime (`permission_handler ^11.3.0`). Demande `photos`/`videos`/`audio` sur API 33+ ou `storage` sur < 33. Écran dédié si permission refusée/permanente avec bouton "Ouvrir paramètres"

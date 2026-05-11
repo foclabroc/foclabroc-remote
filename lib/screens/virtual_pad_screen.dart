@@ -135,13 +135,23 @@ KEY_MAP = {
     "right": e.KEY_RIGHT,
 
     "f1": e.KEY_F1,
+    "semicolon": e.KEY_COMMA,
+    "rparen": e.KEY_MINUS,
 }
 
 EXTRA_KEYS = [
     e.KEY_RIGHTALT,
     e.KEY_LEFTCTRL,
+    e.KEY_LEFTSHIFT,
+    e.KEY_5,
     e.KEY_6,
+    e.KEY_8,
+    e.KEY_9,
+    e.KEY_M,
     e.KEY_102ND,
+    e.KEY_COMMA,
+    e.KEY_MINUS,
+    e.KEY_DOT,
 ]
 
 ALL_KEYS = list(KEY_MAP.values()) + EXTRA_KEYS
@@ -196,6 +206,53 @@ while True:
         ui.write(e.EV_KEY, e.KEY_RIGHTALT, 0)
         ui.syn()
 
+        continue
+
+    # (
+    if key == "lparen" and action == "press":
+
+        ui.write(e.EV_KEY, e.KEY_5, 1)
+        ui.syn()
+
+        ui.write(e.EV_KEY, e.KEY_5, 0)
+        ui.syn()
+
+        continue
+
+    # :
+    if key == "colon" and action == "press":
+
+        ui.write(e.EV_KEY, e.KEY_DOT, 1)
+        ui.syn()
+
+        ui.write(e.EV_KEY, e.KEY_DOT, 0)
+        ui.syn()
+
+        continue
+
+    # _ = SHIFT+_ => KEY_8 + SHIFT (layout FR: 8 sans shift = _, shift+8 = *)
+    if key == "underscore" and action == "press":
+        ui.write(e.EV_KEY, e.KEY_8, 1)
+        ui.syn()
+        ui.write(e.EV_KEY, e.KEY_8, 0)
+        ui.syn()
+        continue
+
+    # - = KEY_6 direct (layout FR: 6 sans shift = -)
+    if key == "minus" and action == "press":
+        ui.write(e.EV_KEY, e.KEY_6, 1)
+        ui.syn()
+        ui.write(e.EV_KEY, e.KEY_6, 0)
+        ui.syn()
+        continue
+
+    # .
+    if key == "dot" and action == "press":
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 1)
+        ui.write(e.EV_KEY, e.KEY_COMMA, 1)
+        ui.write(e.EV_KEY, e.KEY_COMMA, 0)
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 0)
+        ui.syn()
         continue
 
     if key not in KEY_MAP:
@@ -424,20 +481,26 @@ class _KeyboardSectionState extends State<_KeyboardSection> {
                     _KbKey.flex(label: 'ESC', flex: 11, color: const Color(0xFFE02020), onTap: () => _tap('esc')),
                     _KbKey.flex(label: 'F1',  flex: 10, color: const Color(0xFF8BE9FD), onTap: () => _tap('f1')),
                     _KbKey.flex(label: '|',   flex: 9,  onTap: () => _tap('pipe')),
-                    _KbKey.flex(label: '↑',   flex: 10, onTap: () => _tap('up')),
-                    _KbKey.flex(label: '↓',   flex: 10, onTap: () => _tap('down')),
+                    _KbKey.flex(label: '(',   flex: 10, onTap: () => _tap('lparen')),
+                    _KbKey.flex(label: ')',   flex: 10, onTap: () => _tap('rparen')),
                     _KbKey.flex(label: '←',   flex: 10, onTap: () => _tap('left')),
                     _KbKey.flex(label: '→',   flex: 10, onTap: () => _tap('right')),
                     _KbKey.flex(label: 'TAB', flex: 12, onTap: () => _tap('tab')),
                   ]),
                   // Ligne 2 : AZERTYUIOP
                   Row(children: _row1.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))).toList()),
-                  // Ligne 3 : QSDFGHJKLM
-                  Row(children: _row2.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))).toList()),
-                  // Ligne 4 : WXCVBN + ⌫
+                  // Ligne 3 : QSDFGHJKLM + ;
+                  Row(children: [
+                    ..._row2.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))),
+                    _KbKey.flex(label: ';', onTap: () => _tap('semicolon'), flex: 10),
+                  ]),
+                  // Ligne 4 : WXCVBN + - _ + ⌫
                   Row(children: [
                     ..._row3.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))),
-                    _KbKey.flex(label: '⌫', onTap: () => _tap('backspace'), flex: 15),
+                    _KbKey.flex(label: ':', onTap: () => _tap('colon'), flex: 9),
+                    _KbKey.flex(label: '-', onTap: () => _tap('minus'), flex: 9),
+                    _KbKey.flex(label: '_', onTap: () => _tap('underscore'), flex: 9),
+                    _KbKey.flex(label: '⌫', onTap: () => _tap('backspace'), flex: 13),
                   ]),
                   // Ligne 5 : CTRL | ALT | ⇧ | ESPACE | ↵
                   Row(children: [
@@ -447,7 +510,8 @@ class _KeyboardSectionState extends State<_KeyboardSection> {
                       onTap: () => _toggleMod('alt', _alt, (v) => setState(() => _alt = v))),
                     _KbKey.flex(label: '⇧', flex: 12, active: _shift, color: _shift ? const Color(0xFF50FA7B) : null,
                       onTap: () => _toggleMod('shift', _shift, (v) => setState(() => _shift = v))),
-                    _KbKey.flex(label: 'ESPACE', flex: 42, onTap: () => _tap('espace')),
+                    _KbKey.flex(label: 'ESPACE', flex: 38, onTap: () => _tap('espace')),
+                    _KbKey.flex(label: '.', flex: 9, onTap: () => _tap('dot')),
                     _KbKey.flex(label: 'ENTRÉE', flex: 22, color: const Color(0xFF50FA7B), onTap: () => _tap('entrée')),
                   ]),
                 ],

@@ -109,14 +109,16 @@ KEY_MAP = {
     "left": e.KEY_LEFT, "right": e.KEY_RIGHT,
     "f1": e.KEY_F1,
     "pipe": e.KEY_BACKSLASH,
+    "semicolon": e.KEY_SEMICOLON,
+    "dot": e.KEY_DOT,
+    "minus": e.KEY_MINUS,
+    # underscore géré par handler spécial ci-dessous
+    "lparen": e.KEY_9,
+    "rparen": e.KEY_0,
+    "colon": e.KEY_SEMICOLON,
 }
 
-ui = UInput({
-    e.EV_KEY: list(KEY_MAP.values()) + [
-        e.KEY_BACKSLASH,
-        e.KEY_LEFTSHIFT,
-    ]
-}, name="FoclabrocVkb")
+ui = UInput({e.EV_KEY: list(KEY_MAP.values())}, name="FoclabrocVkb")
 time.sleep(0.3)
 print("READY")
 sys.stdout.flush()
@@ -136,7 +138,27 @@ while True:
         continue
     action, key = parts
 
-    # PIPE |
+    # LPAREN ( = SHIFT+9
+    if key == "lparen" and action == "press":
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 1)
+        ui.write(e.EV_KEY, e.KEY_9, 1)
+        ui.syn()
+        ui.write(e.EV_KEY, e.KEY_9, 0)
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 0)
+        ui.syn()
+        continue
+
+    # RPAREN ) = SHIFT+0
+    if key == "rparen" and action == "press":
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 1)
+        ui.write(e.EV_KEY, e.KEY_0, 1)
+        ui.syn()
+        ui.write(e.EV_KEY, e.KEY_0, 0)
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 0)
+        ui.syn()
+        continue
+
+    # PIPE | = SHIFT+BACKSLASH
     if key == "pipe" and action == "press":
         ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 1)
         ui.write(e.EV_KEY, e.KEY_BACKSLASH, 1)
@@ -145,6 +167,27 @@ while True:
         ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 0)
         ui.syn()
         continue
+
+    # COLON : = SHIFT+SEMICOLON
+    if key == "colon" and action == "press":
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 1)
+        ui.write(e.EV_KEY, e.KEY_SEMICOLON, 1)
+        ui.syn()
+        ui.write(e.EV_KEY, e.KEY_SEMICOLON, 0)
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 0)
+        ui.syn()
+        continue
+
+    # UNDERSCORE _ = SHIFT+MINUS
+    if key == "underscore" and action == "press":
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 1)
+        ui.write(e.EV_KEY, e.KEY_MINUS, 1)
+        ui.syn()
+        ui.write(e.EV_KEY, e.KEY_MINUS, 0)
+        ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 0)
+        ui.syn()
+        continue
+
     if key not in KEY_MAP:
         continue
     code = KEY_MAP[key]
@@ -367,20 +410,27 @@ class _KeyboardSectionState extends State<_KeyboardSection> {
                     _KbKey.flex(label: 'ESC', flex: 11, color: const Color(0xFFE02020), onTap: () => _tap('esc')),
                     _KbKey.flex(label: 'F1',  flex: 10, color: const Color(0xFF8BE9FD), onTap: () => _tap('f1')),
                     _KbKey.flex(label: '|',   flex: 9,  onTap: () => _tap('pipe')),
-                    _KbKey.flex(label: '↑',   flex: 10, onTap: () => _tap('up')),
-                    _KbKey.flex(label: '↓',   flex: 10, onTap: () => _tap('down')),
+                    _KbKey.flex(label: '(',   flex: 10, onTap: () => _tap('lparen')),
+                    _KbKey.flex(label: ')',   flex: 10, onTap: () => _tap('rparen')),
                     _KbKey.flex(label: '←',   flex: 10, onTap: () => _tap('left')),
                     _KbKey.flex(label: '→',   flex: 10, onTap: () => _tap('right')),
                     _KbKey.flex(label: 'TAB', flex: 12, onTap: () => _tap('tab')),
                   ]),
                   // Ligne 2 : QWERTYUIOP
                   Row(children: _row1.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))).toList()),
-                  // Ligne 3 : ASDFGHJKL
-                  Row(children: _row2.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))).toList()),
-                  // Ligne 4 : ZXCVBNM + ⌫
+                  // Ligne 3 : ASDFGHJKL + ;
+                  Row(children: [
+                    ..._row2.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))),
+                    _KbKey.flex(label: ':', onTap: () => _tap('colon'), flex: 10),
+                    _KbKey.flex(label: ';', onTap: () => _tap('semicolon'), flex: 10),
+                  ]),
+                  // Ligne 4 : ZXCVBNM + . - _ + ⌫
                   Row(children: [
                     ..._row3.map((k) => _KbKey.flex(label: k.toUpperCase(), onTap: () => _tap(k))),
-                    _KbKey.flex(label: '⌫', onTap: () => _tap('backspace'), flex: 15),
+                    _KbKey.flex(label: '.', onTap: () => _tap('dot'), flex: 9),
+                    _KbKey.flex(label: '-', onTap: () => _tap('minus'), flex: 9),
+                    _KbKey.flex(label: '_', onTap: () => _tap('underscore'), flex: 9),
+                    _KbKey.flex(label: '⌫', onTap: () => _tap('backspace'), flex: 13),
                   ]),
                   // Ligne 5 : CTRL | ALT | ⇧ | SPACE | ↵
                   Row(children: [
