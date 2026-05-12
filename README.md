@@ -30,6 +30,19 @@ English version available
 - Informations système détaillées (modèle, CPU, RAM, résolution, OS...)
 - **Détection automatique des scraps en attente** à la connexion avec proposition de finalisation
 
+### 🕹️ Pad virtuel
+- Émule un **vrai contrôleur Xbox** via `uinput` Python côté Batocera (vendor/product Xbox 360, reconnu nativement par ES et les émulateurs)
+- Périphérique nommé `Foclabroc-VPad` — persistant tant que la session SSH est active
+- **D-pad** (haut/bas/gauche/droite via `EV_ABS HAT0X/HAT0Y`)
+- **8 boutons** : A, B, X, Y, L1, R1, Start, Select
+- **Hotkey** (BTN_MODE) pour les combos d'émulateurs
+- **Clavier AZERTY virtuel** (`FoclabrocVkb`) sur la même page :
+  - 3 rangées de touches (AZERTY), Espace, Entrée, Backspace, Tab, Échap
+  - Modificateurs toggle : Shift, Ctrl, Alt
+  - Touches spéciales : flèches, F1, Pipe (`AltGr + <`)
+- Les deux périphériques (pad + clavier) démarrent/stoppent indépendamment
+- Script Python embarqué en clair (pas de fichier externe requis), déployé au démarrage de l'onglet via SFTP puis exécuté via SSH
+
 ### 🎮 Jeu en cours
 - Affichage du jeu en cours : wheel/marquee (fallback automatique), jaquette, screenshot
 - Chronomètre de session en temps réel
@@ -256,6 +269,7 @@ lib/
 │   └── update_dialog.dart       # 🆕 Dialog mise à jour
 └── screens/
     ├── connect_screen.dart       # Saisie IP + historique + connexion auto
+    ├── virtual_pad_screen.dart   # Pad Xbox uinput + clavier AZERTY virtuels via SSH
     ├── running_game_screen.dart  # Jeu en cours + scrap auto + finalize pending
     ├── games_screen.dart         # Bibliothèque (grille systèmes + liste jeux)
     ├── game_detail_screen.dart   # Fiche jeu détaillée + visionneuses
