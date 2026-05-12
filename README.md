@@ -147,7 +147,6 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 - **YouTube TV** — installe YouTube TV dans le menu Ports (Batocera x86_64 uniquement)
 - **Foclabroc Toolbox → Ports** — installe la Toolbox dans le menu Ports pour y accéder depuis Batocera (x86_64)
 - **RGSX** — télécharge et installe RetroGameSets game downloader dans 'Ports'
-- **Eden Nightly** — télécharge automatiquement la dernière version Linux d'Eden Nightly via Gitea
 
 ### 🕹️ Quiz Rétro
 - Un screenshot s'affiche → trouve le jeu parmi 4 propositions
