@@ -732,6 +732,30 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     await _openFileViewer(path, 'Map - ${widget.game['name'] ?? ''}');
   }
 
+  /// Affiche un court message quand l'utilisateur tape un bouton média/RA
+  /// grisé (ressource non disponible pour ce jeu).
+  void _showUnavailable(String label) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$label non disponible', style: const TextStyle(color: Colors.white)),
+      backgroundColor: const Color(0xFF1C2230),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
+  /// Formate un temps de jeu (en secondes) en libellé lisible.
+  /// Retourne null si le temps est nul ou invalide.
+  String? _fmtGametime(dynamic raw) {
+    final secs = int.tryParse(raw?.toString() ?? '') ?? 0;
+    if (secs <= 0) return null;
+    if (secs < 60) return '< 1 min';
+    final totalMin = secs ~/ 60;
+    if (totalMin < 60) return '$totalMin min';
+    final h = totalMin ~/ 60;
+    final m = totalMin % 60;
+    return m == 0 ? '${h}h' : '${h}h ${m}min';
+  }
+
   Future<void> _openFileViewer(String path, String title) async {
     showDialog(
       context: context,
@@ -963,6 +987,12 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                           ? 'Jamais joué' : 'Joué ${game['playcount']} fois',
                       icon: Icons.play_circle_rounded,
                     ),
+                    if (_fmtGametime(game['gametime']) != null)
+                      _InfoChip(
+                        label: _fmtGametime(game['gametime'])!,
+                        icon: Icons.timer_rounded,
+                        color: Colors.tealAccent,
+                      ),
                   ]),
 
                   if (game['desc'] != null && game['desc'].toString().isNotEmpty) ...[
@@ -1015,80 +1045,89 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                         ),
                       ),
                     ),
-                    if (hasManual) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _openManual,
-                          icon: const Icon(Icons.menu_book_rounded, size: 16),
-                          label: const Text('Manuel'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.blueAccent,
-                            side: const BorderSide(color: Colors.blueAccent),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
+                    // Manuel : toujours affiché, grisé si absent
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: hasManual ? _openManual : () => _showUnavailable('Manuel'),
+                        icon: Icon(Icons.menu_book_rounded, size: 16,
+                            color: hasManual ? Colors.blueAccent : Colors.white24),
+                        label: Text('Manuel',
+                            style: TextStyle(color: hasManual ? Colors.blueAccent : Colors.white24)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: hasManual ? Colors.blueAccent : Colors.white24,
+                          side: BorderSide(color: hasManual ? Colors.blueAccent : Colors.white12),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
-                    ],
-                    if (hasMap) ...[
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _openMap,
-                          icon: const Icon(Icons.map_rounded, size: 16),
-                          label: const Text('Map'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.greenAccent,
-                            side: const BorderSide(color: Colors.greenAccent),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
+                    ),
+                    // Map : toujours affiché, grisé si absent
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: hasMap ? _openMap : () => _showUnavailable('Map'),
+                        icon: Icon(Icons.map_rounded, size: 16,
+                            color: hasMap ? Colors.greenAccent : Colors.white24),
+                        label: Text('Map',
+                            style: TextStyle(color: hasMap ? Colors.greenAccent : Colors.white24)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: hasMap ? Colors.greenAccent : Colors.white24,
+                          side: BorderSide(color: hasMap ? Colors.greenAccent : Colors.white12),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
-                    ],
+                    ),
                   ]),
 
-                  // Bouton vidéo
-                  if (game['video'] != null && game['video'].toString().isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _openVideo,
-                        icon: const Icon(Icons.play_circle_outline_rounded, size: 18, color: Colors.purpleAccent),
-                        label: const Text('Voir la vidéo', style: TextStyle(color: Colors.purpleAccent)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.purpleAccent,
-                          side: const BorderSide(color: Colors.purpleAccent),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  // Bouton vidéo : toujours affiché, grisé si absent
+                  Builder(builder: (_) {
+                    final hasVideo = game['video'] != null && game['video'].toString().isNotEmpty;
+                    return Column(children: [
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: hasVideo ? _openVideo : () => _showUnavailable('Vidéo'),
+                          icon: Icon(Icons.play_circle_outline_rounded, size: 18,
+                              color: hasVideo ? Colors.purpleAccent : Colors.white24),
+                          label: Text('Voir la vidéo',
+                              style: TextStyle(color: hasVideo ? Colors.purpleAccent : Colors.white24)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: hasVideo ? Colors.purpleAccent : Colors.white24,
+                            side: BorderSide(color: hasVideo ? Colors.purpleAccent : Colors.white12),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ]);
+                  }),
 
-                  if (hasRA) ...[
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => launchUrl(
-                          Uri.parse('https://retroachievements.org/game/$cheevosId'),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                        icon: const Icon(Icons.emoji_events_rounded, size: 18, color: Colors.amberAccent),
-                        label: const Text('Voir sur RetroAchievements',
-                            style: TextStyle(color: Colors.amberAccent)),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.amberAccent,
-                          side: const BorderSide(color: Colors.amberAccent),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                  // Bouton RetroAchievements : toujours affiché, grisé si absent
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: hasRA
+                          ? () => launchUrl(
+                                Uri.parse('https://retroachievements.org/game/$cheevosId'),
+                                mode: LaunchMode.externalApplication,
+                              )
+                          : () => _showUnavailable('Succès'),
+                      icon: Icon(Icons.emoji_events_rounded, size: 18,
+                          color: hasRA ? Colors.amberAccent : Colors.white24),
+                      label: Text('Voir sur RetroAchievements',
+                          style: TextStyle(color: hasRA ? Colors.amberAccent : Colors.white24)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: hasRA ? Colors.amberAccent : Colors.white24,
+                        side: BorderSide(color: hasRA ? Colors.amberAccent : Colors.white12),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
-                  ],
+                  ),
 
                   // Bouton "Éditer métadonnées" — toujours affiché en bas
                   const SizedBox(height: 16),
