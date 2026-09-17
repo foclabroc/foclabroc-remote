@@ -44,6 +44,13 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
   bool _thumbTried = false;
   bool _wheelTried = false;
 
+  // Disponibilité réelle des médias annexes (vérifiée au chargement).
+  // null = pas encore vérifié (bouton allumé optimiste le temps du check),
+  // true/false = résultat du test d'existence.
+  bool? _mapAvailable;
+  bool? _manualAvailable;
+  bool? _videoAvailable;
+
   void _pickRandom() {
     final all = widget.allGames;
     if (all == null || all.isEmpty) return;
@@ -64,7 +71,76 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
   void initState() {
     super.initState();
     _loadImages();
+    _checkMediaAvailability();
   }
+
+  /// Vérifie en UNE seule commande SSH si les fichiers map / manual / video
+  /// existent réellement. L'API ES expose une route pour ces médias même
+  /// quand le fichier n'existe pas → sans ce check, le bouton s'allume à tort
+  /// et affiche "Impossible de charger" au clic.
+  ///
+  /// Pour chaque média :
+  /// - chemin filesystem (/usr/ ou /userdata/) → `test -f`
+  /// - route API (/systems/...) → `curl -sI` + test taille Content-Length > 0
+  Future<void> _checkMediaAvailability() async {
+    final game = widget.game;
+    final map    = game['map']?.toString() ?? '';
+    final manual = game['manual']?.toString() ?? '';
+    final video  = game['video']?.toString() ?? '';
+
+    // Rien à vérifier si aucun champ présent
+    if (map.isEmpty && manual.isEmpty && video.isEmpty) {
+      if (mounted) setState(() {
+        _mapAvailable = false;
+        _manualAvailable = false;
+        _videoAvailable = false;
+      });
+      return;
+    }
+
+    try {
+      final state = context.read<AppState>();
+      // Construit un script shell qui teste chaque chemin et imprime
+      // "<clé>=1" si le média existe, "<clé>=0" sinon.
+      String testCmd(String key, String path) {
+        if (path.isEmpty) return 'echo ${key}=0';
+        if (path.startsWith('/usr/') || path.startsWith('/userdata/')) {
+          // Fichier local : test -f + taille > 0
+          return '([ -s ${_shQ(path)} ] && echo ${key}=1 || echo ${key}=0)';
+        }
+        // Route API : HEAD, on regarde le Content-Length
+        final url = 'http://127.0.0.1:1234$path';
+        return '(len=\$(curl -sI --max-time 6 ${_shQ(url)} 2>/dev/null | '
+            'grep -i "^content-length" | tr -dc "0-9"); '
+            '[ -n "\$len" ] && [ "\$len" -gt 0 ] && echo ${key}=1 || echo ${key}=0)';
+      }
+
+      final full = '${testCmd("map", map)}; '
+          '${testCmd("manual", manual)}; '
+          '${testCmd("video", video)}';
+
+      final out = await state.ssh.execute(full);
+      if (!mounted) return;
+
+      bool parse(String key) => RegExp('$key=1').hasMatch(out);
+      setState(() {
+        _mapAvailable    = map.isEmpty    ? false : parse('map');
+        _manualAvailable = manual.isEmpty ? false : parse('manual');
+        _videoAvailable  = video.isEmpty  ? false : parse('video');
+      });
+    } catch (_) {
+      // En cas d'échec du check, on reste optimiste (boutons allumés selon
+      // la présence du champ) pour ne pas bloquer un média qui existe.
+      if (!mounted) return;
+      setState(() {
+        _mapAvailable    = map.isNotEmpty;
+        _manualAvailable = manual.isNotEmpty;
+        _videoAvailable  = video.isNotEmpty;
+      });
+    }
+  }
+
+  String _shQ(String s) => "'${s.replaceAll("'", "'\\''")}'";
 
   Future<Uint8List?> _fetchCached(String path) async {
     // widget.fetchImage gère déjà le cache
@@ -854,8 +930,13 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     final name = game['name'] ?? 'Jeu inconnu';
     final cheevosId = game['cheevosId']?.toString();
     final hasRA = cheevosId != null && cheevosId != 'null' && cheevosId.isNotEmpty;
-    final hasManual = game['manual'] != null && game['manual'].toString().isNotEmpty;
-    final hasMap = game['map'] != null && game['map'].toString().isNotEmpty;
+    // Utilise le résultat du check réel (_checkMediaAvailability) au lieu de
+    // la simple présence du champ dans l'API — celle-ci expose une route
+    // même quand le fichier n'existe pas. `null` = check en cours → bouton
+    // traité comme indisponible le temps de la vérification (pas de faux
+    // positif cliquable pendant le chargement).
+    final hasManual = _manualAvailable ?? false;
+    final hasMap = _mapAvailable ?? false;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0F14),
@@ -1107,7 +1188,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
 
                   // Bouton vidéo : toujours affiché, grisé si absent
                   Builder(builder: (_) {
-                    final hasVideo = game['video'] != null && game['video'].toString().isNotEmpty;
+                    final hasVideo = _videoAvailable ?? false;
                     return Column(children: [
                       const SizedBox(height: 10),
                       SizedBox(
