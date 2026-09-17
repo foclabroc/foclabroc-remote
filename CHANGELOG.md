@@ -4,6 +4,24 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+## v3.7.0+37 — Septembre 2026
+
+### ✨ Améliorations
+- **Recherche en ligne des médias** — bouton loupe 🔍 par cadre dans Éditer médias. Ouvre Google Images dans le navigateur système avec une requête ciblée (nom du jeu + type : `logo` / `box art` / `screenshot`). L'utilisateur télécharge puis importe via le bouton upload
+
+### 🐛 Correctifs
+- **Édition médias/métadonnées depuis une collection** — les jeux ouverts depuis une collection (2 joueurs, favoris, collections thématiques…) affichaient "No image" et ne trouvaient pas leurs balises, faute de `gamelist.xml` propre à la collection. Nouvelle méthode `_resolveSystemName()` qui résout le vrai système : extraction depuis le `path` `/userdata/roms/<system>/...`, fallback sur `systemName` (API ES), puis `_systemName` (app). Utilisée dans `_editMedia()` et `_editMetadata()`
+
+---
+
+## v3.6.0+36 — Septembre 2026
+
+### ✨ Améliorations
+- **Boutons médias/RA toujours affichés** — Manuel, Map, Vidéo et RetroAchievements restent visibles dans la fiche jeu même quand la ressource est absente. Ils apparaissent grisés et affichent un message ("… non disponible") au tap au lieu de disparaître
+- **Temps de jeu dans la fiche détail** — nouveau chip ⏱️ affichant le temps de jeu (`gametime`) formaté de façon lisible (`< 1 min`, `X min`, `Xh Ymin`). Masqué si le temps est nul
+
+---
+
 ## v3.5.0+35 — Mai 2026
 
 ### ✨ Améliorations
