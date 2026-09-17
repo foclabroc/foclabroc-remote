@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'in_app_file_picker.dart';
 
 /// Représente un nouveau média sélectionné par l'utilisateur (avant upload).
@@ -84,6 +85,33 @@ class _MediaEditorDialogState extends State<MediaEditorDialog> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Erreur sélection : $e', style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  /// Terme de recherche Google Images accolé au nom du jeu, par tag.
+  static const Map<String, String> _searchTermForTag = {
+    'wheel':     'logo',
+    'marquee':   'logo',
+    'thumbnail': 'box art',
+    'image':     'screenshot',
+  };
+
+  /// Ouvre Google Images dans le navigateur système avec une requête
+  /// pré-remplie (nom du jeu + type de média). L'utilisateur télécharge
+  /// l'image de son choix puis l'importe via le bouton upload.
+  Future<void> _searchOnline(String tag) async {
+    final term = _searchTermForTag[tag] ?? '';
+    final query = '${widget.gameName} $term'.trim();
+    final url = 'https://www.google.com/search?tbm=isch&q=${Uri.encodeComponent(query)}';
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Impossible d\'ouvrir le navigateur : $e', style: const TextStyle(color: Colors.white)),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
       ));
@@ -295,6 +323,15 @@ class _MediaEditorDialogState extends State<MediaEditorDialog> {
               icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
               onPressed: () => _markDelete(tag, label),
             ),
+          // Bouton "🔍" recherche Google Images (toujours présent)
+          IconButton(
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: 'Chercher sur Google Images',
+            icon: const Icon(Icons.travel_explore_rounded, color: Colors.lightBlueAccent),
+            onPressed: () => _searchOnline(tag),
+          ),
           // Bouton upload (toujours présent)
           IconButton(
             iconSize: 22,

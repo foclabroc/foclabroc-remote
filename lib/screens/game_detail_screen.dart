@@ -163,9 +163,33 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     await _loadImages();
   }
 
+  /// Résout le VRAI nom de système d'un jeu, même quand il est ouvert depuis
+  /// une collection (ex. "2players", "mario", "favorites") qui n'a pas de
+  /// gamelist.xml propre.
+  ///
+  /// Priorité :
+  /// 1. Le `path` absolu `/userdata/roms/<system>/...` — la source la plus
+  ///    fiable, présente pour tous les jeux (collections incluses).
+  /// 2. Le champ `systemName` renvoyé par l'API ES (le vrai système, pas la
+  ///    collection).
+  /// 3. Le champ `_systemName` injecté par l'app (= la collection quand on
+  ///    ouvre depuis une collection, donc utilisé en dernier recours).
+  String _resolveSystemName() {
+    final game = widget.game;
+    final path = game['path']?.toString() ?? '';
+    // 1) Extrait <system> depuis /userdata/roms/<system>/...
+    final m = RegExp(r'/userdata/roms/([^/]+)/').firstMatch(path);
+    if (m != null) return m.group(1)!;
+    // 2) systemName de l'API (sans underscore)
+    final apiSys = game['systemName']?.toString() ?? '';
+    if (apiSys.isNotEmpty) return apiSys;
+    // 3) _systemName injecté par l'app
+    return game['_systemName']?.toString() ?? '';
+  }
+
   Future<void> _editMetadata() async {
     final game = widget.game;
-    final systemName = game['_systemName']?.toString() ?? '';
+    final systemName = _resolveSystemName();
     final romPath = game['path']?.toString() ?? '';
     final gameName = game['name']?.toString() ?? '';
     if (systemName.isEmpty || romPath.isEmpty) {
@@ -349,7 +373,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
 
   Future<void> _editMedia() async {
     final game = widget.game;
-    final systemName = game['_systemName']?.toString() ?? '';
+    final systemName = _resolveSystemName();
     final romPath = game['path']?.toString() ?? '';
     final gameName = game['name']?.toString() ?? '';
     if (systemName.isEmpty || romPath.isEmpty) {

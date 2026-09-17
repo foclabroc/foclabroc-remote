@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'in_app_file_picker.dart';
 
 /// Représente un nouveau média sélectionné par l'utilisateur (avant upload).
@@ -84,6 +85,33 @@ class _MediaEditorDialogState extends State<MediaEditorDialog> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Pick error: $e', style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  /// Google Images search term appended to the game name, per tag.
+  static const Map<String, String> _searchTermForTag = {
+    'wheel':     'logo',
+    'marquee':   'logo',
+    'thumbnail': 'box art',
+    'image':     'screenshot',
+  };
+
+  /// Opens Google Images in the system browser with a pre-filled query
+  /// (game name + media type). The user downloads the image of their choice
+  /// then imports it via the upload button.
+  Future<void> _searchOnline(String tag) async {
+    final term = _searchTermForTag[tag] ?? '';
+    final query = '${widget.gameName} $term'.trim();
+    final url = 'https://www.google.com/search?tbm=isch&q=${Uri.encodeComponent(query)}';
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not open browser: $e', style: const TextStyle(color: Colors.white)),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
       ));
@@ -295,6 +323,15 @@ class _MediaEditorDialogState extends State<MediaEditorDialog> {
               icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
               onPressed: () => _markDelete(tag, label),
             ),
+          // Bouton "🔍" recherche Google Images (toujours présent)
+          IconButton(
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: 'Search on Google Images',
+            icon: const Icon(Icons.travel_explore_rounded, color: Colors.lightBlueAccent),
+            onPressed: () => _searchOnline(tag),
+          ),
           // Bouton upload (toujours présent)
           IconButton(
             iconSize: 22,

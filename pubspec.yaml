@@ -1,6 +1,6 @@
 name: batocera_remote
 description: Télécommande Android pour Batocera Linux
-version: 3.6.0+36
+version: 3.7.0+37
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
