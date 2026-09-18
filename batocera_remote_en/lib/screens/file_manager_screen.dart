@@ -9,6 +9,13 @@ import '../models/app_state.dart';
 import '../widgets/back_handler.dart';
 import '../widgets/in_app_file_picker.dart';
 
+/// Thrown from a transfer's (download or upload) `onProgress` callback to
+/// interrupt it immediately (as soon as the next packet arrives) when the
+/// user cancels, without waiting for the current file to finish.
+class _TransferCancelledException implements Exception {
+  const _TransferCancelledException();
+}
+
 class FileManagerScreen extends StatefulWidget {
   final String initialPath;
   const FileManagerScreen({super.key, this.initialPath = '/userdata'});
@@ -254,100 +261,435 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     setState(() => _selected.clear());
   }
 
+  /// Recursively lists every file in a remote folder, with its size, in a
+  /// SINGLE SSH command (one network round-trip, even if the folder has
+  /// many subfolders).
+  ///
+  /// Uses `find ... -exec stat -c "%s %n" {} \;` rather than
+  /// `find -printf`: BusyBox (used on Batocera) doesn't support `-printf`
+  /// (a GNU extension), but `-exec` + `stat -c` are already used elsewhere
+  /// in the app and work on both.
+  ///
+  /// The command's output is wrapped between two unique markers: on some
+  /// configs, Batocera's shell can return its system banner (CPU/RAM/
+  /// features...) mixed into the command's stdout, and each banner line
+  /// would otherwise be wrongly parsed as a "file" below. Keeping only what
+  /// is strictly between the two markers eliminates that noise, whatever
+  /// its exact source.
+  ///
+  /// Returns a list of (path relative to the folder, size in bytes).
+  Future<List<MapEntry<String, int>>> _listFolderRecursive(String folderPath) async {
+    final state = context.read<AppState>();
+    final marker = 'FOCLABROC_FIND_${DateTime.now().microsecondsSinceEpoch}';
+    final cmd = 'echo $marker; '
+        'find "$folderPath" -type f -exec stat -c "%s %n" {} \\; 2>/dev/null; '
+        'echo ${marker}_END';
+    final out = await state.ssh.execute(cmd);
+
+    // Strictly isolate what's between the two markers.
+    final startIdx = out.indexOf(marker);
+    final endIdx = out.indexOf('${marker}_END');
+    if (startIdx < 0 || endIdx < 0 || endIdx <= startIdx) return const [];
+    final body = out.substring(startIdx + marker.length, endIdx);
+
+    final prefix = folderPath.endsWith('/') ? folderPath : '$folderPath/';
+    final result = <MapEntry<String, int>>[];
+    for (final rawLine in body.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      final spaceIdx = line.indexOf(' ');
+      if (spaceIdx < 0) continue;
+      // Extra safety net: a valid line always starts with a number (the
+      // size). Any line that doesn't match this format is skipped instead
+      // of producing a bogus "file" with an absurd name.
+      final size = int.tryParse(line.substring(0, spaceIdx));
+      if (size == null) continue;
+      final fullPath = line.substring(spaceIdx + 1);
+      final rel = fullPath.startsWith(prefix)
+          ? fullPath.substring(prefix.length)
+          : fullPath.split('/').last;
+      if (rel.isNotEmpty) result.add(MapEntry(rel, size));
+    }
+    return result;
+  }
+
   Future<void> _downloadSelected() async {
     if (_selected.isEmpty) return;
     final state = context.read<AppState>();
-    final items = _items.where((it) => _selected.contains(it.fullPath) && !it.isDir).toList();
-    if (items.isEmpty) {
-      _showSnack('Select at least one file');
+    final selectedFiles = _items.where((it) => _selected.contains(it.fullPath) && !it.isDir).toList();
+    final selectedFolders = _items.where((it) => _selected.contains(it.fullPath) && it.isDir).toList();
+    if (selectedFiles.isEmpty && selectedFolders.isEmpty) {
+      _showSnack('Select at least one file or folder');
       return;
     }
+
+    // Unified queue: files selected directly + files found recursively in
+    // selected folders. `size` = 0 for direct files (fetched on the fly
+    // during download, as before); already known for folder files (via the
+    // grouped stat).
+    final queue = <({String remotePath, String localRelPath, int size})>[];
+    for (final f in selectedFiles) {
+      queue.add((remotePath: f.fullPath, localRelPath: f.name, size: 0));
+    }
+
+    // Selected folders: recursive listing BEFORE starting anything, so we
+    // can show a summary and ask for confirmation (only in this case — a
+    // plain file download stays immediate, no extra step, as before).
+    if (selectedFolders.isNotEmpty) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (_) => const Center(child: Card(
+          child: Padding(padding: EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              CircularProgressIndicator(color: Colors.purpleAccent),
+              SizedBox(height: 16),
+              Text('Scanning folder...', style: TextStyle(color: Colors.white70)),
+            ]),
+          ),
+        )),
+      );
+
+      for (final folder in selectedFolders) {
+        try {
+          final entries = await _listFolderRecursive(folder.fullPath);
+          for (final e in entries) {
+            queue.add((
+              remotePath: '${folder.fullPath}/${e.key}',
+              localRelPath: '${folder.name}/${e.key}',
+              size: e.value,
+            ));
+          }
+        } catch (_) {
+          // An unreadable folder doesn't block the others
+        }
+      }
+
+      if (mounted) Navigator.of(context, rootNavigator: true).pop(); // close "Scanning..."
+      if (!mounted) return;
+
+      final folderFilesCount = queue.length - selectedFiles.length;
+      final totalBytes = queue.fold<int>(0, (a, e) => a + e.size);
+      final proceed = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.folder_zip_rounded, color: Colors.purpleAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Download folder(s)?', style: TextStyle(fontSize: 15)),
+          ]),
+          content: Text(
+            '${selectedFolders.length} folder${selectedFolders.length > 1 ? "s" : ""} · '
+            '$folderFilesCount file${folderFilesCount > 1 ? "s" : ""}'
+            '${selectedFiles.isNotEmpty ? " + ${selectedFiles.length} file(s) selected" : ""}\n'
+            'Estimated total size: ${_FileItem._formatSize(totalBytes)}',
+            style: const TextStyle(fontSize: 13, color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+              icon: const Icon(Icons.download_rounded, size: 16),
+              label: const Text('Download'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true || !mounted) return;
+    }
+
     const downloadsPath = '/storage/emulated/0/Download';
     final downloadsDir = Directory(downloadsPath);
     if (!await downloadsDir.exists()) await downloadsDir.create(recursive: true);
 
-    // Variables de progression partagées avec le dialog
-    double progress = 0.0;
-    String currentName = items.first.name;
-    int currentIdx = 1;
+    // Before downloading anything, note which top-level folders (one per
+    // selected source folder) don't exist yet on the phone. If the
+    // operation is cancelled, those can be deleted entirely (recursively)
+    // without any risk of erasing files that were already there before
+    // this operation — a safety net on top of the per-file deletion, in
+    // case that alone isn't enough (e.g. access restrictions depending on
+    // the Android version).
+    final freshTopFolders = <String>{};
+    for (final folder in selectedFolders) {
+      final topDir = Directory('$downloadsPath/${folder.name}');
+      if (!await topDir.exists()) freshTopFolders.add(topDir.path);
+    }
 
-    // Dialog modal avec progression
+    // Progress variables shared with the dialog.
+    // fileProgress = progress of the current file (0..1)
+    // globalProgress = progress across the whole queue (0..1), based on the
+    // current file's index + its progress fraction — stays meaningful even
+    // when a file's size isn't known in advance (files selected directly,
+    // not from a folder).
+    double fileProgress = 0.0;
+    double globalProgress = 0.0;
+    String currentName = queue.isNotEmpty ? queue.first.localRelPath : '';
+    int currentIdx = 1;
+    // Becomes true as soon as the user confirms cancellation. Checked in
+    // onProgress to interrupt the current transfer on the next packet
+    // received, without waiting for the file to finish.
+    bool cancelled = false;
+
+    // Reference to the DIALOG's own setState (not the main screen's). The
+    // dialog lives in a separate route/overlay: calling
+    // _FileManagerScreenState's setState does NOT refresh it, which is why
+    // the progress bar used to stay stuck on "1" throughout the download.
+    StateSetter? dialogSetState;
+
+    /// Asks for confirmation before cancelling (potentially long transfer,
+    /// better to avoid an accidental tap).
+    Future<void> requestCancel() async {
+      final confirm = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Cancel download?', style: TextStyle(fontSize: 15)),
+          ]),
+          content: const Text(
+            'The current transfer will be interrupted and the files already '
+            'downloaded during this operation will be deleted.',
+            style: TextStyle(fontSize: 13, color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+              child: const Text('Keep downloading'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        cancelled = true;
+        if (mounted) dialogSetState?.call(() {});
+      }
+    }
+
+    // Progress dialog: a bar for the current file + a global bar for the
+    // whole queue below it.
     showDialog(
       context: context,
       barrierDismissible: false,
       useRootNavigator: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) {
-          // Écouter les mises à jour via un Stream-like approach
+          dialogSetState = setDlgState;
           return AlertDialog(
             backgroundColor: const Color(0xFF1C2230),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.download_rounded, color: Colors.purpleAccent, size: 32),
-              const SizedBox(height: 12),
-              Text(
-                items.length > 1 ? 'File $currentIdx/${items.length}' : 'Downloading...',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
+            // Fixed width: prevents the box from resizing during the
+            // transfer (the filename or the % text could otherwise change
+            // the content's natural width).
+            content: SizedBox(
+              width: 280,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.download_rounded, color: Colors.purpleAccent, size: 32),
+                const SizedBox(height: 12),
+                Text(
+                  cancelled
+                      ? 'Cancelling...'
+                      : (queue.length > 1 ? 'File $currentIdx/${queue.length}' : 'Downloading...'),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(currentName,
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  value: fileProgress > 0 ? fileProgress : null,
+                  color: Colors.purpleAccent,
+                  backgroundColor: Colors.purple.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  minHeight: 6,
+                ),
+                // Always shown (never conditionally hidden): showing/hiding
+                // this text based on fileProgress used to change the
+                // dialog's height on every file → a flicker effect.
+                const SizedBox(height: 4),
+                Text('${(fileProgress * 100).toInt()}%',
+                  style: const TextStyle(color: Colors.purpleAccent, fontSize: 11)),
+                // Global bar: only useful when there's more than one file
+                // (otherwise it would duplicate the single file's bar).
+                // `queue.length` never changes during the dialog's
+                // lifetime, so this condition never causes flicker.
+                if (queue.length > 1) ...[
+                  const SizedBox(height: 16),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Overall progress',
+                      style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  ),
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: globalProgress,
+                    color: Colors.greenAccent,
+                    backgroundColor: Colors.greenAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    minHeight: 8,
+                  ),
+                  const SizedBox(height: 4),
+                  Text('${(globalProgress * 100).toInt()}%',
+                    style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
+                ],
+              ]),
+            ),
+            actions: [
+              TextButton(
+                onPressed: cancelled ? null : requestCancel,
+                child: Text('Cancel',
+                  style: TextStyle(color: cancelled ? Colors.white24 : Colors.redAccent)),
               ),
-              const SizedBox(height: 4),
-              Text(currentName,
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(
-                value: progress > 0 ? progress : null,
-                color: Colors.purpleAccent,
-                backgroundColor: Colors.purple.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(4),
-                minHeight: 6,
-              ),
-              if (progress > 0) ...[
-                const SizedBox(height: 6),
-                Text('${(progress * 100).toInt()}%',
-                  style: const TextStyle(color: Colors.purpleAccent, fontSize: 12)),
-              ],
-            ]),
+            ],
           );
         },
       ),
     );
 
     final saved = <String>[];
-    for (int idx = 0; idx < items.length; idx++) {
-      final item = items[idx];
-      currentName = item.name;
+    final failed = <String>[];
+    // Folders created during THIS download (for cleanup if cancelled) and
+    // the path of the file currently being written (to delete the partial
+    // one if there is one at the moment of cancellation).
+    final createdDirs = <String>{};
+    String? partialFilePath;
+
+    for (int idx = 0; idx < queue.length; idx++) {
+      if (cancelled) break;
+      final entry = queue[idx];
+      currentName = entry.localRelPath;
       currentIdx = idx + 1;
-      progress = 0.0;
+      fileProgress = 0.0;
+      globalProgress = idx / queue.length;
+      // Refreshes the dialog for the current file's name/index (the
+      // refresh during the transfer itself happens further below, in
+      // onProgress).
+      if (mounted) dialogSetState?.call(() {});
 
       try {
-        final sizeStr = await state.ssh.execute('stat -c%s "${item.fullPath}" 2>/dev/null');
-        final totalSize = int.tryParse(sizeStr.trim()) ?? 0;
-        final dest = File('$downloadsPath/${item.name}');
+        // Size already known for files coming from a folder (grouped stat
+        // during the scan); otherwise fetched on the fly as before.
+        int totalSize = entry.size;
+        if (totalSize == 0) {
+          final sizeStr = await state.ssh.execute('stat -c%s "${entry.remotePath}" 2>/dev/null');
+          totalSize = int.tryParse(sizeStr.trim()) ?? 0;
+        }
+
+        final destFile = File('$downloadsPath/${entry.localRelPath}');
+        partialFilePath = destFile.path;
+        // Recreates the local folder structure (subfolders) before writing.
+        final destDir = destFile.parent;
+        if (!await destDir.exists()) {
+          await destDir.create(recursive: true);
+        }
+        createdDirs.add(destDir.path);
+
         await state.ssh.downloadFileToDisk(
-          item.fullPath,
-          dest.path,
+          entry.remotePath,
+          destFile.path,
           onProgress: totalSize > 0 ? (bytes) {
-            progress = (bytes / totalSize).clamp(0.0, 1.0);
-            if (mounted) setState(() {});
+            // Checked on every packet received: interrupts the transfer as
+            // soon as possible after cancellation is confirmed, without
+            // waiting for the file to finish.
+            if (cancelled) throw const _TransferCancelledException();
+            fileProgress = (bytes / totalSize).clamp(0.0, 1.0);
+            globalProgress = ((idx + fileProgress) / queue.length).clamp(0.0, 1.0);
+            if (mounted) dialogSetState?.call(() {});
           } : null,
         );
-        saved.add(item.name);
+        saved.add(entry.localRelPath);
+        partialFilePath = null; // this file is complete, no longer "partial"
+      } on _TransferCancelledException {
+        break;
       } catch (e) {
-        if (mounted) _showSnack('Error ${item.name}: $e', isError: true);
+        // Failures are accumulated instead of one snackbar per file: with
+        // many files (recursive folder), several snackbars would chain/
+        // overwrite each other too fast to be readable. A single summary
+        // is shown at the end.
+        failed.add(entry.localRelPath);
       }
+    }
+
+    // ── Cancellation: full rollback (already-downloaded files + partial
+    // file deleted, empty subfolders created during the operation cleaned
+    // up) ──────────────────────────────────────────────────────────────
+    if (cancelled) {
+      // File being written at the moment of cancellation.
+      if (partialFilePath != null) {
+        try { await File(partialFilePath).delete(); } catch (_) {}
+      }
+      // Files already completed successfully during this operation.
+      for (final rel in saved) {
+        try { await File('$downloadsPath/$rel').delete(); } catch (_) {}
+      }
+      // Subfolders created during this operation: best-effort deletion from
+      // deepest to shallowest, only if they're now empty
+      // (Directory.delete() without recursive fails otherwise, which is
+      // the intended behavior — we never delete a folder that would still
+      // contain something).
+      final sortedDirs = createdDirs.toList()
+        ..sort((a, b) => b.length.compareTo(a.length));
+      for (final dir in sortedDirs) {
+        try { await Directory(dir).delete(); } catch (_) {}
+      }
+      // Safety net: if the top-level folder (one per selected source
+      // folder) did NOT exist before this operation, delete it entirely
+      // and recursively, no matter what's left inside it. This guarantees
+      // full cleanup even if the per-file deletion above failed for some
+      // items (e.g. access restriction depending on the Android version)
+      // — safely, since we know it didn't exist before: all of its content
+      // necessarily comes from this operation.
+      for (final topDir in freshTopFolders) {
+        try { await Directory(topDir).delete(recursive: true); } catch (_) {}
+      }
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        setState(() { _downloading = null; _downloadProgress = null; _selected.clear(); });
+        _showSnack('Download cancelled', isError: true);
+      }
+      return;
     }
 
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();
-      setState(() { _downloading = null; _downloadProgress = null; });
+      // Clear the selection: the transfer is done, keeping folders/files
+      // checked no longer makes sense (consistent with other actions —
+      // deletion, etc. — which also exit selection mode when finished).
+      setState(() { _downloading = null; _downloadProgress = null; _selected.clear(); });
+      final parts = <String>[];
       if (saved.isNotEmpty) {
-        final msg = saved.length == 1
-            ? '${saved.first} downloaded to Downloads'
-            : '${saved.length} files downloaded to Downloads';
-        _showSnack(msg);
+        parts.add(saved.length == 1
+            ? '${saved.first} downloaded'
+            : '${saved.length} files downloaded');
+      }
+      if (failed.isNotEmpty) {
+        parts.add('${failed.length} failed');
+      }
+      if (parts.isNotEmpty) {
+        _showSnack(
+          '${parts.join(' · ')} to Downloads',
+          isError: saved.isEmpty && failed.isNotEmpty,
+        );
       }
     }
   }
+
 
   Future<void> _deleteSelected() async {
     final count = _selectedItems.length;
@@ -471,6 +813,316 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       });
     }
   }
+
+  /// Uploads a whole folder from the phone to Batocera, with a confirmation
+  /// summary, double progress bar (file + global), a Cancel button and full
+  /// rollback if cancelled — same logic as the folder download
+  /// (_downloadSelected), for the reverse direction.
+  Future<void> _uploadFolder() async {
+    // 1) Pick a LOCAL folder via the in-app picker's dedicated mode.
+    final folderResult = await Navigator.of(context, rootNavigator: true).push<InAppFolderPickerResult>(
+      MaterialPageRoute(
+        builder: (_) => const InAppFilePicker(pickFolderMode: true),
+        fullscreenDialog: true,
+      ),
+    );
+    if (folderResult == null || !mounted) return;
+
+    // 2) Recursively list every LOCAL file in the chosen folder. The
+    //    phone's own filesystem directly via dart:io — no SSH here.
+    //    Uses FileSystemEntity.typeSync (not `entity is File`): just like
+    //    the picker itself, `is File`/`is Directory` can be wrong on
+    //    Android because of symlinks.
+    final localFiles = <({String localPath, String relPath, int size})>[];
+    try {
+      final localDir = Directory(folderResult.path);
+      await for (final entity in localDir.list(recursive: true, followLinks: false)) {
+        FileSystemEntityType type;
+        try {
+          type = FileSystemEntity.typeSync(entity.path, followLinks: true);
+        } catch (_) {
+          continue;
+        }
+        if (type != FileSystemEntityType.file) continue;
+        final rel = entity.path.substring(folderResult.path.length + 1);
+        int size = 0;
+        try { size = await File(entity.path).length(); } catch (_) {}
+        localFiles.add((localPath: entity.path, relPath: rel, size: size));
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Error reading folder: $e', isError: true);
+      return;
+    }
+    if (localFiles.isEmpty) {
+      if (mounted) _showSnack('Empty folder');
+      return;
+    }
+    if (!mounted) return;
+
+    // 3) Summary + confirmation before starting anything.
+    final totalBytes = localFiles.fold<int>(0, (a, f) => a + f.size);
+    final proceed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.drive_folder_upload_rounded, color: Colors.purpleAccent, size: 22),
+          SizedBox(width: 8),
+          Text('Upload folder?', style: TextStyle(fontSize: 15)),
+        ]),
+        content: Text(
+          '${folderResult.name}\n'
+          '${localFiles.length} file${localFiles.length > 1 ? "s" : ""} · '
+          'Estimated total size: ${_FileItem._formatSize(totalBytes)}',
+          style: const TextStyle(fontSize: 13, color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+            icon: const Icon(Icons.upload_rounded, size: 16),
+            label: const Text('Upload'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
+          ),
+        ],
+      ),
+    );
+    if (proceed != true || !mounted) return;
+
+    final state = context.read<AppState>();
+    final remoteBase = '$_currentPath/${folderResult.name}';
+
+    // Checks BEFORE any upload whether the destination folder already
+    // exists on Batocera — if it doesn't, it can be deleted entirely as a
+    // safety net if the operation is cancelled (like freshTopFolders for
+    // download, but on the remote side).
+    bool remoteTopExisted = false;
+    try {
+      final checkOut = await state.ssh.execute('[ -d "$remoteBase" ] && echo 1 || echo 0');
+      remoteTopExisted = checkOut.trim() == '1';
+    } catch (_) {}
+    if (!mounted) return;
+
+    // Progress variables shared with the dialog (see _downloadSelected for
+    // the role of each one).
+    double fileProgress = 0.0;
+    double globalProgress = 0.0;
+    String currentName = localFiles.first.relPath;
+    int currentIdx = 1;
+    bool cancelled = false;
+    StateSetter? dialogSetState;
+
+    Future<void> requestCancel() async {
+      final confirm = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Cancel upload?', style: TextStyle(fontSize: 15)),
+          ]),
+          content: const Text(
+            'The current transfer will be interrupted and the files already '
+            'uploaded during this operation will be deleted on Batocera.',
+            style: TextStyle(fontSize: 13, color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+              child: const Text('Keep uploading'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        cancelled = true;
+        if (mounted) dialogSetState?.call(() {});
+      }
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          dialogSetState = setDlgState;
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1C2230),
+            content: SizedBox(
+              width: 280,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.drive_folder_upload_rounded, color: Colors.purpleAccent, size: 32),
+                const SizedBox(height: 12),
+                Text(
+                  cancelled
+                      ? 'Cancelling...'
+                      : (localFiles.length > 1 ? 'File $currentIdx/${localFiles.length}' : 'Uploading...'),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(currentName,
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  value: fileProgress > 0 ? fileProgress : null,
+                  color: Colors.purpleAccent,
+                  backgroundColor: Colors.purple.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  minHeight: 6,
+                ),
+                const SizedBox(height: 4),
+                Text('${(fileProgress * 100).toInt()}%',
+                  style: const TextStyle(color: Colors.purpleAccent, fontSize: 11)),
+                if (localFiles.length > 1) ...[
+                  const SizedBox(height: 16),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Overall progress',
+                      style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  ),
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: globalProgress,
+                    color: Colors.greenAccent,
+                    backgroundColor: Colors.greenAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    minHeight: 8,
+                  ),
+                  const SizedBox(height: 4),
+                  Text('${(globalProgress * 100).toInt()}%',
+                    style: const TextStyle(color: Colors.greenAccent, fontSize: 11)),
+                ],
+              ]),
+            ),
+            actions: [
+              TextButton(
+                onPressed: cancelled ? null : requestCancel,
+                child: Text('Cancel',
+                  style: TextStyle(color: cancelled ? Colors.white24 : Colors.redAccent)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    final saved = <String>[]; // relative paths uploaded successfully
+    final failed = <String>[];
+    final createdRemoteDirs = <String>{};
+    String? partialRemotePath;
+
+    for (int idx = 0; idx < localFiles.length; idx++) {
+      if (cancelled) break;
+      final f = localFiles[idx];
+      currentName = f.relPath;
+      currentIdx = idx + 1;
+      fileProgress = 0.0;
+      globalProgress = idx / localFiles.length;
+      if (mounted) dialogSetState?.call(() {});
+
+      try {
+        final remotePath = '$remoteBase/${f.relPath}';
+        partialRemotePath = remotePath;
+        final lastSlash = remotePath.lastIndexOf('/');
+        final remoteDir = lastSlash > 0 ? remotePath.substring(0, lastSlash) : remoteBase;
+        if (!createdRemoteDirs.contains(remoteDir)) {
+          await state.ssh.execute('mkdir -p "$remoteDir"');
+          createdRemoteDirs.add(remoteDir);
+        }
+
+        await state.ssh.uploadFileFromPath(
+          f.localPath,
+          remotePath,
+          onProgress: (sent, fileTotal) {
+            // Checked on every packet sent: interrupts the transfer as
+            // soon as possible after cancellation is confirmed.
+            if (cancelled) throw const _TransferCancelledException();
+            fileProgress = fileTotal > 0 ? (sent / fileTotal).clamp(0.0, 1.0) : 0.0;
+            globalProgress = ((idx + fileProgress) / localFiles.length).clamp(0.0, 1.0);
+            if (mounted) dialogSetState?.call(() {});
+          },
+        );
+        saved.add(f.relPath);
+        partialRemotePath = null; // this file is complete
+      } on _TransferCancelledException {
+        break;
+      } catch (e) {
+        // Failures are accumulated instead of one snackbar per file (same
+        // reasoning as for download).
+        failed.add(f.relPath);
+      }
+    }
+
+    // ── Cancellation: full rollback on BATOCERA's side (already-uploaded
+    // files + partial file deleted via SSH, empty remote folders created
+    // during the operation cleaned up) ──────────────────────────────────
+    if (cancelled) {
+      if (partialRemotePath != null) {
+        try { await state.ssh.execute('rm -f "$partialRemotePath"'); } catch (_) {}
+      }
+      for (final rel in saved) {
+        try { await state.ssh.execute('rm -f "$remoteBase/$rel"'); } catch (_) {}
+      }
+      // Remote folders created during this operation: best-effort deletion
+      // from deepest to shallowest — `rmdir` (without -r) fails silently
+      // if the folder still contains something, which is the intended
+      // behavior.
+      final sortedDirs = createdRemoteDirs.toList()
+        ..sort((a, b) => b.length.compareTo(a.length));
+      for (final dir in sortedDirs) {
+        try { await state.ssh.execute('rmdir "$dir" 2>/dev/null'); } catch (_) {}
+      }
+      // Safety net: if the top-level destination folder did NOT exist
+      // before this operation, delete it entirely and recursively on
+      // Batocera, no matter what's left inside it — safely, since we know
+      // it didn't exist before.
+      if (!remoteTopExisted) {
+        try { await state.ssh.execute('rm -rf "$remoteBase"'); } catch (_) {}
+      }
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _showSnack('Upload cancelled', isError: true);
+      }
+      await _loadDir(_currentPath);
+      return;
+    }
+
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop();
+      final parts = <String>[];
+      if (saved.isNotEmpty) {
+        parts.add(saved.length == 1
+            ? '${saved.first} uploaded'
+            : '${saved.length} files uploaded');
+      }
+      if (failed.isNotEmpty) {
+        parts.add('${failed.length} failed');
+      }
+      if (parts.isNotEmpty) {
+        _showSnack(
+          '${parts.join(' · ')} to Batocera',
+          isError: saved.isEmpty && failed.isNotEmpty,
+        );
+      }
+    }
+    await _loadDir(_currentPath);
+  }
+
 
   Future<void> _openFile(_FileItem item) async {
     final ext = _ext(item.name);
@@ -914,6 +1566,11 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                         icon: Icon(Icons.upload_rounded, color: Colors.white38, size: 20),
                         onPressed: state.isConnected ? _uploadFile : null,
                         tooltip: 'Upload file',
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.drive_folder_upload_rounded, color: Colors.white38, size: 20),
+                        onPressed: state.isConnected ? _uploadFolder : null,
+                        tooltip: 'Upload folder',
                       ),
                       IconButton(
                         icon: Icon(Icons.refresh_rounded, color: Colors.white38, size: 20),

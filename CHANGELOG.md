@@ -4,6 +4,29 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+## v3.9.0+39 — Septembre 2026
+
+### ✨ Nouvelles fonctionnalités
+- **Envoi de dossier complet** vers Batocera depuis le gestionnaire de fichiers — même logique que le téléchargement de dossier (v3.8), pour le sens inverse : listing récursif local (`FileSystemEntity.typeSync`, pas `entity is File` — évite le même piège symlink que pour le picker), confirmation avec récap (nb fichiers + taille totale estimée), double barre de progression (fichier + globale), `mkdir -p` créé à la volée côté distant, bouton **Annuler** avec **rollback complet côté Batocera** (suppression SSH des fichiers déjà envoyés + fichier partiel + dossiers distants créés)
+- **Mode sélection de dossier dans le picker in-app** — nouveau paramètre `pickFolderMode` sur `InAppFilePicker` : navigation classique jusqu'au dossier voulu, fichiers visibles pour se repérer mais non sélectionnables, bouton "Choisir ce dossier" dans l'AppBar dès qu'on est entré dans un dossier. Nouvelle classe `InAppFolderPickerResult`
+
+### 🧹 Nettoyage
+- `_DownloadCancelledException` renommée en `_TransferCancelledException` (désormais partagée entre téléchargement et envoi de dossier)
+
+---
+
+## v3.8.0+38 — Septembre 2026
+
+### 🐛 Correctifs
+- **Boutons Manuel/Map/Vidéo allumés à tort** — l'API ES expose toujours une route pour ces médias même si le fichier n'existe pas côté Batocera, donc le bouton s'allumait puis échouait au clic ("Impossible de charger le fichier"). Branchement de `_checkMediaAvailability()` (déjà écrite côté FR mais jamais appelée) sur `hasManual`/`hasMap`/`hasVideo` ; portage complet de la méthode côté EN où elle était totalement absente
+
+### ✨ Nouvelles fonctionnalités
+- **Téléchargement de dossier complet** dans le gestionnaire de fichiers — sélection multiple fichiers + dossiers, listing récursif via `find -exec stat -c "%s %n"` (compatible BusyBox, `find -printf` non supporté), confirmation avec récap (nb fichiers + taille totale estimée), double barre de progression (fichier en cours + globale, largeur de dialog fixe pour éviter tout clignotement), bouton **Annuler** avec confirmation et **rollback complet** (fichier partiel + fichiers déjà téléchargés + dossiers vides créés supprimés, avec filet de sécurité sur les dossiers top-level fraîchement créés)
+  - Sortie de la commande SSH encadrée par deux marqueurs uniques pour l'isoler de toute pollution (bannière système Batocera mélangée au stdout sur certaines configs)
+  - Sélection automatiquement vidée en fin de transfert
+
+---
+
 ## v3.7.0+37 — Septembre 2026
 
 ### ✨ Améliorations

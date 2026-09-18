@@ -10,6 +10,15 @@ class InAppFilePickerResult {
   const InAppFilePickerResult({required this.localPath, required this.ext});
 }
 
+/// Résultat d'une sélection de DOSSIER (mode [InAppFilePicker.pickFolderMode]).
+class InAppFolderPickerResult {
+  /// Chemin absolu du dossier choisi.
+  final String path;
+  /// Dernier segment du chemin (nom du dossier), pratique pour l'affichage.
+  final String name;
+  const InAppFolderPickerResult({required this.path, required this.name});
+}
+
 /// Picker de fichiers **interne à l'app** : ne déclenche aucun intent système,
 /// donc évite la duplication MIUI dans `Pictures/` (le picker système copie
 /// le fichier sélectionné, ce qui peut déclencher l'indexation MediaStore).
@@ -28,18 +37,29 @@ class InAppFilePickerResult {
 /// - tap simple = sélection unique → retourne 1 résultat
 /// - long-press = active le mode multi → tap = toggle, bouton OK (n) en
 ///   AppBar pour valider → retourne N résultats
+/// - [pickFolderMode] : mode alternatif où on navigue jusqu'à un dossier
+///   puis on le valide via un bouton dédié dans l'AppBar (au lieu de
+///   sélectionner des fichiers). Retourne un [InAppFolderPickerResult]
+///   (et non une liste de [InAppFilePickerResult]).
 class InAppFilePicker extends StatefulWidget {
   /// Extensions acceptées (minuscules, sans le point).
-  /// Vide ou null = tous fichiers.
+  /// Vide ou null = tous fichiers. Ignoré en [pickFolderMode].
   final Set<String>? allowedExtensions;
   /// Autoriser la multi-sélection (par défaut true).
   /// Si false, le tap ferme directement le picker avec le fichier choisi.
+  /// Ignoré en [pickFolderMode].
   final bool allowMultiple;
+  /// Si true : le picker sert à choisir un DOSSIER (pas des fichiers). Les
+  /// fichiers restent visibles pour se repérer mais ne sont pas
+  /// sélectionnables ; un bouton "Choisir ce dossier" apparaît dans
+  /// l'AppBar dès qu'on est entré dans un dossier.
+  final bool pickFolderMode;
 
   const InAppFilePicker({
     super.key,
     this.allowedExtensions,
     this.allowMultiple = true,
+    this.pickFolderMode = false,
   });
 
   @override
@@ -54,12 +74,12 @@ class _Shortcut {
   const _Shortcut(this.label, this.path, this.icon);
 }
 
-/// Static shortcuts to standard Android folders.
+/// Raccourcis statiques vers les dossiers standards Android.
 const List<_Shortcut> _staticShortcuts = [
-  _Shortcut('Internal storage', '/storage/emulated/0',            Icons.phone_android_rounded),
+  _Shortcut('Stockage interne', '/storage/emulated/0',            Icons.phone_android_rounded),
   _Shortcut('Pictures',         '/storage/emulated/0/Pictures',   Icons.image_rounded),
   _Shortcut('DCIM',             '/storage/emulated/0/DCIM',       Icons.camera_alt_rounded),
-  _Shortcut('Downloads',        '/storage/emulated/0/Download',   Icons.download_rounded),
+  _Shortcut('Téléchargements',  '/storage/emulated/0/Download',   Icons.download_rounded),
   _Shortcut('Documents',        '/storage/emulated/0/Documents',  Icons.description_rounded),
   _Shortcut('Movies',           '/storage/emulated/0/Movies',     Icons.movie_rounded),
   _Shortcut('Music',            '/storage/emulated/0/Music',      Icons.music_note_rounded),
@@ -68,7 +88,7 @@ const List<_Shortcut> _staticShortcuts = [
   _Shortcut('Android/media',    '/storage/emulated/0/Android/media', Icons.perm_media_rounded),
 ];
 
-/// Detects SD cards mounted under /storage/ (excluding emulated and self).
+/// Détecte les cartes SD montées dans /storage/ (hors emulated et self).
 List<_Shortcut> _detectSdCards() {
   try {
     final storageDir = Directory('/storage');
@@ -88,7 +108,7 @@ List<_Shortcut> _detectSdCards() {
   }
 }
 
-/// Builds the final list: static shortcuts (filtered by existence) + SD cards.
+/// Construit la liste finale : raccourcis statiques (filtrés par existence) + SD.
 List<_Shortcut> _buildShortcuts() {
   final shortcuts = <_Shortcut>[];
   for (final s in _staticShortcuts) {
@@ -144,7 +164,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
   // ── Permissions ──
   _PermState _permState = _PermState.checking;
 
-  // ── Shortcuts (built after permissions are granted) ──
+  // ── Raccourcis (construits après l'obtention des permissions) ──
   List<_Shortcut> _shortcuts = [];
 
   // ── Navigation ──
@@ -252,7 +272,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
         if (!mounted) return;
         setState(() {
           _loading = false;
-          _error = 'Folder not found';
+          _error = 'Dossier introuvable';
         });
         return;
       }
@@ -288,7 +308,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Read error : $e';
+        _error = 'Erreur lecture : $e';
       });
     }
   }
@@ -347,6 +367,15 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
     Navigator.of(context).pop(results);
   }
 
+  /// Valide le dossier actuellement ouvert (mode [InAppFilePicker.pickFolderMode]).
+  void _confirmFolder() {
+    final path = _currentPath;
+    if (path == null) return;
+    Navigator.of(context).pop(
+      InAppFolderPickerResult(path: path, name: path.split('/').last),
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  UI
   // ─────────────────────────────────────────────────────────────────────────
@@ -364,8 +393,8 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
             const SizedBox(height: 16),
             Text(
               isPermanent
-                  ? 'Permission permanently denied'
-                  : 'Permission required',
+                  ? 'Permission refusée définitivement'
+                  : 'Permission requise',
               style: const TextStyle(
                 color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600,
               ),
@@ -374,8 +403,8 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
             const SizedBox(height: 10),
             Text(
               isPermanent
-                  ? 'Open the app settings to allow file access.'
-                  : 'The picker needs access to your files to display them.',
+                  ? 'Ouvre les paramètres de l\'app pour autoriser l\'accès aux fichiers.'
+                  : 'Le picker a besoin d\'accéder à tes fichiers pour les afficher.',
               style: const TextStyle(color: Colors.white54, fontSize: 13),
               textAlign: TextAlign.center,
             ),
@@ -387,7 +416,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
                   foregroundColor: Colors.white,
                 ),
                 icon: const Icon(Icons.settings_rounded, size: 18),
-                label: const Text('Open settings'),
+                label: const Text('Ouvrir paramètres'),
                 onPressed: () async {
                   await openAppSettings();
                   // Au retour des paramètres, re-check
@@ -401,13 +430,13 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
                   foregroundColor: Colors.white,
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Retry'),
+                label: const Text('Réessayer'),
                 onPressed: _checkAndRequestPermissions,
               ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Cancel',
+              child: const Text('Annuler',
                 style: TextStyle(color: Colors.white38),
               ),
             ),
@@ -466,7 +495,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
     }
     if (_entries.isEmpty) {
       return const Center(child: Text(
-        'No file in this folder',
+        'Aucun fichier dans ce dossier',
         style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
       ));
     }
@@ -532,14 +561,16 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {
+        // En mode sélection de dossier, les fichiers sont juste visibles
+        // pour se repérer — non sélectionnables (pas de tap/long-press).
+        onTap: widget.pickFolderMode ? null : () {
           if (_multiMode) {
             _toggleSelect(e.path);
           } else {
             _selectFileSingle(e.path);
           }
         },
-        onLongPress: () {
+        onLongPress: widget.pickFolderMode ? null : () {
           if (!_multiMode) _enterMultiMode(e.path);
           else _toggleSelect(e.path);
         },
@@ -600,9 +631,9 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
 
   String _buildTitle() {
     if (_multiMode) {
-      return '${_selected.length} selected';
+      return '${_selected.length} sélectionné${_selected.length > 1 ? "s" : ""}';
     }
-    if (_currentPath == null) return 'Choose a file';
+    if (_currentPath == null) return 'Choisir un fichier';
     final p = _currentPath!;
     for (final s in _shortcuts) {
       if (p == s.path) return s.label;
@@ -662,11 +693,20 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
                   style: const TextStyle(color: Color(0xFFE02020), fontSize: 13),
                 ),
               )
+            else if (widget.pickFolderMode && _stack.isNotEmpty && _permState == _PermState.granted)
+              TextButton.icon(
+                onPressed: _confirmFolder,
+                icon: const Icon(Icons.check_rounded, size: 18, color: Color(0xFFE02020)),
+                label: const Text(
+                  'Choisir ce dossier',
+                  style: TextStyle(color: Color(0xFFE02020), fontSize: 13),
+                ),
+              )
             else if (_stack.isNotEmpty && _permState == _PermState.granted)
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, size: 20),
                 onPressed: _loadCurrentDir,
-                tooltip: 'Refresh',
+                tooltip: 'Actualiser',
               ),
           ],
         ),

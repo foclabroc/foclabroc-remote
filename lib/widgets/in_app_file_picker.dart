@@ -10,6 +10,15 @@ class InAppFilePickerResult {
   const InAppFilePickerResult({required this.localPath, required this.ext});
 }
 
+/// Résultat d'une sélection de DOSSIER (mode [InAppFilePicker.pickFolderMode]).
+class InAppFolderPickerResult {
+  /// Chemin absolu du dossier choisi.
+  final String path;
+  /// Dernier segment du chemin (nom du dossier), pratique pour l'affichage.
+  final String name;
+  const InAppFolderPickerResult({required this.path, required this.name});
+}
+
 /// Picker de fichiers **interne à l'app** : ne déclenche aucun intent système,
 /// donc évite la duplication MIUI dans `Pictures/` (le picker système copie
 /// le fichier sélectionné, ce qui peut déclencher l'indexation MediaStore).
@@ -28,18 +37,29 @@ class InAppFilePickerResult {
 /// - tap simple = sélection unique → retourne 1 résultat
 /// - long-press = active le mode multi → tap = toggle, bouton OK (n) en
 ///   AppBar pour valider → retourne N résultats
+/// - [pickFolderMode] : mode alternatif où on navigue jusqu'à un dossier
+///   puis on le valide via un bouton dédié dans l'AppBar (au lieu de
+///   sélectionner des fichiers). Retourne un [InAppFolderPickerResult]
+///   (et non une liste de [InAppFilePickerResult]).
 class InAppFilePicker extends StatefulWidget {
   /// Extensions acceptées (minuscules, sans le point).
-  /// Vide ou null = tous fichiers.
+  /// Vide ou null = tous fichiers. Ignoré en [pickFolderMode].
   final Set<String>? allowedExtensions;
   /// Autoriser la multi-sélection (par défaut true).
   /// Si false, le tap ferme directement le picker avec le fichier choisi.
+  /// Ignoré en [pickFolderMode].
   final bool allowMultiple;
+  /// Si true : le picker sert à choisir un DOSSIER (pas des fichiers). Les
+  /// fichiers restent visibles pour se repérer mais ne sont pas
+  /// sélectionnables ; un bouton "Choisir ce dossier" apparaît dans
+  /// l'AppBar dès qu'on est entré dans un dossier.
+  final bool pickFolderMode;
 
   const InAppFilePicker({
     super.key,
     this.allowedExtensions,
     this.allowMultiple = true,
+    this.pickFolderMode = false,
   });
 
   @override
@@ -347,6 +367,15 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
     Navigator.of(context).pop(results);
   }
 
+  /// Valide le dossier actuellement ouvert (mode [InAppFilePicker.pickFolderMode]).
+  void _confirmFolder() {
+    final path = _currentPath;
+    if (path == null) return;
+    Navigator.of(context).pop(
+      InAppFolderPickerResult(path: path, name: path.split('/').last),
+    );
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   //  UI
   // ─────────────────────────────────────────────────────────────────────────
@@ -532,14 +561,16 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {
+        // En mode sélection de dossier, les fichiers sont juste visibles
+        // pour se repérer — non sélectionnables (pas de tap/long-press).
+        onTap: widget.pickFolderMode ? null : () {
           if (_multiMode) {
             _toggleSelect(e.path);
           } else {
             _selectFileSingle(e.path);
           }
         },
-        onLongPress: () {
+        onLongPress: widget.pickFolderMode ? null : () {
           if (!_multiMode) _enterMultiMode(e.path);
           else _toggleSelect(e.path);
         },
@@ -660,6 +691,15 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
                 label: Text(
                   'OK (${_selected.length})',
                   style: const TextStyle(color: Color(0xFFE02020), fontSize: 13),
+                ),
+              )
+            else if (widget.pickFolderMode && _stack.isNotEmpty && _permState == _PermState.granted)
+              TextButton.icon(
+                onPressed: _confirmFolder,
+                icon: const Icon(Icons.check_rounded, size: 18, color: Color(0xFFE02020)),
+                label: const Text(
+                  'Choisir ce dossier',
+                  style: TextStyle(color: Color(0xFFE02020), fontSize: 13),
                 ),
               )
             else if (_stack.isNotEmpty && _permState == _PermState.granted)
