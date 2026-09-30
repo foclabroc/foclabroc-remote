@@ -18,6 +18,7 @@ Historique complet des versions depuis la création du projet.
   - Menu déroulant **Historique** (droite) : 20 dernières commandes, sans doublon, un choix remet la commande dans le champ. Entrée « Effacer l'historique »
   - **Historique persistant** via `SharedPreferences` (clé `ssh_terminal_history`, 50 commandes max) — conservé après fermeture de l'appli
 - **Liste des jeux : icônes manuel/map uniquement si le fichier existe** — un script Python unique côté Batocera lit le(s) `gamelist.xml`, résout les chemins `<manual>`/`<map>` (`./`, `~/`) et ne garde que les fichiers présents (taille > 0). Gère les **collections** (mario, pokemon…) en lisant le gamelist du vrai système de chaque jeu (déduit de `/userdata/roms/<système>/`). Règle stricte : pas de fichier vérifié → pas d'icône
+- **Onglet « Mini jeux »** — Quiz Rétro et Breakout regroupés dans un nouvel onglet placé en dernier dans le menu (nouveau `mini_games_screen.dart`). Deux cartes ouvrant chaque jeu dans le Navigator de l'onglet : le bouton retour Android (ou re-sélectionner « Mini jeux » dans le menu) ramène à la liste. Le menu passe de 13 à 12 entrées (Liens utiles en index 10, Mini jeux en 11)
 - **Erreur explicite en fin d'envoi** — la notification indique la raison du 1er échec (ex. « lecture refusée par Android (activer « Accès à tous les fichiers ») »)
 
 ### 📱 Android
@@ -30,6 +31,8 @@ Historique complet des versions depuis la création du projet.
 - **Annulation d'envoi : suppression possible d'un dossier existant** — si la vérification d'existence du dossier distant échouait, il était considéré comme nouveau et supprimé (`rm -rf`) à l'annulation. Il est maintenant considéré existant sauf réponse explicite contraire
 - **Boutons Manuel/Map/Vidéo grisés à tort (fiche jeu)** — la vérification de v3.8 passait des chemins entre apostrophes dans l'enveloppe `bash -l -c '…'` et échouait dès qu'un nom contenait un espace ou des parenthèses. Exécution directe via le client SSH
 - **Gestionnaire de fichiers : noms avec apostrophe** (`Link's Awakening`…) — lister, renommer, déplacer, copier, supprimer et télécharger échouaient silencieusement. Nouvelle fonction `_shq()` d'échappement adaptée à l'enveloppe `bash -l -c`
+- **Bouton retour du gestionnaire de fichiers enregistré sur le mauvais onglet** — `TabBackHandler.register(5, …)` pointait sur le Terminal SSH (index 5) au lieu de Fichiers (index 6), reste du décalage des index lors de l'ajout du Pad virtuel. Dans le Terminal, le retour remontait le dossier du gestionnaire en arrière-plan ; dans Fichiers, le retour ne désélectionnait pas. Corrigé en index 6
+- **Nombre d'onglets codé en dur** (`List.generate(13, …)` pour les Navigators et la pile d'onglets `Offstage`) — remplacé par `_tabs.length`
 - **Terminal : commandes contenant une apostrophe** (`awk '{…}'`, `echo 'texte'`) cassées par l'enveloppe `bash -c '…'` — échappement ajouté
 - **Canal SFTP jamais fermé** — `uploadFileFromPath()` et `downloadFileToDisk()` laissaient un canal ouvert par fichier transféré. Fermeture systématique, fichiers local/distant fermés même en cas d'annulation ou d'erreur
 - **Exception non gérée dans les logs** à l'envoi d'un fichier illisible (`openRead()`) — lecture via `RandomAccessFile`, erreur propre et plus de fichier vide créé côté Batocera

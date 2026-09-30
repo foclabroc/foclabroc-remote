@@ -72,7 +72,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   void initState() {
     super.initState();
     _currentPath = widget.initialPath;
-    TabBackHandler.register(5, _handleBack);
+    TabBackHandler.register(6, _handleBack);
     // Réinitialise l'état upload au démarrage
     _uploading = false;
     _uploadProgress = 0.0;
@@ -107,7 +107,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   @override
   void dispose() {
-    TabBackHandler.unregister(5);
+    TabBackHandler.unregister(6);
     context.read<AppState>().removeListener(_onConnectionChange);
     super.dispose();
   }
