@@ -4,6 +4,41 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+## v3.10.0+40 — Septembre 2026
+
+### ✨ Nouvelles fonctionnalités
+- **Transferts parallèles** — envoi ET téléchargement (dossiers comme fichiers simples) en **6 transferts simultanés**, chaque worker réutilisant son propre canal SFTP pour tous ses fichiers. Gain net sur les dossiers contenant beaucoup de petits fichiers. Si Batocera refuse un canal (limite `MaxSessions`), le transfert continue avec moins de workers
+  - Dialog de progression simplifié : compteur « Terminés x/y », nom du fichier en cours et **barre globale unique** (progression en octets pour l'envoi)
+  - Annulation : attente de l'arrêt de tous les workers avant le rollback, suppression groupée des fichiers partiels et déjà transférés
+  - Tous les `mkdir -p` distants créés en amont, par lots de 50 en une seule commande
+- **Envoi de fichiers simples = même moteur que l'envoi de dossier** — nouvelle méthode commune `_runUpload()` : même dialog, parallélisme, bouton Annuler avec rollback et raison du 1er échec. Remplace l'ancienne barre inline dans l'en-tête. En mode fichiers simples, aucun dossier n'est créé ni supprimé à l'annulation
+- **Terminal SSH : menus Commandes / Historique**
+  - Menu déroulant **Commandes** (gauche) : Espace disque, Température, Adresse IP, Infos système (`batocera-info`), Version Batocera, `/boot` en écriture (`mount -o remount,rw /boot`), Sauvegarder overlay (`batocera-save-overlay`)
+  - **Confirmation** avant les commandes sensibles (remount `/boot`, save-overlay) avec avertissement + commande affichée ; icône orange dans le menu. Champ `warn` dans `_quickCmds`
+  - Menu déroulant **Historique** (droite) : 20 dernières commandes, sans doublon, un choix remet la commande dans le champ. Entrée « Effacer l'historique »
+  - **Historique persistant** via `SharedPreferences` (clé `ssh_terminal_history`, 50 commandes max) — conservé après fermeture de l'appli
+- **Liste des jeux : icônes manuel/map uniquement si le fichier existe** — un script Python unique côté Batocera lit le(s) `gamelist.xml`, résout les chemins `<manual>`/`<map>` (`./`, `~/`) et ne garde que les fichiers présents (taille > 0). Gère les **collections** (mario, pokemon…) en lisant le gamelist du vrai système de chaque jeu (déduit de `/userdata/roms/<système>/`). Règle stricte : pas de fichier vérifié → pas d'icône
+- **Erreur explicite en fin d'envoi** — la notification indique la raison du 1er échec (ex. « lecture refusée par Android (activer « Accès à tous les fichiers ») »)
+
+### 📱 Android
+- **Permission `MANAGE_EXTERNAL_STORAGE`** (« Accès à tous les fichiers ») ajoutée au manifest et demandée une fois par lancement par le picker in-app. Sans elle, Android 11+ ne laisse lire que les médias : ROMs, sauvegardes, `.romfs`… échouaient en `Permission denied` à l'envoi
+
+### 🐛 Correctifs
+- **Éditeur de texte : fichiers corrompus à l'enregistrement** — le contenu passait par un heredoc shell dans `bash -l -c '…'` : les `$VAR` étaient remplacées, les `$(…)` **exécutés**, les `\\` réduits, et les chemins avec espaces cassés. Écriture désormais directe via SFTP (`writeFileBytes()`), octets à l'identique, droits du fichier préservés
+- **Éditeur de texte : fichier vidé** — une lecture en échec (fichier non-UTF8…) ouvrait un éditeur vide qui effaçait le fichier à l'enregistrement. Lecture tolérante (`allowMalformed`) et éditeur non ouvert si la lecture échoue
+- **Saturation mémoire sur les gros envois** — le fichier entier finissait en RAM (disque plus rapide que le réseau), risque de plantage sur les ISO, multiplié par le parallélisme. Contre-pression ajoutée : la lecture attend que le writer SFTP reprenne
+- **Annulation d'envoi : suppression possible d'un dossier existant** — si la vérification d'existence du dossier distant échouait, il était considéré comme nouveau et supprimé (`rm -rf`) à l'annulation. Il est maintenant considéré existant sauf réponse explicite contraire
+- **Boutons Manuel/Map/Vidéo grisés à tort (fiche jeu)** — la vérification de v3.8 passait des chemins entre apostrophes dans l'enveloppe `bash -l -c '…'` et échouait dès qu'un nom contenait un espace ou des parenthèses. Exécution directe via le client SSH
+- **Gestionnaire de fichiers : noms avec apostrophe** (`Link's Awakening`…) — lister, renommer, déplacer, copier, supprimer et télécharger échouaient silencieusement. Nouvelle fonction `_shq()` d'échappement adaptée à l'enveloppe `bash -l -c`
+- **Terminal : commandes contenant une apostrophe** (`awk '{…}'`, `echo 'texte'`) cassées par l'enveloppe `bash -c '…'` — échappement ajouté
+- **Canal SFTP jamais fermé** — `uploadFileFromPath()` et `downloadFileToDisk()` laissaient un canal ouvert par fichier transféré. Fermeture systématique, fichiers local/distant fermés même en cas d'annulation ou d'erreur
+- **Exception non gérée dans les logs** à l'envoi d'un fichier illisible (`openRead()`) — lecture via `RandomAccessFile`, erreur propre et plus de fichier vide créé côté Batocera
+- **Téléchargement : taille lue via le canal SFTP du worker** au lieu d'une commande `stat` par fichier (évite de dépasser la limite de canaux SSH)
+- **`app_state` : `catchError` sans valeur de retour** au passage en arrière-plan (avertissement `flutter analyze`)
+- **Strings FR résiduelles dans le picker EN** — ~15 textes traduits (« Choisir ce dossier », « Stockage interne », messages de permission…). Titre « Choisir un dossier » en mode sélection de dossier (FR et EN)
+
+---
+
 ## v3.9.0+39 — Septembre 2026
 
 ### ✨ Nouvelles fonctionnalités

@@ -115,7 +115,15 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
           '${testCmd("manual", manual)}; '
           '${testCmd("video", video)}';
 
-      final out = await state.ssh.execute(full);
+      // Direct execution, without ssh.execute's bash -l -c '…' wrapper: paths
+      // are single-quoted (_shQ), which broke the wrapper as soon as a name
+      // contained a space or parentheses → Manual/Map/Video buttons wrongly
+      // greyed out.
+      final session = await state.ssh.client!.execute(full);
+      final outBytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      session.stderr.drain();
+      await session.done;
+      final out = utf8.decode(outBytes, allowMalformed: true);
       if (!mounted) return;
 
       bool parse(String key) => RegExp('$key=1').hasMatch(out);

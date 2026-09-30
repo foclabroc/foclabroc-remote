@@ -117,7 +117,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
     } else if (state == AppLifecycleState.paused) {
       if (_status == ConnectionStatus.connected) {
-        _ssh.execute('echo bg').catchError((_) {});
+        _ssh.execute('echo bg').catchError((_) => '');
       }
     }
   }

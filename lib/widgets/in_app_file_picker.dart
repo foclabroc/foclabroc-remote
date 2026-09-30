@@ -189,6 +189,8 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
   //  Permissions
   // ─────────────────────────────────────────────────────────────────────────
 
+  static bool _manageAsked = false;
+
   Future<void> _checkAndRequestPermissions() async {
     setState(() => _permState = _PermState.checking);
 
@@ -196,6 +198,25 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
     bool permanent = false;
 
     if (Platform.isAndroid) {
+      // Android 11+ : sans « Accès à tous les fichiers », seuls les médias
+      // (images/vidéos/audio) sont lisibles hors du dossier de l'appli →
+      // ROMs, saves, .romfs… échouent en « Permission denied » à l'envoi.
+      // Demandé une seule fois par lancement pour ne pas renvoyer l'utilisateur
+      // dans les paramètres à chaque ouverture du picker.
+      var manage = await Permission.manageExternalStorage.status;
+      if (!manage.isGranted && !_manageAsked) {
+        _manageAsked = true;
+        manage = await Permission.manageExternalStorage.request();
+      }
+      if (manage.isGranted) {
+        if (!mounted) return;
+        setState(() {
+          _permState = _PermState.granted;
+          _shortcuts = _buildShortcuts();
+        });
+        return;
+      }
+
       // Essayer d'abord les permissions granulaires (Android 13+ / API 33+).
       // Sur API < 33, ces permissions retournent permanentlyDenied car elles
       // n'existent pas → on fallback sur Permission.storage.
@@ -633,7 +654,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
     if (_multiMode) {
       return '${_selected.length} sélectionné${_selected.length > 1 ? "s" : ""}';
     }
-    if (_currentPath == null) return 'Choisir un fichier';
+    if (_currentPath == null) return widget.pickFolderMode ? 'Choisir un dossier' : 'Choisir un fichier';
     final p = _currentPath!;
     for (final s in _shortcuts) {
       if (p == s.path) return s.label;
