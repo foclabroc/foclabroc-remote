@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'quiz_screen.dart';
 import 'breakout_screen.dart';
+import 'jump_screen.dart';
 
-/// Onglet « Mini jeux » : regroupe le Quiz Rétro et le Breakout.
+/// Onglet « Mini jeux » : regroupe le Quiz Rétro, le Breakout et le Rétro Jump.
 /// Chaque jeu s'ouvre dans le Navigator de l'onglet → le bouton retour
 /// Android ramène à cette liste.
 class MiniGamesScreen extends StatelessWidget {
@@ -36,6 +37,13 @@ class MiniGamesScreen extends StatelessWidget {
               title: 'Breakout',
               subtitle: 'Casse-briques rétro · jouable hors ligne',
               onTap: () => _open(context, const BreakoutScreen()),
+            ),
+            _GameCard(
+              icon: Icons.keyboard_double_arrow_up_rounded,
+              color: Colors.greenAccent,
+              title: 'Rétro Jump',
+              subtitle: 'Saute de cartouche en cartouche · hors ligne',
+              onTap: () => _open(context, const JumpScreen()),
             ),
           ],
         ),

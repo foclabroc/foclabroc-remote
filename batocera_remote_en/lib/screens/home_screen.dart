@@ -17,8 +17,9 @@ import 'wine_tools_screen.dart';
 import 'foclabroc_tools_screen.dart';
 import 'links_screen.dart';
 import 'mini_games_screen.dart';
+import 'quiz_audio_service.dart';
 
-const kAppVersion = '3.10-EN';
+const kAppVersion = '3.11-EN';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +29,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
+  bool _bannerDismissed = false; // banner closed by the user (until reconnection)
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _popLock = false; // prevents double MIUI back calls
 
@@ -266,6 +268,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // Re-selecting "Mini games" from the menu: back to the list.
       _navigatorKeys[i].currentState?.popUntil((r) => r.isFirst);
     }
+    // Mini-game music: paused outside the tab, resumed on return
+    final mini = _tabs.length - 1;
+    if (_index == mini && i != mini) QuizAudio.musicPause();
+    if (_index != mini && i == mini) QuizAudio.musicResume();
     setState(() => _index = i);
   }
 
@@ -275,82 +281,98 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final connected = state.isConnected;
     final reconnecting = state.isReconnecting;
     final accent = Theme.of(context).colorScheme.primary;
+    if (connected) _bannerDismissed = false;
+    // No banner in mini-games (Batocera not needed), keyboard open, or closed
+    final showBanner = !connected &&
+        !_bannerDismissed &&
+        _index != _tabs.length - 1 &&
+        MediaQuery.of(context).viewInsets.bottom == 0;
 
     return Scaffold(
       key: _scaffoldKey,
       drawer: _buildDrawer(state, connected, accent),
       body: Stack(children: [
-        Stack(children: List.generate(_tabs.length, (i) => Offstage(
-          offstage: _index != i,
-          child: _buildScreen(i),
-        ))),
-
-        // ── Reconnection / disconnection banner (visible on all tabs) ─────────
-        if (!connected)
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: AnimatedSlide(
-              offset: connected ? const Offset(0, 1) : Offset.zero,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              child: AnimatedOpacity(
-                opacity: connected ? 0 : 1,
-                duration: const Duration(milliseconds: 300),
-                child: SafeArea(
-                  top: false,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: reconnecting
-                          ? Colors.amberAccent.withOpacity(0.12)
-                          : Colors.redAccent.withOpacity(0.12),
-                      border: Border(
-                        top: BorderSide(
-                          color: reconnecting
-                              ? Colors.amberAccent.withOpacity(0.4)
-                              : Colors.redAccent.withOpacity(0.4),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(children: [
-                      reconnecting
-                          ? const SizedBox(
-                              width: 14, height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: Colors.amberAccent,
-                              ),
-                            )
-                          : const Icon(Icons.wifi_off_rounded,
-                              color: Colors.redAccent, size: 14),
-                      const SizedBox(width: 10),
-                      Text(
-                        reconnecting ? 'Reconnecting...' : 'Connection lost',
-                        style: TextStyle(
-                          color: reconnecting ? Colors.amberAccent : Colors.redAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (state.host.isNotEmpty)
-                        Text(
-                          state.host,
-                          style: TextStyle(
-                            color: reconnecting
-                                ? Colors.amberAccent.withOpacity(0.6)
-                                : Colors.redAccent.withOpacity(0.6),
-                            fontSize: 11,
-                          ),
-                        ),
-                    ]),
-                  ),
-                ),
-              ),
+        Column(children: [
+          // Tabs: the banner (below) handles the bottom inset itself
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeBottom: showBanner,
+              child: Stack(children: List.generate(_tabs.length, (i) => Offstage(
+                offstage: _index != i,
+                child: _buildScreen(i),
+              ))),
             ),
           ),
+
+          // ── Reconnection / disconnection banner (below the content, no longer covers it) ──
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            child: showBanner
+                ? SafeArea(
+                    top: false,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: reconnecting
+                            ? Colors.amberAccent.withOpacity(0.12)
+                            : Colors.redAccent.withOpacity(0.12),
+                        border: Border(
+                          top: BorderSide(
+                            color: reconnecting
+                                ? Colors.amberAccent.withOpacity(0.4)
+                                : Colors.redAccent.withOpacity(0.4),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(children: [
+                        reconnecting
+                            ? const SizedBox(
+                                width: 14, height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Colors.amberAccent,
+                                ),
+                              )
+                            : const Icon(Icons.wifi_off_rounded,
+                                color: Colors.redAccent, size: 14),
+                        const SizedBox(width: 10),
+                        Text(
+                          reconnecting ? 'Reconnecting...' : 'Connection lost',
+                          style: TextStyle(
+                            color: reconnecting ? Colors.amberAccent : Colors.redAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (state.host.isNotEmpty)
+                          Text(
+                            state.host,
+                            style: TextStyle(
+                              color: reconnecting
+                                  ? Colors.amberAccent.withOpacity(0.6)
+                                  : Colors.redAccent.withOpacity(0.6),
+                              fontSize: 11,
+                            ),
+                          ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => setState(() => _bannerDismissed = true),
+                          child: Icon(Icons.close_rounded, size: 16,
+                              color: reconnecting
+                                  ? Colors.amberAccent.withOpacity(0.6)
+                                  : Colors.redAccent.withOpacity(0.6)),
+                        ),
+                      ]),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ]),
 
         // ── Hamburger button ──────────────────────────────────────────────────
         Positioned(

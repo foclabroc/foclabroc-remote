@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'quiz_screen.dart';
 import 'breakout_screen.dart';
+import 'jump_screen.dart';
 
-/// "Mini games" tab: groups the Retro Quiz and Breakout.
+/// "Mini games" tab: groups the Retro Quiz, Breakout and Retro Jump.
 /// Each game opens in the tab's Navigator → the Android back button
 /// returns to this list.
 class MiniGamesScreen extends StatelessWidget {
@@ -36,6 +37,13 @@ class MiniGamesScreen extends StatelessWidget {
               title: 'Breakout',
               subtitle: 'Retro brick breaker · playable offline',
               onTap: () => _open(context, const BreakoutScreen()),
+            ),
+            _GameCard(
+              icon: Icons.keyboard_double_arrow_up_rounded,
+              color: Colors.greenAccent,
+              title: 'Retro Jump',
+              subtitle: 'Jump from cartridge to cartridge · offline',
+              onTap: () => _open(context, const JumpScreen()),
             ),
           ],
         ),

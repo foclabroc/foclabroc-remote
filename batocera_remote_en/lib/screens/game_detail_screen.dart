@@ -710,8 +710,12 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     final ok = writeOk && totalChanges > 0 && failures.isEmpty;
     final partial = totalChanges > 0 && (failures.isNotEmpty || !writeOk);
     final parts = <String>[];
-    if (uploaded > 0) parts.add('$uploaded uploaded');
-    if (deleted > 0)  parts.add('$deleted deleted');
+    if (uploaded > 0) {
+      parts.add('$uploaded uploaded');
+    }
+    if (deleted > 0) {
+      parts.add('$deleted deleted');
+    }
     final summary = parts.join(' · ');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Row(children: [

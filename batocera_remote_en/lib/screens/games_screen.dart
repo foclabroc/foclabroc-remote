@@ -894,7 +894,7 @@ class _GamesListScreenState extends State<_GamesListScreen> {
       final session = await state.ssh.client!.execute('curl -s -X POST http://127.0.0.1:1234/launch -d "$path"');
       await session.done;
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Lancement du jeu...', style: TextStyle(color: Colors.white)),
+        content: Text('Launching game...', style: TextStyle(color: Colors.white)),
         backgroundColor: Color(0xFF1C2230),
         behavior: SnackBarBehavior.floating,
       ));

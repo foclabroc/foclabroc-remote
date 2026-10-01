@@ -239,7 +239,7 @@ class SshService {
     final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
     await session.done;
     final output = utf8.decode(bytes).trim();
-    return output.isEmpty ? '(fichier vide)' : output;
+    return output.isEmpty ? '(empty file)' : output;
   }
 
   Future<String> readFile(String remotePath) async {

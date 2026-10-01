@@ -4,6 +4,55 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+## v3.11.0+41 — Octobre 2026
+
+### 🎮 Nouveau mini-jeu : Rétro Jump
+Jeu de saut vertical façon « doodle jump » rétro, ajouté comme 3e carte de l'onglet **Mini jeux** (nouveau `jump_screen.dart`).
+
+- **Gameplay** — déplacement tactile (gauche/droite de l'écran) ou **inclinaison du téléphone** (option, via `sensors_plus`, zone morte + lissage), passage d'un bord à l'autre. Cartouches normales, mobiles, fissurées (se cassent), ressorts, turbo invincible, bouclier, bugs à écraser
+- **Décors** — mur de tour en briques qui change tous les 400 pts (Château, Donjon, Temple, Glace, Volcan, Cyber, Espace, en boucle) : parallaxe, corniches entre paliers, torches, lave, néons, planète… Ligne du record affichée dans le parcours
+- **Objets à ramasser** — pièces, **sac de 15 pièces** (~tous les 250 pts), **logos de consoles** à collectionner, **bonus en partie** (~tous les 350 pts) : 🧲 aimant, ×2 pièces, ⏫ super saut (5 rebonds), ⏳ ralenti
+- **Combo** — chaque cartouche plus haute que la précédente fait monter le combo : pièces ×2 dès 5 sauts, ×3 dès 10… jusqu'à ×5. Affichage en jeu + meilleur combo dans les résultats
+- **Continuer** après une chute ou un bug pour 20 pièces (1 fois par partie), avec cartouche de secours et invulnérabilité
+- **12 héros à débloquer** (Robot, Joystick, Borne, Jeton, Cartouche, Disquette, CD, Cassette, Télé, Souris, Chat, Fusée), animés, chacun avec un **petit pouvoir** (vitesse, continue moins cher, sacs plus riches, aimant permanent, bouclier au départ, saut plus haut, turbo plus long…)
+- **8 thèmes visuels** — Classique, Néon, Pocket, Sépia, CRT (scanlines), Synthwave, Rouge, **Disco** (boule à facettes, faisceaux, reflets, cartouches qui changent de couleur)
+- **3 musiques** (Disco Funk offerte, Shop, Good Morning) + muet ; musique dès l'ouverture du jeu, en pause hors de l'onglet et en arrière-plan
+- **Bonus de départ achetables** (cumulables) : départ propulsé à 500 / 1 000 pts, bouclier, turbo
+- **Roue de la fortune** — 1 tour gratuit par jour puis 25 pièces le tour ; gains : pièces, bonus de départ offerts, « rejouer » gratuit
+- **Défis par séries** — 8 défis qui se renouvellent avec des objectifs et récompenses plus élevés, bonus de série
+- **Collection par albums** — 16 logos par album (3 prises chacun, puis plus dans les albums suivants), 2 séries de logos en alternance, **cadeau de 500 pièces** par album complété
+- **Statistiques à vie** — parties, points cumulés, moyenne, sauts, meilleur combo, pièces, sacs, bugs, turbos, logos, continues, chutes, temps de jeu
+- **Codes secrets** (5 appuis sur le titre) — codes stockés uniquement sous forme d'empreinte SHA-256 salée, introuvables dans le source
+- **Sauvegarde / chargement / reset** de la progression — fichier JSON signé (anti-modification), dossier et fichier choisis via le picker in-app, partage Android en secours
+- **Accueil « console »** — héros animé sur une scène aux couleurs du thème, bonus et bouton Jouer, barre du bas (Boutique, Défis, Collection, Roue, Réglages) ouvrant des panneaux ; fiches de déblocage toujours consultables (bouton grisé si pas assez de pièces)
+- Vibrations (option), écran de résultats compact, partage du score en image, saisie du nom au record
+
+### 🔊 Sons et musique (mini-jeux)
+- **Effets chiptune générés** côté Android (`MainActivity.kt`, objet `ChipSynth`) et joués via `SoundPool` (faible latence, plusieurs à la fois) : saut, ressort, pièce, bug écrasé, turbo, bouclier, coup encaissé, cartouche cassée, logo, palier, continue
+- **Musique de fond** en boucle via `MediaPlayer` à partir de fichiers `.ogg` (`assets/game/game_music*.ogg`), pause automatique quand l'app passe en arrière-plan
+- `QuizAudio` : nouvelles méthodes `sfx()`, `musicStart/Stop/Pause/Resume()`, réglage musique mémorisé ; couper le son coupe aussi la musique
+
+### 🧱 Breakout
+- Règles du jeu repliables, accueil compacté, écran de résultats compacté
+- Musique de fond (Disco Funk) et bouton musique dans l'en-tête
+- Bouton « Sauvegarder » du record qui passait sur deux lignes : corrigé
+
+### ✨ Améliorations
+- **Bannière « Connexion perdue »** placée sous le contenu (ne masque plus les boutons), masquée dans l'onglet Mini jeux et pendant la saisie au clavier, fermable avec une croix
+- Musique des mini-jeux mise en pause quand on change d'onglet, reprise au retour
+- **Script `check_fr_en.py`** — contrôle de symétrie FR/EN (fichiers présents des deux côtés, logique identique, textes français restés dans l'EN, cohérence des versions)
+
+### 🐛 Correctifs
+- **Strings FR résiduelles dans la version EN** — 13 textes traduits (connexion, capture, Foclabroc Tools, lancement de jeu, jeu inconnu, fichier vide…)
+- Jeux : dessin qui débordait sous la barre d'état et sous la barre de navigation Android (`ClipRect` + marge système garantie) ; titre et score masqués par le bouton menu
+- `game_detail_screen` EN aligné sur la structure FR (le contrôle FR/EN est désormais à 100 %)
+
+### 📦 Dépendances / fichiers
+- `sensors_plus` (inclinaison du téléphone)
+- Nouveaux assets : `assets/game/game_music.ogg`, `game_music_2.ogg`, `game_music_3.ogg`
+
+---
+
 ## v3.10.0+40 — Septembre 2026
 
 ### ✨ Nouvelles fonctionnalités
