@@ -26,6 +26,7 @@ English version available
 - Reconnexion silencieuse automatique si la connexion est perdue
 - **Vérification instantanée** de la connexion au retour au premier plan
 - Indicateur "Reconnexion..." visible sur tous les onglets
+- **🆕 Bannière « Connexion perdue »** placée sous le contenu (ne masque plus les boutons), masquée dans les mini-jeux et pendant la saisie clavier, fermable d'une croix
 - Historique des 3 dernières adresses IP (effaçable)
 - Informations système détaillées (modèle, CPU, RAM, résolution, OS...)
 - **Détection automatique des scraps en attente** à la connexion avec proposition de finalisation
@@ -52,7 +53,7 @@ English version available
 - Bouton stop (hotkeygen)
 - Visionneuse PDF pour les manuels
 - Auto-refresh toutes les 5 secondes
-- **🆕 Scrap auto en jeu** :
+- **Scrap auto en jeu** :
   - **Vidéo auto 30s** — capture 30 secondes de gameplay et l'enregistre dans le dossier `media/videos` du système
   - **Screenshot auto** — capture un screenshot et l'enregistre comme `image` dans le dossier média du système
   - Détection auto de la convention de nommage du système (`media/videos` vs `videos`)
@@ -60,7 +61,7 @@ English version available
   - **Flush playtime** avant chaque écriture gamelist (reload ES → écriture → reload ES)
   - Sauvegarde différée des balises XML (cf. système Pending ci-dessous)
 
-### 🆕 Système Pending Scrap (intelligent)
+### Système Pending Scrap (intelligent)
 EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour mettre à jour playtime/lastplayed). Le système Pending contourne ce comportement :
 - Le média (vidéo/screenshot) est sauvegardé immédiatement sur Batocera
 - Les balises XML à insérer dans le gamelist sont stockées dans `/userdata/system/configs/foclabroc-remote/pending/`
@@ -80,13 +81,17 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
   - Wheel / marquee, jaquette et screenshot côte à côte (cliquables pour agrandir)
   - Infos : genre, développeur, éditeur, année, description
   - Bouton **Lancer** (quitte le jeu en cours automatiquement avec notification)
-  - **🆕 Éditer métadonnées** — 12 champs éditables (genre, langue, région, note, date, favori...)
-  - **🆕 Éditer médias** — upload/suppression Logo, Jaquette, Image avec preview + undo
+  - **Éditer métadonnées** — 12 champs éditables (genre, langue, région, note, date, favori...)
+  - **Éditer médias** — upload/suppression Logo, Jaquette, Image avec preview + undo
   - Bouton **🔄 Refresh** (invalide le cache local + reload)
   - Visionneuse **Manuel** (PDF ou image)
   - Visionneuse **Map** (PDF ou image, zoomable)
   - Lecteur **Vidéo** intégré
   - Lien **RetroAchievements**
+  - Chip ⏱️ **temps de jeu**
+  - **Recherche en ligne des médias** (loupe 🔍 → Google Images ciblé logo / box art / screenshot)
+  - Boutons Manuel / Map / Vidéo / RA toujours visibles, **grisés si le fichier n'existe pas** (vérification réelle côté Batocera, collections incluses)
+- Icônes 📖 manuel / 🗺️ map dans la liste **uniquement si le fichier existe**
 
 ### 📸 Capture
 - Screenshot instantané
@@ -97,6 +102,9 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 
 ### 💻 Terminal SSH
 - Terminal intégré avec historique des commandes
+- **🆕 Menu Commandes** : espace disque, température, IP, `batocera-info`, version, `/boot` en écriture, sauvegarde overlay — **confirmation** avant les commandes sensibles
+- **🆕 Menu Historique** : 20 dernières commandes sans doublon, **historique persistant** après fermeture de l'appli
+- Commandes avec apostrophes (`awk '{…}'`, `echo 'texte'`) gérées
 - Texte sélectionnable et copiable
 - Streaming line-by-line de la sortie
 
@@ -104,9 +112,9 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 - Navigation dans `/userdata/` avec fil d'Ariane
 - **Bouton retour Android** pour remonter dans l'arborescence
 - Visionneuse intégrée : images (zoomable), PDF, vidéos
-- **🆕 Lecteur audio in-app** pour `.mp3`, `.wav`, `.ogg`, `.flac`, `.m4a`, `.opus`, `.aac` (plein écran avec seek, ±10s, play/pause)
+- **Lecteur audio in-app** pour `.mp3`, `.wav`, `.ogg`, `.flac`, `.m4a`, `.opus`, `.aac` (plein écran avec seek, ±10s, play/pause)
 - Éditeur de texte intégré pour `.cfg`, `.conf`, `.ini`, `.sh`, `.log`, `.xml`, `.json`, `.yaml`, `.yml`, `.md`, `.txt`
-- **🆕 Picker de fichiers in-app** (sans intent système, évite la duplication MIUI) avec :
+- **Picker de fichiers in-app** (sans intent système, évite la duplication MIUI) avec :
   - 12 raccourcis (Stockage interne, Pictures, DCIM, Downloads, Documents, Movies, Music, Podcasts, Ringtones, Notifications, Alarms, Android/media)
   - **Détection automatique des cartes SD**
   - Permissions Android runtime (photos/vidéos/audio API 33+, storage < 33)
@@ -114,6 +122,11 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
   - Multi-sélection via long-press
 - Upload depuis le téléphone avec barre de progression
 - **Retry automatique** sur upload échoué (reconnexion silencieuse)
+- **Envoi et téléchargement de dossiers complets** — récap (nb fichiers + taille), progression, bouton **Annuler** avec rollback complet
+- **🆕 Transferts parallèles** (6 simultanés) avec barre globale unique, contre-pression mémoire pour les gros fichiers (ISO)
+- Mode **sélection de dossier** dans le picker in-app
+- Éditeur de texte : écriture directe SFTP (octets à l'identique, droits préservés)
+- Noms de fichiers avec apostrophe gérés (`Link's Awakening`…)
 - Sélection multiple : copier, couper, coller, renommer, supprimer
 
 ### ⚙️ Système
@@ -123,7 +136,7 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 - Redémarrage EmulationStation, reboot, arrêt
 - Logs `stderr` et `stdout` partageables
 - **Vider le cache** images et vidéos de l'application
-- **🆕 Vérification automatique des mises à jour** au démarrage (lien vers la page release GitHub)
+- **Vérification automatique des mises à jour** au démarrage (lien vers la page release GitHub)
 
 ### 🍷 Wine Tools
 - **.PC Converter** — convertit un dossier `.pc` en `.wine` avec compression optionnelle
@@ -147,6 +160,11 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 - **YouTube TV** — installe YouTube TV dans le menu Ports (Batocera x86_64 uniquement)
 - **Foclabroc Toolbox → Ports** — installe la Toolbox dans le menu Ports pour y accéder depuis Batocera (x86_64)
 - **RGSX** — télécharge et installe RetroGameSets game downloader dans 'Ports'
+
+### 🎲 Onglet Mini jeux
+- **Quiz Rétro**, **Casse-briques** et **Rétro Jump** regroupés dans un onglet dédié (retour Android = retour à la liste)
+- **🆕 Sons chiptune générés** côté Android (`SoundPool`, faible latence) et **musique de fond** `.ogg` (`MediaPlayer`)
+- Musique en pause quand on change d'onglet ou que l'appli passe en arrière-plan
 
 ### 🕹️ Quiz Rétro
 - Un screenshot s'affiche → trouve le jeu parmi 4 propositions
@@ -176,12 +194,32 @@ EmulationStation réécrit le `gamelist.xml` à la sortie de chaque jeu (pour me
 - **Partage du score** : capture d'écran des résultats partageable
 - Meilleur score avec nom du joueur et niveau atteint
 - Mode portrait forcé
+- **🆕 Musique de fond** + bouton musique, règles repliables, accueil et résultats compactés
+
+### 🦘 Rétro Jump 🆕
+Jeu de saut vertical rétro façon « doodle jump » :
+- **Contrôles** : tactile (gauche/droite) ou **inclinaison du téléphone** (option), passage d'un bord à l'autre
+- **Cartouches** normales, mobiles, fissurées, ressorts ; turbo invincible, bouclier, bugs à écraser
+- **Décors de tour en briques** qui changent tous les 400 pts (Château, Donjon, Temple, Glace, Volcan, Cyber, Espace), ligne du record dans le parcours
+- **À ramasser** : pièces, sacs de 15 pièces, logos de consoles, bonus en partie (🧲 aimant, ×2 pièces, ⏫ super saut, ⏳ ralenti)
+- **Combo** : pièces ×2 à ×5 en enchaînant les cartouches
+- **Continuer** après une chute pour 20 pièces (1 fois par partie)
+- **12 héros** à débloquer, animés, chacun avec un **petit pouvoir**
+- **8 thèmes** : Classique, Néon, Pocket, Sépia, CRT, Synthwave, Rouge, **Disco**
+- **3 musiques** (1 offerte, 2 à débloquer) + muet
+- **Bonus de départ** achetables et cumulables (départ à 500 / 1 000 pts, bouclier, turbo)
+- **Roue de la fortune** : 1 tour gratuit par jour, puis 25 pièces
+- **Défis par séries** renouvelables et **collection par albums** de 16 logos (500 pièces par album complété)
+- **Statistiques à vie** (parties, points, sauts, combo, pièces, temps de jeu…)
+- **Codes secrets** (stockés en empreinte SHA-256 salée)
+- **Sauvegarde / chargement / reset** de la progression (fichier JSON signé, emplacement au choix)
+- Accueil « console » avec barre Boutique / Défis / Collection / Roue / Réglages, vibrations, partage du score
 
 ---
 
 ## 📋 Prérequis
 
-- Android 8.0+
+- Android 8.0+ (permission « Accès à tous les fichiers » demandée pour l'envoi de fichiers hors médias)
 - Batocera Linux V43+ sur le même réseau WiFi
 - SSH activé sur Batocera (activé par défaut)
 - Python 3.9+ sur Batocera (présent par défaut, requis pour les manipulations XML du gamelist)
@@ -233,14 +271,15 @@ flutter build apk --release
 | **video_player** | Lecteur vidéo |
 | **flutter_pdfview** | Visionneuse PDF |
 | **flutter_svg** | Logos de systèmes en SVG |
-| **crypto** | Cache images (MD5) |
+| **crypto** | Cache images (MD5), codes secrets et signature des sauvegardes (SHA-256) |
 | **path_provider** | Système de fichiers local |
 | **permission_handler** | Permissions Android runtime |
 | **open_filex** | Ouverture fichiers natifs |
 | **share_plus** | Partage de logs et scores |
 | **url_launcher** | Liens externes (RetroAchievements) |
 | **wakelock_plus** | Écran allumé en permanence |
-| **shared_preferences** | Sauvegarde préférences |
+| **shared_preferences** | Sauvegarde préférences et progression des mini-jeux |
+| **sensors_plus** | Inclinaison du téléphone (Rétro Jump) |
 
 ---
 
@@ -253,19 +292,20 @@ lib/
 │   └── app_state.dart           # ChangeNotifier global (SSH, connexion, launching)
 ├── services/
 │   ├── ssh_service.dart         # Wrapper dartssh2 (execute, SFTP, tunnels)
-│   ├── metadata_service.dart    # 🆕 Lecture/écriture gamelist.xml (Python via base64)
-│   ├── media_service.dart       # 🆕 Détection dossiers médias + paths
+│   ├── metadata_service.dart    # Lecture/écriture gamelist.xml (Python via base64)
+│   ├── media_service.dart       # Détection dossiers médias + paths
 │   ├── pending_scrap_service.dart  # Sauvegarde/finalisation des scraps différés
-│   └── update_check_service.dart   # 🆕 Vérification nouvelle version GitHub
+│   ├── quiz_audio_service.dart  # Sons chiptune + musique des mini-jeux (canal natif)
+│   └── update_check_service.dart   # Vérification nouvelle version GitHub
 ├── widgets/
 │   ├── back_handler.dart        # Interception bouton retour Android
 │   ├── status_bar.dart          # Barre d'état en bas
 │   ├── status_badge.dart        # Badge indicateur
-│   ├── in_app_file_picker.dart  # 🆕 Picker fichiers in-app (permissions runtime + SD)
-│   ├── media_editor_dialog.dart # 🆕 Édition médias (3 cadres : logo/jaquette/image)
-│   ├── metadata_editor_dialog.dart # 🆕 Édition métadonnées (12 champs)
+│   ├── in_app_file_picker.dart  # Picker fichiers in-app (permissions runtime + SD)
+│   ├── media_editor_dialog.dart # Édition médias (3 cadres : logo/jaquette/image)
+│   ├── metadata_editor_dialog.dart # Édition métadonnées (12 champs)
 │   ├── pending_scraps_dialog.dart  # Dialog de proposition de finalisation
-│   └── update_dialog.dart       # 🆕 Dialog mise à jour
+│   └── update_dialog.dart       # Dialog mise à jour
 └── screens/
     ├── connect_screen.dart       # Saisie IP + historique + connexion auto
     ├── virtual_pad_screen.dart   # Pad Xbox uinput + clavier AZERTY virtuels via SSH
@@ -278,10 +318,16 @@ lib/
     ├── system_screen.dart        # Volume, alimentation, reboot, logs
     ├── wine_tools_screen.dart    # Conversion/compression .wine + runners
     ├── foclabroc_tools_screen.dart # Packs (NES3D, Kodi, Music, fangames…)
+    ├── mini_games_screen.dart    # Onglet Mini jeux (3 cartes)
     ├── quiz_screen.dart          # Quiz rétro 10 questions
     ├── breakout_screen.dart      # Casse-briques avec power-ups
+    ├── jump_screen.dart          # Rétro Jump (héros, thèmes, roue, défis, albums)
     ├── links_screen.dart         # Liens utiles (forum, wiki, releases…)
-    └── home_screen.dart          # Drawer 12 onglets + listener pending scraps
+    └── home_screen.dart          # Drawer 12 onglets + listener pending scraps + bannière connexion
+
+android/app/src/main/kotlin/…/MainActivity.kt  # Canal audio natif (ChipSynth + SoundPool + MediaPlayer)
+assets/game/game_music*.ogg                     # Musiques des mini-jeux
+check_fr_en.py                                  # Contrôle de symétrie FR / EN
 ```
 
 **Endpoints API EmulationStation utilisés** (`http://127.0.0.1:1234/`) :
