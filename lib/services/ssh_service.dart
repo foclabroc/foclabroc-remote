@@ -244,10 +244,34 @@ class SshService {
 
   Future<String> readFile(String remotePath) async {
     if (_client == null || !_connected) throw Exception('Non connecté');
-    final session = await _client!.execute('cat "$remotePath"');
+    final q = remotePath.replaceAll("'", "'\\''");
+    final session = await _client!.execute("cat '$q'");
     final bytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
     await session.done;
-    return utf8.decode(bytes);
+    // allowMalformed : un fichier non-UTF8 (Latin-1…) s'ouvre au lieu de lever
+    // une erreur (qui donnait un éditeur VIDE, et un fichier vidé si on enregistrait).
+    return utf8.decode(bytes, allowMalformed: true);
+  }
+
+  // Écrit un contenu tel quel via SFTP (aucun passage par le shell : les
+  // $VAR, $(…), \\ et apostrophes sont conservés à l'identique). Les droits
+  // du fichier existant (ex. exécutable) sont préservés.
+  Future<void> writeFileBytes(String remotePath, Uint8List data) async {
+    if (_client == null || !_connected) throw Exception('Non connecté');
+    final sftp = await _client!.sftp();
+    try {
+      final file = await sftp.open(
+        remotePath,
+        mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate,
+      );
+      try {
+        await file.writeBytes(data);
+      } finally {
+        await file.close();
+      }
+    } finally {
+      sftp.close();
+    }
   }
 
   // ─── Téléchargement SFTP ────────────────────────────────────────────────────
@@ -274,25 +298,42 @@ class SshService {
   }
 
   // Stream direct vers disque (pour les gros fichiers)
+  // Téléchargement vers le disque, en streaming. Si `sftp` est fourni, le
+  // canal est réutilisé et n'est PAS fermé ici ; sinon un canal temporaire
+  // est ouvert puis fermé (avant : jamais fermé → 1 canal fuité par fichier).
   Future<void> downloadFileToDisk(String remotePath, String localPath,
-      {void Function(int bytes)? onProgress}) async {
+      {void Function(int bytes)? onProgress, SftpClient? sftp}) async {
     if (_client == null || !_connected) throw Exception('Non connecté');
-    final sftp = await _client!.sftp();
-    final remoteFile = await sftp.open(remotePath);
-    final localFile = File(localPath).openWrite();
-    int total = 0;
-    await for (final chunk in remoteFile.read()) {
-      localFile.add(chunk);
-      total += chunk.length;
-      onProgress?.call(total);
-      // Cède le contrôle à l'event loop tous les 512KB
-      if (total % (512 * 1024) < chunk.length) {
-        await Future.delayed(Duration.zero);
+    final ownsSftp = sftp == null;
+    SftpClient? sftpClient;
+    try {
+      sftpClient = sftp ?? await _client!.sftp();
+      final remoteFile = await sftpClient.open(remotePath);
+      try {
+        final localFile = File(localPath).openWrite();
+        try {
+          int total = 0;
+          await for (final chunk in remoteFile.read()) {
+            localFile.add(chunk);
+            total += chunk.length;
+            onProgress?.call(total);
+            // Cède le contrôle à l'event loop tous les 512KB
+            if (total % (512 * 1024) < chunk.length) {
+              await Future.delayed(Duration.zero);
+            }
+          }
+          await localFile.flush();
+        } finally {
+          // Fermé même en cas d'annulation/erreur : sinon le fichier reste
+          // verrouillé et le rollback ne peut pas le supprimer.
+          try { await localFile.close(); } catch (_) {}
+        }
+      } finally {
+        try { await remoteFile.close(); } catch (_) {}
       }
+    } finally {
+      if (ownsSftp) sftpClient?.close();
     }
-    await localFile.flush();
-    await localFile.close();
-    await remoteFile.close();
   }
 
   // ─── Tunnel SSH local → Batocera:1234 ───────────────────────────────────────
@@ -331,44 +372,85 @@ class SshService {
 
   // ─── Upload SFTP ─────────────────────────────────────────────────────────────
 
-  // Upload depuis un chemin local — stream par chunks sans tout charger en RAM
+  // Ouvre un canal SFTP réutilisable (ex : un par worker lors d'un envoi de
+  // dossier en parallèle). L'appelant doit le fermer avec `close()`.
+  Future<SftpClient> openSftp() async {
+    if (_client == null || !_connected) {
+      throw Exception('Non connecté');
+    }
+    return _client!.sftp();
+  }
+
+  // Upload depuis un chemin local — stream par chunks sans tout charger en RAM.
+  // Si `sftp` est fourni, le canal est réutilisé et n'est PAS fermé ici ;
+  // sinon un canal temporaire est ouvert puis fermé à la fin.
   Future<void> uploadFileFromPath(
     String localPath,
     String remotePath, {
     void Function(int sent, int total)? onProgress,
+    SftpClient? sftp,
   }) async {
     if (_client == null || !_connected) {
       throw Exception('Non connecté');
     }
     final ioFile = File(localPath);
     final total = await ioFile.length();
-    final sftp = await _client!.sftp();
-    final remoteFile = await sftp.open(
-      remotePath,
-      mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate,
-    );
+    // Ouverture locale AVANT le canal/fichier distant : si Android refuse la
+    // lecture (permission), l'erreur remonte proprement ici, sans créer de
+    // fichier vide sur Batocera. (`openRead()` laissait aussi fuiter une
+    // exception non gérée dans les logs.)
+    final raf = await ioFile.open();
+    final ownsSftp = sftp == null;
+    SftpClient? sftpClient;
+    try {
+      sftpClient = sftp ?? await _client!.sftp();
+      final remoteFile = await sftpClient.open(
+        remotePath,
+        mode: SftpFileOpenMode.create | SftpFileOpenMode.write | SftpFileOpenMode.truncate,
+      );
 
-    const chunkSize = 256 * 1024; // 256KB par chunk
-    int sent = 0;
-    final controller = StreamController<Uint8List>();
-    final writeFuture = remoteFile.write(controller.stream);
+      const chunkSize = 256 * 1024; // 256KB par chunk
+      int sent = 0;
+      final controller = StreamController<Uint8List>();
+      final writeFuture = remoteFile.write(controller.stream);
 
-    final reader = ioFile.openRead();
-    await for (final chunk in reader) {
-      // Découpe les chunks trop grands
-      int offset = 0;
-      while (offset < chunk.length) {
-        final end = (offset + chunkSize).clamp(0, chunk.length);
-        controller.add(Uint8List.fromList(chunk.sublist(offset, end)));
-        sent += end - offset;
-        offset = end;
-        onProgress?.call(sent, total);
-        await Future.delayed(Duration.zero);
+      try {
+        while (true) {
+          final chunk = await raf.read(chunkSize);
+          if (chunk.isEmpty) break;
+          controller.add(chunk);
+          sent += chunk.length;
+          onProgress?.call(sent, total);
+          await Future.delayed(Duration.zero);
+          // Contre-pression : tant que le writer SFTP est en pause (trop de
+          // données en attente d'accusé de réception), on n'en lit pas plus.
+          // Sans ça, le fichier ENTIER finissait en RAM (disque plus rapide
+          // que le réseau) → plantage mémoire sur les gros fichiers (ISO…),
+          // multiplié par le nombre de transferts parallèles.
+          int waits = 0;
+          while (controller.isPaused && !controller.isClosed) {
+            if (!_connected) throw Exception('Non connecté');
+            // Rappel périodique : laisse l'appelant annuler pendant l'attente.
+            if (++waits % 20 == 0) onProgress?.call(sent, total);
+            await Future.delayed(const Duration(milliseconds: 10));
+          }
+        }
+        await controller.close();
+        await writeFuture;
+      } catch (_) {
+        // Interruption (annulation levée depuis onProgress, erreur de
+        // lecture…) : on ferme proprement le flux pour ne pas laisser
+        // d'écriture SFTP orpheline, puis on relance l'erreur à l'appelant.
+        if (!controller.isClosed) await controller.close();
+        try { await writeFuture; } catch (_) {}
+        rethrow;
+      } finally {
+        try { await remoteFile.close(); } catch (_) {}
       }
+    } finally {
+      try { await raf.close(); } catch (_) {}
+      // Avant : le canal SFTP n'était jamais fermé (1 canal fuité par fichier)
+      if (ownsSftp) sftpClient?.close();
     }
-
-    await controller.close();
-    await writeFuture;
-    await remoteFile.close();
   }
 }

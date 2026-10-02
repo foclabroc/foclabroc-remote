@@ -724,6 +724,47 @@ class _SystemCard extends StatelessWidget {
 
 // ─── Liste des jeux ───────────────────────────────────────────────────────────
 
+// Script Python exécuté sur Batocera : lit un ou plusieurs gamelist.xml,
+// résout les chemins <manual>/<map> (relatifs au dossier du système) et ne
+// garde que les fichiers qui existent réellement (taille > 0). Clé = chemin
+// absolu de la ROM. Un gamelist absent/illisible est simplement ignoré.
+const String _mediaCheckScript = r'''
+import sys, os, json
+import xml.etree.ElementTree as ET
+def res(base, p):
+    p = p.strip()
+    if not p:
+        return None
+    if p.startswith('~/'):
+        p = '/userdata/system/' + p[2:]
+    if not os.path.isabs(p):
+        p = os.path.join(base, p)
+    return os.path.normpath(p)
+out = {}
+for gl in sys.argv[1:]:
+    base = os.path.dirname(gl)
+    try:
+        root = ET.parse(gl).getroot()
+    except Exception:
+        continue
+    for g in root.iter('game'):
+        pe = g.find('path')
+        if pe is None or not pe.text:
+            continue
+        flags = ''
+        for tag, ch in (('manual', 'm'), ('map', 'p')):
+            e = g.find(tag)
+            if e is not None and e.text:
+                f = res(base, e.text)
+                if f and os.path.isfile(f) and os.path.getsize(f) > 0:
+                    flags += ch
+        if flags:
+            rom = res(base, pe.text)
+            if rom:
+                out[rom] = flags
+print('FOC_MEDIA_JSON' + json.dumps(out))
+''';
+
 class _GamesListScreen extends StatefulWidget {
   final String systemName;
   final String fullname;
@@ -748,6 +789,13 @@ class _GamesListScreen extends StatefulWidget {
 class _GamesListScreenState extends State<_GamesListScreen> {
   List<Map<String, dynamic>> _games = [];
   bool _loading = true;
+  // Existence RÉELLE des manuels / maps sur Batocera (clé = chemin absolu
+  // de la ROM, valeur = "m" manuel et/ou "p" map). null = vérification en cours.
+  // Règle stricte : pas de fichier vérifié → pas d'icône (même si la
+  // vérification échoue).
+  Map<String, String>? _mediaFlags;
+  // Repli par nom de fichier si le chemin renvoyé par l'API diffère légèrement.
+  Map<String, String> _mediaByName = const {};
   String _search = '';
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -776,9 +824,56 @@ class _GamesListScreenState extends State<_GamesListScreen> {
       games.sort((a, b) => (a['name'] ?? '').toString()
           .compareTo((b['name'] ?? '').toString()));
       setState(() { _games = games; _loading = false; });
+      _checkMediaFiles();
     } catch (_) {
       setState(() => _loading = false);
     }
+  }
+
+  /// Vérifie en UNE commande (script Python côté Batocera) quels manuels et
+  /// maps référencés dans le gamelist.xml existent vraiment sur le disque.
+  Future<void> _checkMediaFiles() async {
+    setState(() => _mediaFlags = null);
+    // Gamelists à lire : celui du système + celui du VRAI système de chaque
+    // jeu (déduit de /userdata/roms/<système>/…). Indispensable pour les
+    // collections (mario, pokemon…) qui n'ont pas de gamelist propre.
+    final gamelists = <String>{'/userdata/roms/${widget.systemName}/gamelist.xml'};
+    final sysRe = RegExp(r'^/userdata/roms/([^/]+)/');
+    for (final g in _games) {
+      final m = sysRe.firstMatch((g['path'] ?? '').toString());
+      if (m != null) gamelists.add('/userdata/roms/${m.group(1)}/gamelist.xml');
+    }
+    final args = gamelists.map((p) => "'${p.replaceAll("'", "'\\''")}'").join(' ');
+    final b64 = base64Encode(utf8.encode(_mediaCheckScript));
+    final out = await widget.execDirect(
+        "echo '$b64' | base64 -d | python3 - $args");
+    if (!mounted) return;
+    final i = out.indexOf('FOC_MEDIA_JSON');
+    Map<String, String>? flags;
+    if (i >= 0) {
+      try {
+        final data = jsonDecode(out.substring(i + 'FOC_MEDIA_JSON'.length).trim())
+            as Map<String, dynamic>;
+        flags = data.map((k, v) => MapEntry(k, v.toString()));
+      } catch (_) {}
+    }
+    final byName = <String, String>{
+      for (final e in (flags ?? const <String, String>{}).entries)
+        e.key.split('/').last: e.value,
+    };
+    setState(() {
+      _mediaFlags = flags ?? const {};
+      _mediaByName = byName;
+    });
+  }
+
+  bool _hasMedia(Map<String, dynamic> game, String tag, String flag) {
+    if ((game[tag] ?? '').toString().isEmpty) return false;
+    final flags = _mediaFlags;
+    if (flags == null) return false;
+    final path = (game['path'] ?? '').toString();
+    final f = flags[path] ?? _mediaByName[path.split('/').last] ?? '';
+    return f.contains(flag);
   }
 
   Future<void> _launchGame(String path) async {
@@ -943,11 +1038,11 @@ class _GamesListScreenState extends State<_GamesListScreen> {
                                               const Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 11),
                                               const SizedBox(width: 3),
                                             ],
-                                            if ((game['manual'] ?? '').toString().isNotEmpty) ...[
+                                            if (_hasMedia(game, 'manual', 'm')) ...[
                                               const Icon(Icons.menu_book_rounded, color: Colors.blueAccent, size: 11),
                                               const SizedBox(width: 3),
                                             ],
-                                            if ((game['map'] ?? '').toString().isNotEmpty) ...[
+                                            if (_hasMedia(game, 'map', 'p')) ...[
                                               const Icon(Icons.map_rounded, color: Colors.greenAccent, size: 11),
                                               const SizedBox(width: 3),
                                             ],

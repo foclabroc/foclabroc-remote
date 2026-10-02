@@ -32,7 +32,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   static const _audios = [
     ('auto', 'System (default)'),
     ('mic', 'Microphone'),
-    ('none', 'Sans audio'),
+    ('none', 'No audio'),
   ];
 
   @override
@@ -319,7 +319,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                             Text(
                               _recording
                                   ? _auto30
-                                      ? 'Auto-stop dans ${30 - _seconds} seconde${(30 - _seconds) > 1 ? 's' : ''}...'
+                                      ? 'Auto-stop in ${30 - _seconds} second${(30 - _seconds) > 1 ? 's' : ''}...'
                                       : 'Recording...'
                                   : 'Ready',
                               style: TextStyle(

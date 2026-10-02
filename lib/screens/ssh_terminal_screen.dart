@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_state.dart';
 
 class SshTerminalScreen extends StatefulWidget {
@@ -20,9 +21,75 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
 
   // Historique des commandes
   final List<String> _history = [];
-  int _historyIndex = -1;
+  // Historique sauvegardé sur le téléphone (SharedPreferences) : conservé
+  // après fermeture de l'appli. 50 commandes max, sans doublon.
+  static const _historyKey = 'ssh_terminal_history';
+  static const _historyMax = 50;
+  static const _clearHistoryValue = '\u0000clear';
 
   static const _prompt = '~ # ';
+
+  // Commandes rapides (menu « Commandes ») : un choix l'exécute directement.
+  // `warn` non nul = commande sensible : confirmation demandée avant exécution.
+  static const _quickCmds = <({IconData icon, String label, String cmd, String? warn})>[
+    (icon: Icons.storage_rounded, label: 'Espace disque', cmd: 'df -h /userdata', warn: null),
+    (icon: Icons.thermostat_rounded, label: 'Température', cmd: r'for t in /sys/class/thermal/thermal_zone*/temp; do echo "$(cat ${t%/temp}/type): $(( $(cat $t) / 1000 ))°C"; done', warn: null),
+    (icon: Icons.lan_rounded, label: 'Adresse IP', cmd: 'ip -4 addr show | grep inet', warn: null),
+    (icon: Icons.computer_rounded, label: 'Infos système', cmd: 'batocera-info', warn: null),
+    (icon: Icons.info_outline_rounded, label: 'Version Batocera', cmd: 'batocera-version', warn: null),
+    (icon: Icons.lock_open_rounded, label: '/boot en écriture', cmd: 'mount -o remount,rw /boot', warn: 'Remonte la partition /boot en écriture. Une mauvaise modification de ses fichiers peut empêcher Batocera de démarrer.'),
+    (icon: Icons.save_rounded, label: 'Sauvegarder overlay', cmd: 'batocera-save-overlay', warn: 'Enregistre dans l\'overlay les modifications faites au système (hors /userdata). Elles seront conservées après redémarrage, erreurs comprises.'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(_historyKey) ?? const <String>[];
+      if (!mounted) return;
+      setState(() {
+        final typedMeanwhile = List<String>.of(_history);
+        _history
+          ..clear()
+          ..addAll(saved);
+        for (final c in typedMeanwhile) {
+          _history.remove(c);
+          _history.add(c);
+        }
+        _trimHistory();
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_historyKey, List<String>.of(_history));
+    } catch (_) {}
+  }
+
+  void _trimHistory() {
+    if (_history.length > _historyMax) {
+      _history.removeRange(0, _history.length - _historyMax);
+    }
+  }
+
+  void _addToHistory(String cmd) {
+    _history.remove(cmd);
+    _history.add(cmd);
+    _trimHistory();
+    _saveHistory();
+  }
+
+  void _clearHistory() {
+    setState(() => _history.clear());
+    _saveHistory();
+  }
 
   @override
   void dispose() {
@@ -48,11 +115,8 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
     final cmd = _cmdCtrl.text.trim();
     if (cmd.isEmpty) return;
 
-    // Ajoute à l'historique
-    if (_history.isEmpty || _history.last != cmd) {
-      _history.add(cmd);
-    }
-    _historyIndex = -1;
+    // Ajoute à l'historique (une commande déjà présente remonte en tête)
+    _addToHistory(cmd);
 
     setState(() {
       _lines.add(_TermLine(text: '$_prompt$cmd', type: _LineType.input));
@@ -64,7 +128,10 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
     try {
       final client = state.ssh.client;
       if (client == null) throw Exception('Non connecté');
-      final session = await client.execute('bash -c \'$cmd\' </dev/null 2>&1');
+      // Échappe les apostrophes : sans ça, une commande contenant ' cassait
+      // l'enveloppe bash -c '…' (awk, echo 'texte'…).
+      final escaped = cmd.replaceAll("'", "'\\''");
+      final session = await client.execute('bash -c \'$escaped\' </dev/null 2>&1');
 
       // Index de la ligne de sortie en cours (streaming)
       int outputLineIndex = -1;
@@ -108,35 +175,69 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
     }
   }
 
-  void _historyUp() {
-    if (_history.isEmpty) return;
-    setState(() {
-      if (_historyIndex == -1) {
-        _historyIndex = _history.length - 1;
-      } else if (_historyIndex > 0) {
-        _historyIndex--;
-      }
-      _cmdCtrl.text = _history[_historyIndex];
-      _cmdCtrl.selection = TextSelection.collapsed(offset: _cmdCtrl.text.length);
-    });
-  }
-
-  void _historyDown() {
-    if (_historyIndex == -1) return;
-    setState(() {
-      if (_historyIndex < _history.length - 1) {
-        _historyIndex++;
-        _cmdCtrl.text = _history[_historyIndex];
-      } else {
-        _historyIndex = -1;
-        _cmdCtrl.clear();
-      }
-      _cmdCtrl.selection = TextSelection.collapsed(offset: _cmdCtrl.text.length);
-    });
-  }
-
   void _clearTerminal() {
     setState(() => _lines.clear());
+  }
+
+  Future<void> _runQuick(AppState state, String cmd) async {
+    if (_running) return;
+    final warn = _quickCmds.firstWhere((q) => q.cmd == cmd).warn;
+    if (warn != null) {
+      final ok = await showDialog<bool>(
+        context: context,
+        useRootNavigator: true,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1C2230),
+          title: const Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
+            SizedBox(width: 8),
+            Text('Commande sensible', style: TextStyle(fontSize: 15)),
+          ]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(warn, style: const TextStyle(fontSize: 13, color: Colors.white70)),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0A0C10),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(cmd,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.white)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+              child: const Text('Exécuter'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted || _running) return;
+    }
+    _cmdCtrl.text = cmd;
+    _runCommand(state);
+  }
+
+  // Historique (menu « Historique ») : un choix remet la commande dans le
+  // champ pour la modifier / relancer. 20 dernières, la plus récente en haut.
+  void _recallHistory(String cmd) {
+    setState(() {
+        _cmdCtrl.text = cmd;
+      _cmdCtrl.selection = TextSelection.collapsed(offset: cmd.length);
+    });
+    _focusNode.requestFocus();
   }
 
   void _copyLastOutput() {
@@ -234,37 +335,80 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
               ),
             ),
 
-            // Raccourcis historique
-            if (_history.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-                child: Row(
-                  children: [
-                    _HistoryBtn(
-                      icon: Icons.arrow_upward_rounded,
-                      onTap: _historyUp,
-                      tooltip: 'Commande précédente',
-                    ),
-                    const SizedBox(width: 8),
-                    _HistoryBtn(
-                      icon: Icons.arrow_downward_rounded,
-                      onTap: _historyDown,
-                      tooltip: 'Commande suivante',
-                    ),
-                    const SizedBox(width: 8),
-                    if (_running)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 1.5, color: accent),
+            // Barre d'outils : Commandes à gauche, Historique à droite
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              child: Row(
+                children: [
+                  PopupMenuButton<String>(
+                    enabled: !_running,
+                    color: const Color(0xFF1C2230),
+                    position: PopupMenuPosition.over,
+                    onSelected: (cmd) => _runQuick(state, cmd),
+                    itemBuilder: (_) => [
+                      for (final q in _quickCmds)
+                        PopupMenuItem<String>(
+                          value: q.cmd,
+                          height: 42,
+                          child: Row(children: [
+                            Icon(q.icon, size: 18, color: q.warn != null ? Colors.orangeAccent : accent),
+                            const SizedBox(width: 10),
+                            Text(q.label, style: const TextStyle(fontSize: 13)),
+                          ]),
                         ),
+                    ],
+                    child: _MenuBtn(
+                      icon: Icons.terminal_rounded,
+                      label: 'Commandes',
+                      enabled: !_running,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  if (_running)
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.5, color: accent),
+                    ),
+                  const Spacer(),
+                  PopupMenuButton<String>(
+                    enabled: !_running && _history.isNotEmpty,
+                    color: const Color(0xFF1C2230),
+                    position: PopupMenuPosition.over,
+                    constraints: const BoxConstraints(minWidth: 180, maxWidth: 300),
+                    onSelected: (v) => v == _clearHistoryValue ? _clearHistory() : _recallHistory(v),
+                    itemBuilder: (_) => [
+                      for (final c in _history.reversed.take(20))
+                        PopupMenuItem<String>(
+                          value: c,
+                          height: 40,
+                          child: Text(c,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      const PopupMenuDivider(),
+                      PopupMenuItem<String>(
+                        value: _clearHistoryValue,
+                        height: 40,
+                        child: Row(children: [
+                          const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                          const SizedBox(width: 8),
+                          Text('Effacer l\'historique',
+                            style: const TextStyle(fontSize: 12, color: Colors.redAccent)),
+                        ]),
                       ),
-                  ],
-                ),
+                    ],
+                    child: _MenuBtn(
+                      icon: Icons.history_rounded,
+                      label: 'Historique',
+                      enabled: !_running && _history.isNotEmpty,
+                    ),
+                  ),
+                ],
               ),
+            ),
 
             // Input
             AnimatedPadding(
@@ -356,32 +500,31 @@ class _SshTerminalScreenState extends State<SshTerminalScreen> {
   }
 }
 
-class _HistoryBtn extends StatelessWidget {
+class _MenuBtn extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
-  final String tooltip;
+  final String label;
+  final bool enabled;
 
-  const _HistoryBtn({
-    required this.icon,
-    required this.onTap,
-    required this.tooltip,
-  });
+  const _MenuBtn({required this.icon, required this.label, required this.enabled});
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-          ),
-          child: Icon(icon, size: 14, color: Colors.white38),
+    final accent = Theme.of(context).colorScheme.primary;
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.4,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
         ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: accent),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const Icon(Icons.arrow_drop_down_rounded, size: 18, color: Colors.white38),
+        ]),
       ),
     );
   }

@@ -4,6 +4,159 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+## v3.13.0+43 — Octobre 2026
+
+### 🌦️ Rétro Jump : gameplay
+- **Météo dynamique** — un événement vers 1 100, 2 100, 3 100… pts, pendant 18 s, annoncé par une bannière et affiché sous le score :
+  - 💨 **Vent** : pousse le héros à gauche ou à droite par rafales
+  - 🌧️ **Pluie** : sol glissant (accélération et freinage réduits)
+  - ⛈️ **Orage** : ciel sombre, éclairs avec flash, 3 pièces qui tombent du ciel à chaque éclair (partie normale)
+  - 🌫️ **Brouillard** : visibilité réduite autour du héros
+  - En partie du jour, même suite de météos pour tous (générateur à graine dédié, parcours inchangé)
+- **Fantôme du n°1** (partie du jour) — le meilleur joueur du jour grimpe en même temps que toi (héros translucide + pseudo). Trajet enregistré tous les 0,1 s et envoyé seulement en cas de nouveau meilleur score du jour ; le serveur ne garde que le trajet du meilleur score
+
+### 🎨 Rétro Jump : personnalisation
+- **5 nouveaux thèmes** :
+  - 🌙 **Nuit** : étoiles qui scintillent, lune, étoile filante, teinte bleutée
+  - 🔄 **Négatif** : couleurs inversées
+  - 💚 **Matrix** : vert phosphore + pluie de code
+  - 🌄 **Réaliste** : décor entièrement redessiné — ciel qui change avec l'altitude (jour → coucher de soleil → espace étoilé), soleil et rayons, montagnes enneigées, nuages en parallaxe, prairie ; planches de bois, poutres d'acier, bois pourri, ressorts chromés, ombres portées, pièces en or
+  - ❄️ **Tour gelée** : tour de château en pierres taillées, neige posée sur les pierres, meurtrières éclairées, corniches avec congères et stalactites, dalles enneigées, blocs de glace, neige qui tombe sur 3 plans
+- **Thème « Rouge » retiré** — numérotation des thèmes migrée automatiquement (thèmes débloqués et sélection conservés), **350 pièces remboursées** aux joueurs qui l'avaient acheté
+- **Traînées de saut** (nouvelle section de la Boutique) : Arc-en-ciel, Étincelles, Pixels, Flammes, Bulles (150 à 350 pièces)
+- **4 nouvelles musiques** à débloquer : 8-bit Retro (600), Mountain (700), Video Game (800), Pixel Fight (1 000) — 7 morceaux au total, section Musique sur 2 lignes
+- **Boutique** : nom des objets toujours affiché, même verrouillés (grisé, avec le prix en dessous)
+
+### 🌍 Classement en ligne
+- **Classement de la semaine** — 3 onglets **Défi journalier / Semaine / Général** ; remise à zéro chaque lundi (« fin dans X j ») ; alimenté côté serveur par chaque partie normale (anciennes versions comprises)
+- **Pièces des joueurs** affichées sous chaque pseudo dans le classement
+- **Sauvegarde = identité en ligne** — le fichier de sauvegarde emporte aussi l'identifiant en ligne : en le chargeant (autre téléphone, réinstallation, ou application Rétro Jump autonome), on retrouve son pseudo et ses scores
+- Accueil : tuiles réduites à leur titre, **« Défis du jour »** et **« Classement »**
+
+### 🗄️ Serveur (Supabase) — `supabase_retro_jump.sql` à relancer
+- Mode `week` (contrainte + rang hebdomadaire), colonne `coins` + fonction `set_jump_coins`, table `jump_ghosts` + fonctions `submit_jump_ghost` / `jump_top_ghost`
+
+### 📦 Fichiers
+- Nouveaux assets : `assets/game/game_music_4.ogg` à `game_music_7.ogg`
+- `MainActivity.kt` : liste des musiques étendue (index 3 à 6)
+- Application **Rétro Jump autonome** (projet séparé `retro_jump`, APK bilingue FR/EN selon la langue du téléphone, même classement)
+
+---
+
+## v3.12.0+42 — Octobre 2026
+
+### 🌍 Rétro Jump : classement en ligne
+- **Classement en ligne** via Supabase (nouveau `lib/services/leaderboard_service.dart`, API REST sans dépendance supplémentaire) : onglets **Aujourd'hui** / **Tous temps**, top 50 avec médailles et héros, rang du joueur mis en évidence
+- **Sans compte** : identifiant secret généré par téléphone, pseudo automatique (`Joueur-XXXX`) modifiable ; le nom saisi au record devient le pseudo
+- **Pseudos uniques** (majuscules / espaces ignorés) : pseudo déjà pris refusé, suffixe automatique (`Mario2`) pour un nouveau joueur ; table `jump_players`
+- **Sécurité côté serveur** (`supabase_retro_jump.sql`) : écriture uniquement via fonctions signées (SHA-256 salé), contrôle de cohérence score / durée de partie, identifiant du téléphone jamais exposé (colonnes publiques limitées), accès réservé au rôle `anon`
+- **Hors ligne** : scores mis en file d'attente et renvoyés automatiquement ; rang affiché sur l'écran de résultats (et sur l'image partagée)
+- **Lignes des autres joueurs dans le parcours** — top 20 (classement du jour en Partie du jour, tous temps en partie normale) : ligne épaisse lumineuse or / argent / bronze / bleu avec rang, pseudo et score ; bannière « TU DÉPASSES … ! » au passage
+
+### 📅 Rétro Jump : Partie du jour
+- **Même parcours pour tous** chaque jour (générateur à graine `SeededRandom` mulberry32, identique sur tous les téléphones), nouveau parcours à minuit, **rejouable à volonté** (seul le meilleur score compte)
+- **Sans bonus de départ, sans continue, sans pièces** : ni pièces, ni sacs, ni pièces sur les bugs ; aimant et ×2 remplacés par super saut / ralenti
+- **Page dédiée** : règles, meilleur score et rang du jour, choix **Héros / Décor / Musique** (menus limités aux éléments débloqués), bouton « Jouer la partie du jour », scores du jour
+- Meilleur score et rang du jour mémorisés localement
+
+### ✨ Rétro Jump : accueil
+- **Tuiles « Partie du jour » et « Classement »** sous le record (même gabarit, rang mondial et du jour affichés), point rouge si la partie du jour n'a pas encore été jouée
+- Bouton **✏️ Personnaliser** sur la scène du héros (ouvre la boutique)
+- **La roue s'ouvre automatiquement** à l'ouverture du jeu si le tour gratuit du jour n'a pas été joué
+- Accueil compacté (héros plus petit, bouton Jouer réduit) : tout tient sans défiler
+
+### 📦 Fichiers
+- Nouveau : `lib/services/leaderboard_service.dart`, `supabase_retro_jump.sql` (à exécuter dans Supabase → SQL Editor)
+
+---
+
+## v3.11.0+41 — Octobre 2026
+
+### 🎮 Nouveau mini-jeu : Rétro Jump
+Jeu de saut vertical façon « doodle jump » rétro, ajouté comme 3e carte de l'onglet **Mini jeux** (nouveau `jump_screen.dart`).
+
+- **Gameplay** — déplacement tactile (gauche/droite de l'écran) ou **inclinaison du téléphone** (option, via `sensors_plus`, zone morte + lissage), passage d'un bord à l'autre. Cartouches normales, mobiles, fissurées (se cassent), ressorts, turbo invincible, bouclier, bugs à écraser
+- **Décors** — mur de tour en briques qui change tous les 400 pts (Château, Donjon, Temple, Glace, Volcan, Cyber, Espace, en boucle) : parallaxe, corniches entre paliers, torches, lave, néons, planète… Ligne du record affichée dans le parcours
+- **Objets à ramasser** — pièces, **sac de 15 pièces** (~tous les 250 pts), **logos de consoles** à collectionner, **bonus en partie** (~tous les 350 pts) : 🧲 aimant, ×2 pièces, ⏫ super saut (5 rebonds), ⏳ ralenti
+- **Combo** — chaque cartouche plus haute que la précédente fait monter le combo : pièces ×2 dès 5 sauts, ×3 dès 10… jusqu'à ×5. Affichage en jeu + meilleur combo dans les résultats
+- **Continuer** après une chute ou un bug pour 20 pièces (1 fois par partie), avec cartouche de secours et invulnérabilité
+- **12 héros à débloquer** (Robot, Joystick, Borne, Jeton, Cartouche, Disquette, CD, Cassette, Télé, Souris, Chat, Fusée), animés, chacun avec un **petit pouvoir** (vitesse, continue moins cher, sacs plus riches, aimant permanent, bouclier au départ, saut plus haut, turbo plus long…)
+- **8 thèmes visuels** — Classique, Néon, Pocket, Sépia, CRT (scanlines), Synthwave, Rouge, **Disco** (boule à facettes, faisceaux, reflets, cartouches qui changent de couleur)
+- **3 musiques** (Disco Funk offerte, Shop, Good Morning) + muet ; musique dès l'ouverture du jeu, en pause hors de l'onglet et en arrière-plan
+- **Bonus de départ achetables** (cumulables) : départ propulsé à 500 / 1 000 pts, bouclier, turbo
+- **Roue de la fortune** — 1 tour gratuit par jour puis 25 pièces le tour ; gains : pièces, bonus de départ offerts, « rejouer » gratuit
+- **Défis par séries** — 8 défis qui se renouvellent avec des objectifs et récompenses plus élevés, bonus de série
+- **Collection par albums** — 16 logos par album (3 prises chacun, puis plus dans les albums suivants), 2 séries de logos en alternance, **cadeau de 500 pièces** par album complété
+- **Statistiques à vie** — parties, points cumulés, moyenne, sauts, meilleur combo, pièces, sacs, bugs, turbos, logos, continues, chutes, temps de jeu
+- **Codes secrets** (5 appuis sur le titre) — codes stockés uniquement sous forme d'empreinte SHA-256 salée, introuvables dans le source
+- **Sauvegarde / chargement / reset** de la progression — fichier JSON signé (anti-modification), dossier et fichier choisis via le picker in-app, partage Android en secours
+- **Accueil « console »** — héros animé sur une scène aux couleurs du thème, bonus et bouton Jouer, barre du bas (Boutique, Défis, Collection, Roue, Réglages) ouvrant des panneaux ; fiches de déblocage toujours consultables (bouton grisé si pas assez de pièces)
+- Vibrations (option), écran de résultats compact, partage du score en image, saisie du nom au record
+
+### 🔊 Sons et musique (mini-jeux)
+- **Effets chiptune générés** côté Android (`MainActivity.kt`, objet `ChipSynth`) et joués via `SoundPool` (faible latence, plusieurs à la fois) : saut, ressort, pièce, bug écrasé, turbo, bouclier, coup encaissé, cartouche cassée, logo, palier, continue
+- **Musique de fond** en boucle via `MediaPlayer` à partir de fichiers `.ogg` (`assets/game/game_music*.ogg`), pause automatique quand l'app passe en arrière-plan
+- `QuizAudio` : nouvelles méthodes `sfx()`, `musicStart/Stop/Pause/Resume()`, réglage musique mémorisé ; couper le son coupe aussi la musique
+
+### 🧱 Breakout
+- Règles du jeu repliables, accueil compacté, écran de résultats compacté
+- Musique de fond (Disco Funk) et bouton musique dans l'en-tête
+- Bouton « Sauvegarder » du record qui passait sur deux lignes : corrigé
+
+### ✨ Améliorations
+- **Bannière « Connexion perdue »** placée sous le contenu (ne masque plus les boutons), masquée dans l'onglet Mini jeux et pendant la saisie au clavier, fermable avec une croix
+- Musique des mini-jeux mise en pause quand on change d'onglet, reprise au retour
+- **Script `check_fr_en.py`** — contrôle de symétrie FR/EN (fichiers présents des deux côtés, logique identique, textes français restés dans l'EN, cohérence des versions)
+
+### 🐛 Correctifs
+- **Strings FR résiduelles dans la version EN** — 13 textes traduits (connexion, capture, Foclabroc Tools, lancement de jeu, jeu inconnu, fichier vide…)
+- Jeux : dessin qui débordait sous la barre d'état et sous la barre de navigation Android (`ClipRect` + marge système garantie) ; titre et score masqués par le bouton menu
+- `game_detail_screen` EN aligné sur la structure FR (le contrôle FR/EN est désormais à 100 %)
+
+### 📦 Dépendances / fichiers
+- `sensors_plus` (inclinaison du téléphone)
+- Nouveaux assets : `assets/game/game_music.ogg`, `game_music_2.ogg`, `game_music_3.ogg`
+
+---
+
+## v3.10.0+40 — Septembre 2026
+
+### ✨ Nouvelles fonctionnalités
+- **Transferts parallèles** — envoi ET téléchargement (dossiers comme fichiers simples) en **6 transferts simultanés**, chaque worker réutilisant son propre canal SFTP pour tous ses fichiers. Gain net sur les dossiers contenant beaucoup de petits fichiers. Si Batocera refuse un canal (limite `MaxSessions`), le transfert continue avec moins de workers
+  - Dialog de progression simplifié : compteur « Terminés x/y », nom du fichier en cours et **barre globale unique** (progression en octets pour l'envoi)
+  - Annulation : attente de l'arrêt de tous les workers avant le rollback, suppression groupée des fichiers partiels et déjà transférés
+  - Tous les `mkdir -p` distants créés en amont, par lots de 50 en une seule commande
+- **Envoi de fichiers simples = même moteur que l'envoi de dossier** — nouvelle méthode commune `_runUpload()` : même dialog, parallélisme, bouton Annuler avec rollback et raison du 1er échec. Remplace l'ancienne barre inline dans l'en-tête. En mode fichiers simples, aucun dossier n'est créé ni supprimé à l'annulation
+- **Terminal SSH : menus Commandes / Historique**
+  - Menu déroulant **Commandes** (gauche) : Espace disque, Température, Adresse IP, Infos système (`batocera-info`), Version Batocera, `/boot` en écriture (`mount -o remount,rw /boot`), Sauvegarder overlay (`batocera-save-overlay`)
+  - **Confirmation** avant les commandes sensibles (remount `/boot`, save-overlay) avec avertissement + commande affichée ; icône orange dans le menu. Champ `warn` dans `_quickCmds`
+  - Menu déroulant **Historique** (droite) : 20 dernières commandes, sans doublon, un choix remet la commande dans le champ. Entrée « Effacer l'historique »
+  - **Historique persistant** via `SharedPreferences` (clé `ssh_terminal_history`, 50 commandes max) — conservé après fermeture de l'appli
+- **Liste des jeux : icônes manuel/map uniquement si le fichier existe** — un script Python unique côté Batocera lit le(s) `gamelist.xml`, résout les chemins `<manual>`/`<map>` (`./`, `~/`) et ne garde que les fichiers présents (taille > 0). Gère les **collections** (mario, pokemon…) en lisant le gamelist du vrai système de chaque jeu (déduit de `/userdata/roms/<système>/`). Règle stricte : pas de fichier vérifié → pas d'icône
+- **Onglet « Mini jeux »** — Quiz Rétro et Breakout regroupés dans un nouvel onglet placé en dernier dans le menu (nouveau `mini_games_screen.dart`). Deux cartes ouvrant chaque jeu dans le Navigator de l'onglet : le bouton retour Android (ou re-sélectionner « Mini jeux » dans le menu) ramène à la liste. Le menu passe de 13 à 12 entrées (Liens utiles en index 10, Mini jeux en 11)
+- **Erreur explicite en fin d'envoi** — la notification indique la raison du 1er échec (ex. « lecture refusée par Android (activer « Accès à tous les fichiers ») »)
+
+### 📱 Android
+- **Permission `MANAGE_EXTERNAL_STORAGE`** (« Accès à tous les fichiers ») ajoutée au manifest et demandée une fois par lancement par le picker in-app. Sans elle, Android 11+ ne laisse lire que les médias : ROMs, sauvegardes, `.romfs`… échouaient en `Permission denied` à l'envoi
+
+### 🐛 Correctifs
+- **Éditeur de texte : fichiers corrompus à l'enregistrement** — le contenu passait par un heredoc shell dans `bash -l -c '…'` : les `$VAR` étaient remplacées, les `$(…)` **exécutés**, les `\\` réduits, et les chemins avec espaces cassés. Écriture désormais directe via SFTP (`writeFileBytes()`), octets à l'identique, droits du fichier préservés
+- **Éditeur de texte : fichier vidé** — une lecture en échec (fichier non-UTF8…) ouvrait un éditeur vide qui effaçait le fichier à l'enregistrement. Lecture tolérante (`allowMalformed`) et éditeur non ouvert si la lecture échoue
+- **Saturation mémoire sur les gros envois** — le fichier entier finissait en RAM (disque plus rapide que le réseau), risque de plantage sur les ISO, multiplié par le parallélisme. Contre-pression ajoutée : la lecture attend que le writer SFTP reprenne
+- **Annulation d'envoi : suppression possible d'un dossier existant** — si la vérification d'existence du dossier distant échouait, il était considéré comme nouveau et supprimé (`rm -rf`) à l'annulation. Il est maintenant considéré existant sauf réponse explicite contraire
+- **Boutons Manuel/Map/Vidéo grisés à tort (fiche jeu)** — la vérification de v3.8 passait des chemins entre apostrophes dans l'enveloppe `bash -l -c '…'` et échouait dès qu'un nom contenait un espace ou des parenthèses. Exécution directe via le client SSH
+- **Gestionnaire de fichiers : noms avec apostrophe** (`Link's Awakening`…) — lister, renommer, déplacer, copier, supprimer et télécharger échouaient silencieusement. Nouvelle fonction `_shq()` d'échappement adaptée à l'enveloppe `bash -l -c`
+- **Bouton retour du gestionnaire de fichiers enregistré sur le mauvais onglet** — `TabBackHandler.register(5, …)` pointait sur le Terminal SSH (index 5) au lieu de Fichiers (index 6), reste du décalage des index lors de l'ajout du Pad virtuel. Dans le Terminal, le retour remontait le dossier du gestionnaire en arrière-plan ; dans Fichiers, le retour ne désélectionnait pas. Corrigé en index 6
+- **Nombre d'onglets codé en dur** (`List.generate(13, …)` pour les Navigators et la pile d'onglets `Offstage`) — remplacé par `_tabs.length`
+- **Terminal : commandes contenant une apostrophe** (`awk '{…}'`, `echo 'texte'`) cassées par l'enveloppe `bash -c '…'` — échappement ajouté
+- **Canal SFTP jamais fermé** — `uploadFileFromPath()` et `downloadFileToDisk()` laissaient un canal ouvert par fichier transféré. Fermeture systématique, fichiers local/distant fermés même en cas d'annulation ou d'erreur
+- **Exception non gérée dans les logs** à l'envoi d'un fichier illisible (`openRead()`) — lecture via `RandomAccessFile`, erreur propre et plus de fichier vide créé côté Batocera
+- **Téléchargement : taille lue via le canal SFTP du worker** au lieu d'une commande `stat` par fichier (évite de dépasser la limite de canaux SSH)
+- **`app_state` : `catchError` sans valeur de retour** au passage en arrière-plan (avertissement `flutter analyze`)
+- **Strings FR résiduelles dans le picker EN** — ~15 textes traduits (« Choisir ce dossier », « Stockage interne », messages de permission…). Titre « Choisir un dossier » en mode sélection de dossier (FR et EN)
+
+---
+
 ## v3.9.0+39 — Septembre 2026
 
 ### ✨ Nouvelles fonctionnalités

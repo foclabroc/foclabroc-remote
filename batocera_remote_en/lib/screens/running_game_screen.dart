@@ -1094,7 +1094,7 @@ print("\n")
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                _gameInfo['name'] ?? 'Jeu inconnu',
+                                                _gameInfo['name'] ?? 'Unknown game',
                                                 style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                                                 overflow: TextOverflow.ellipsis,
                                               ),

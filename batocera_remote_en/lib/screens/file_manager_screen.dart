@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:dartssh2/dartssh2.dart' show SftpClient;
 import '../models/app_state.dart';
 import '../widgets/back_handler.dart';
 import '../widgets/in_app_file_picker.dart';
@@ -14,6 +17,18 @@ import '../widgets/in_app_file_picker.dart';
 /// user cancels, without waiting for the current file to finish.
 class _TransferCancelledException implements Exception {
   const _TransferCancelledException();
+}
+
+/// Quotes a path for a command passed to `ssh.execute()` (which wraps it
+/// in `bash -l -c '…'`). Protects apostrophes (`Assassin's Creed`), `"`,
+/// `$`, `\`` and `\\`.
+String _shq(String path) {
+  final inner = path
+      .replaceAll(r'\', r'\\')
+      .replaceAll('"', r'\"')
+      .replaceAll(r'$', r'\$')
+      .replaceAll('`', r'\`');
+  return '"${inner.replaceAll("'", "'\\''")}"';
 }
 
 class FileManagerScreen extends StatefulWidget {
@@ -57,7 +72,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   void initState() {
     super.initState();
     _currentPath = widget.initialPath;
-    TabBackHandler.register(5, _handleBack);
+    TabBackHandler.register(6, _handleBack);
     // Réinitialise l'état upload au démarrage
     _uploading = false;
     _uploadProgress = 0.0;
@@ -92,7 +107,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   @override
   void dispose() {
-    TabBackHandler.unregister(5);
+    TabBackHandler.unregister(6);
     context.read<AppState>().removeListener(_onConnectionChange);
     super.dispose();
   }
@@ -110,7 +125,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     if (!state.isConnected) return;
     setState(() { _loading = true; _error = null; _selected.clear(); });
     try {
-      final raw = await state.ssh.execute('ls -lA --time-style="+%d/%m/%Y" "$path" 2>/dev/null');
+      final raw = await state.ssh.execute('ls -lA --time-style="+%d/%m/%Y" ${_shq(path)} 2>/dev/null');
       final items = <_FileItem>[];
       for (final line in raw.split('\n')) {
         if (line.isEmpty || line.startsWith('total')) continue;
@@ -206,9 +221,9 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       try {
         final dest = '$_currentPath/${item.name}';
         if (_clipboardIsCut) {
-          await state.ssh.execute('mv "${item.fullPath}" "$dest"');
+          await state.ssh.execute('mv ${_shq(item.fullPath)} ${_shq(dest)}');
         } else {
-          await state.ssh.execute('cp -r "${item.fullPath}" "$dest"');
+          await state.ssh.execute('cp -r ${_shq(item.fullPath)} ${_shq(dest)}');
         }
         success++;
       } catch (_) {}
@@ -254,7 +269,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       setState(() => _loading = true);
       final state = context.read<AppState>();
       try {
-        await state.ssh.execute('mv "${item.fullPath}" "$_currentPath/$newName"');
+        await state.ssh.execute('mv ${_shq(item.fullPath)} ${_shq('$_currentPath/$newName')}');
       } catch (_) {}
       await _loadDir(_currentPath);
     }
@@ -282,7 +297,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     final state = context.read<AppState>();
     final marker = 'FOCLABROC_FIND_${DateTime.now().microsecondsSinceEpoch}';
     final cmd = 'echo $marker; '
-        'find "$folderPath" -type f -exec stat -c "%s %n" {} \\; 2>/dev/null; '
+        'find ${_shq(folderPath)} -type f -exec stat -c "%s %n" {} \\; 2>/dev/null; '
         'echo ${marker}_END';
     final out = await state.ssh.execute(cmd);
 
@@ -422,16 +437,22 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       if (!await topDir.exists()) freshTopFolders.add(topDir.path);
     }
 
-    // Progress variables shared with the dialog.
-    // fileProgress = progress of the current file (0..1)
-    // globalProgress = progress across the whole queue (0..1), based on the
-    // current file's index + its progress fraction — stays meaningful even
-    // when a file's size isn't known in advance (files selected directly,
-    // not from a folder).
-    double fileProgress = 0.0;
+    // ── Parallel transfer: several workers pull from the queue, each with
+    // its own SFTP channel reused for all its files. Clear gain with many
+    // small files; with large files the network is already saturated.
+    // Capped at 6: OpenSSH allows 10 channels per connection (MaxSessions),
+    // leaving headroom for commands, the terminal and the tunnel.
+    // No lock: Dart is single-threaded, shared state is only modified
+    // between two `await`s.
+    // slotName/slotProgress = current file of each worker (dialog).
+    // globalProgress = (finished files + in-flight fractions) / total —
+    // stays accurate even when a file's size isn't known.
+    const maxWorkers = 6;
+    final workerCount = queue.length < maxWorkers ? queue.length : maxWorkers;
+    final slotName = List<String?>.filled(workerCount, null);
+    final slotProgress = List<double>.filled(workerCount, 0.0);
+    int doneCount = 0;
     double globalProgress = 0.0;
-    String currentName = queue.isNotEmpty ? queue.first.localRelPath : '';
-    int currentIdx = 1;
     // Becomes true as soon as the user confirms cancellation. Checked in
     // onProgress to interrupt the current transfer on the next packet
     // received, without waiting for the file to finish.
@@ -502,33 +523,22 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                 Text(
                   cancelled
                       ? 'Cancelling...'
-                      : (queue.length > 1 ? 'File $currentIdx/${queue.length}' : 'Downloading...'),
+                      : (queue.length > 1 ? 'Done $doneCount/${queue.length}' : 'Downloading...'),
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
-                const SizedBox(height: 4),
-                Text(currentName,
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
                 const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value: fileProgress > 0 ? fileProgress : null,
-                  color: Colors.purpleAccent,
-                  backgroundColor: Colors.purple.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  minHeight: 6,
+                SizedBox(
+                  height: 18,
+                  child: Text(
+                    slotName.firstWhere((n) => n != null, orElse: () => null) ?? '',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
-                // Always shown (never conditionally hidden): showing/hiding
-                // this text based on fileProgress used to change the
-                // dialog's height on every file → a flicker effect.
-                const SizedBox(height: 4),
-                Text('${(fileProgress * 100).toInt()}%',
-                  style: const TextStyle(color: Colors.purpleAccent, fontSize: 11)),
-                // Global bar: only useful when there's more than one file
-                // (otherwise it would duplicate the single file's bar).
-                // `queue.length` never changes during the dialog's
-                // lifetime, so this condition never causes flicker.
-                if (queue.length > 1) ...[
+                // Global bar: the only bar shown (several files transfer in
+                // parallel, no per-file bar).
+                ...[
                   const SizedBox(height: 16),
                   const Align(
                     alignment: Alignment.centerLeft,
@@ -563,75 +573,108 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
     final saved = <String>[];
     final failed = <String>[];
-    // Folders created during THIS download (for cleanup if cancelled) and
-    // the path of the file currently being written (to delete the partial
-    // one if there is one at the moment of cancellation).
+    // Folders created during THIS download (cleanup on cancel) and files
+    // being written (partials to delete on cancel — with several workers
+    // there can be several at once).
     final createdDirs = <String>{};
-    String? partialFilePath;
+    final partialFilePaths = <String>{};
+    int nextIdx = 0;
 
-    for (int idx = 0; idx < queue.length; idx++) {
-      if (cancelled) break;
-      final entry = queue[idx];
-      currentName = entry.localRelPath;
-      currentIdx = idx + 1;
-      fileProgress = 0.0;
-      globalProgress = idx / queue.length;
-      // Refreshes the dialog for the current file's name/index (the
-      // refresh during the transfer itself happens further below, in
-      // onProgress).
+    void refreshProgress() {
+      final inFlight = slotProgress.fold<double>(0.0, (a, b) => a + b);
+      globalProgress = queue.isEmpty
+          ? 1.0
+          : ((doneCount + inFlight) / queue.length).clamp(0.0, 1.0);
       if (mounted) dialogSetState?.call(() {});
+    }
 
+    Future<void> worker(int w) async {
+      final sftp = await state.ssh
+          .openSftp()
+          .then<SftpClient?>((s) => s, onError: (_) => null);
+      // Channel refused (server limit): this worker stops, the others
+      // share the queue.
+      if (sftp == null) return;
       try {
-        // Size already known for files coming from a folder (grouped stat
-        // during the scan); otherwise fetched on the fly as before.
-        int totalSize = entry.size;
-        if (totalSize == 0) {
-          final sizeStr = await state.ssh.execute('stat -c%s "${entry.remotePath}" 2>/dev/null');
-          totalSize = int.tryParse(sizeStr.trim()) ?? 0;
-        }
+        while (!cancelled && nextIdx < queue.length) {
+          final idx = nextIdx++;
+          final entry = queue[idx];
+          slotName[w] = entry.localRelPath;
+          slotProgress[w] = 0.0;
+          refreshProgress();
+          String? destPath;
+          try {
+            int totalSize = entry.size;
+            if (totalSize == 0) {
+              // Size via the worker's SFTP channel: no extra SSH channel
+              // (6 workers + 6 stat commands exceeded the limit of 10).
+              try {
+                totalSize = (await sftp.stat(entry.remotePath)).size ?? 0;
+              } catch (_) {}
+            }
+            if (cancelled) break;
+            final destFile = File('$downloadsPath/${entry.localRelPath}');
+            final destDir = destFile.parent;
+            if (!await destDir.exists()) {
+              await destDir.create(recursive: true);
+            }
+            createdDirs.add(destDir.path);
+            destPath = destFile.path;
+            partialFilePaths.add(destPath);
 
-        final destFile = File('$downloadsPath/${entry.localRelPath}');
-        partialFilePath = destFile.path;
-        // Recreates the local folder structure (subfolders) before writing.
-        final destDir = destFile.parent;
-        if (!await destDir.exists()) {
-          await destDir.create(recursive: true);
+            await state.ssh.downloadFileToDisk(
+              entry.remotePath,
+              destPath,
+              sftp: sftp,
+              onProgress: (bytes) {
+                // Checked on every packet: interrupts the transfer as soon
+                // as possible after cancellation is confirmed.
+                if (cancelled) throw const _TransferCancelledException();
+                slotProgress[w] = totalSize > 0 ? (bytes / totalSize).clamp(0.0, 1.0) : 0.0;
+                refreshProgress();
+              },
+            );
+            saved.add(entry.localRelPath);
+            partialFilePaths.remove(destPath);
+          } on _TransferCancelledException {
+            break;
+          } catch (e) {
+            // Failures accumulated (a single summary at the end). Any
+            // truncated file is deleted so no fake complete file is left in
+            // Downloads.
+            failed.add(entry.localRelPath);
+            if (destPath != null) {
+              partialFilePaths.remove(destPath);
+              try { await File(destPath).delete(); } catch (_) {}
+            }
+          } finally {
+            doneCount++;
+            slotName[w] = null;
+            slotProgress[w] = 0.0;
+            refreshProgress();
+          }
         }
-        createdDirs.add(destDir.path);
+      } finally {
+        sftp.close();
+      }
+    }
 
-        await state.ssh.downloadFileToDisk(
-          entry.remotePath,
-          destFile.path,
-          onProgress: totalSize > 0 ? (bytes) {
-            // Checked on every packet received: interrupts the transfer as
-            // soon as possible after cancellation is confirmed, without
-            // waiting for the file to finish.
-            if (cancelled) throw const _TransferCancelledException();
-            fileProgress = (bytes / totalSize).clamp(0.0, 1.0);
-            globalProgress = ((idx + fileProgress) / queue.length).clamp(0.0, 1.0);
-            if (mounted) dialogSetState?.call(() {});
-          } : null,
-        );
-        saved.add(entry.localRelPath);
-        partialFilePath = null; // this file is complete, no longer "partial"
-      } on _TransferCancelledException {
-        break;
-      } catch (e) {
-        // Failures are accumulated instead of one snackbar per file: with
-        // many files (recursive folder), several snackbars would chain/
-        // overwrite each other too fast to be readable. A single summary
-        // is shown at the end.
-        failed.add(entry.localRelPath);
+    // Wait for ALL workers to stop: on cancellation, rollback only starts
+    // once every transfer has actually stopped.
+    await Future.wait(List.generate(workerCount, worker));
+    // No SFTP channel could be opened: the rest of the queue counts as failed.
+    if (!cancelled) {
+      for (int i = nextIdx; i < queue.length; i++) {
+        failed.add(queue[i].localRelPath);
       }
     }
 
     // ── Cancellation: full rollback (already-downloaded files + partial
-    // file deleted, empty subfolders created during the operation cleaned
-    // up) ──────────────────────────────────────────────────────────────
+    // files deleted, empty subfolders created during the operation cleaned
+    // up) ────────────────────────────────────────────────────────────────
     if (cancelled) {
-      // File being written at the moment of cancellation.
-      if (partialFilePath != null) {
-        try { await File(partialFilePath).delete(); } catch (_) {}
+      for (final p in partialFilePaths) {
+        try { await File(p).delete(); } catch (_) {}
       }
       // Files already completed successfully during this operation.
       for (final rel in saved) {
@@ -717,7 +760,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       setState(() => _loading = true);
       final state = context.read<AppState>();
       for (final item in _selectedItems) {
-        try { await state.ssh.execute('rm -rf "${item.fullPath}"'); } catch (_) {}
+        try { await state.ssh.execute('rm -rf ${_shq(item.fullPath)}'); } catch (_) {}
       }
       await _loadDir(_currentPath);
     }
@@ -733,8 +776,10 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     ));
   }
 
+  /// Single-file upload (multi-select via long-press in the picker): same
+  /// dialog as the folder upload — parallel transfers, global progress bar,
+  /// Cancel button with rollback.
   Future<void> _uploadFile() async {
-    // Open the in-app file picker directly (multi-select via long-press).
     final results = await Navigator.of(context, rootNavigator: true).push<List<InAppFilePickerResult>>(
       MaterialPageRoute(
         builder: (_) => const InAppFilePicker(allowMultiple: true),
@@ -742,76 +787,23 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       ),
     );
     if (results == null || results.isEmpty || !mounted) return;
-    final files = results.map((r) => (
-      path: r.localPath,
-      name: r.localPath.split('/').last,
-    )).toList();
-
-    final state = context.read<AppState>();
-    int success = 0;
-    final total = files.length;
-
-    setState(() {
-      _uploading = true;
-      _uploadProgress = 0.0;
-      _uploadTotalFiles = total;
-      _uploadCurrentFile = 0;
-    });
-
-    try {
-      for (int i = 0; i < files.length; i++) {
-        final file = files[i];
-        setState(() {
-          _uploadCurrentFile = i + 1;
-          _uploadingFileName = file.name;
-          _uploadProgress = 0.0;
-        });
-
-        // Try the upload up to 2 times: if the 1st attempt fails (typically
-        // SSH timeout after the user kept the app in background while
-        // picking files), trigger a silent reconnect then retry.
-        bool uploaded = false;
-        for (int attempt = 0; attempt < 2 && !uploaded; attempt++) {
-          if (attempt > 0) {
-            // Before retrying: make sure the SSH connection is alive
-            final ok = await state.ensureConnected();
-            if (!ok) break; // reconnect failed, give up on this file
-            if (mounted) setState(() => _uploadProgress = 0.0);
-          }
-          try {
-            await state.ssh.uploadFileFromPath(
-              file.path,
-              '$_currentPath/${file.name}',
-              onProgress: (sent, fileTotal) {
-                if (mounted) {
-                  setState(() => _uploadProgress = fileTotal > 0 ? sent / fileTotal : 0.0);
-                }
-              },
-            );
-            uploaded = true;
-          } catch (_) {
-            // 1st attempt failed → loop to reconnect and retry
-          }
-        }
-        if (uploaded) success++;
-      }
-    } finally {
-      _resetUploadState();
+    final localFiles = <({String localPath, String relPath, int size})>[];
+    for (final r in results) {
+      int size = 0;
+      try { size = await File(r.localPath).length(); } catch (_) {}
+      localFiles.add((localPath: r.localPath, relPath: r.localPath.split('/').last, size: size));
     }
-    await _loadDir(_currentPath);
-    _showSnack('$success file(s) uploaded!');
-  }
-
-  void _resetUploadState() {
-    if (mounted) {
-      setState(() {
-        _uploading = false;
-        _uploadProgress = 0.0;
-        _uploadingFileName = '';
-        _uploadCurrentFile = 0;
-        _uploadTotalFiles = 0;
-      });
-    }
+    if (!mounted) return;
+    // The SSH connection may have dropped while picking (app in the
+    // background): check / restore it before starting.
+    await context.read<AppState>().ensureConnected();
+    if (!mounted) return;
+    await _runUpload(
+      localFiles: localFiles,
+      totalBytes: localFiles.fold<int>(0, (a, f) => a + f.size),
+      remoteBase: _currentPath,
+      isFolder: false,
+    );
   }
 
   /// Uploads a whole folder from the phone to Batocera, with a confirmation
@@ -893,26 +885,56 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     );
     if (proceed != true || !mounted) return;
 
+    await _runUpload(
+      localFiles: localFiles,
+      totalBytes: totalBytes,
+      remoteBase: '$_currentPath/${folderResult.name}',
+      isFolder: true,
+    );
+  }
+
+  /// Shared upload engine (folder or single files): progress dialog,
+  /// 6 parallel transfers, cancellation with rollback.
+  /// `isFolder` = false: destination = current folder, which already exists →
+  /// no folder created, hence no folder deleted on cancellation.
+  Future<void> _runUpload({
+    required List<({String localPath, String relPath, int size})> localFiles,
+    required int totalBytes,
+    required String remoteBase,
+    required bool isFolder,
+  }) async {
     final state = context.read<AppState>();
-    final remoteBase = '$_currentPath/${folderResult.name}';
 
     // Checks BEFORE any upload whether the destination folder already
     // exists on Batocera — if it doesn't, it can be deleted entirely as a
     // safety net if the operation is cancelled (like freshTopFolders for
     // download, but on the remote side).
-    bool remoteTopExisted = false;
-    try {
-      final checkOut = await state.ssh.execute('[ -d "$remoteBase" ] && echo 1 || echo 0');
-      remoteTopExisted = checkOut.trim() == '1';
-    } catch (_) {}
+    // To be safe, considered EXISTING until an explicit "does not exist"
+    // answer is read: if the check fails (error, banner mixed into the
+    // output…), a cancellation will never `rm -rf` a folder that may have
+    // already contained files.
+    bool remoteTopExisted = true;
+    if (isFolder) {
+      try {
+        final checkOut = await state.ssh.execute('[ -d ${_shq(remoteBase)} ] && echo FOC_DIR_YES || echo FOC_DIR_NO');
+        remoteTopExisted = !checkOut.contains('FOC_DIR_NO');
+      } catch (_) {}
+    }
     if (!mounted) return;
 
     // Progress variables shared with the dialog (see _downloadSelected for
     // the role of each one).
-    double fileProgress = 0.0;
+    // State shared with the dialog: one slot per worker (see
+    // _downloadSelected). Global progress is byte-based here, since all
+    // local sizes are known.
+    const maxWorkers = 6;
+    final workerCount = localFiles.length < maxWorkers ? localFiles.length : maxWorkers;
+    final slotName = List<String?>.filled(workerCount, null);
+    final slotProgress = List<double>.filled(workerCount, 0.0);
+    final slotBytes = List<int>.filled(workerCount, 0);
+    int doneCount = 0;
+    int doneBytes = 0;
     double globalProgress = 0.0;
-    String currentName = localFiles.first.relPath;
-    int currentIdx = 1;
     bool cancelled = false;
     StateSetter? dialogSetState;
 
@@ -963,31 +985,28 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             content: SizedBox(
               width: 280,
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.drive_folder_upload_rounded, color: Colors.purpleAccent, size: 32),
+                Icon(isFolder ? Icons.drive_folder_upload_rounded : Icons.upload_file_rounded,
+                  color: Colors.purpleAccent, size: 32),
                 const SizedBox(height: 12),
                 Text(
                   cancelled
                       ? 'Cancelling...'
-                      : (localFiles.length > 1 ? 'File $currentIdx/${localFiles.length}' : 'Uploading...'),
+                      : (localFiles.length > 1 ? 'Done $doneCount/${localFiles.length}' : 'Uploading...'),
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
-                const SizedBox(height: 4),
-                Text(currentName,
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
                 const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value: fileProgress > 0 ? fileProgress : null,
-                  color: Colors.purpleAccent,
-                  backgroundColor: Colors.purple.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  minHeight: 6,
+                SizedBox(
+                  height: 18,
+                  child: Text(
+                    slotName.firstWhere((n) => n != null, orElse: () => null) ?? '',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text('${(fileProgress * 100).toInt()}%',
-                  style: const TextStyle(color: Colors.purpleAccent, fontSize: 11)),
-                if (localFiles.length > 1) ...[
+                // Global bar: the only bar shown (several files transfer in
+                // parallel, no per-file bar).
+                ...[
                   const SizedBox(height: 16),
                   const Align(
                     alignment: Alignment.centerLeft,
@@ -1022,60 +1041,128 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
     final saved = <String>[]; // relative paths uploaded successfully
     final failed = <String>[];
+    // Remote files currently being written = partial files to delete on
+    // cancellation. With several workers there can be several at once.
+    final partialRemotePaths = <String>{};
+    String? firstError; // reason of the first failure, shown at the end
+
+    // Create ALL remote folders up front, in batches of 50 per command
+    // (instead of one `mkdir -p` via bash -l per subfolder during the
+    // upload) — saves dozens of round-trips.
     final createdRemoteDirs = <String>{};
-    String? partialRemotePath;
-
-    for (int idx = 0; idx < localFiles.length; idx++) {
-      if (cancelled) break;
-      final f = localFiles[idx];
-      currentName = f.relPath;
-      currentIdx = idx + 1;
-      fileProgress = 0.0;
-      globalProgress = idx / localFiles.length;
-      if (mounted) dialogSetState?.call(() {});
-
+    for (final f in localFiles) {
+      final remotePath = '$remoteBase/${f.relPath}';
+      final lastSlash = remotePath.lastIndexOf('/');
+      createdRemoteDirs.add(lastSlash > 0 ? remotePath.substring(0, lastSlash) : remoteBase);
+    }
+    // Single files: destination = current folder (already exists) →
+    // nothing to create, and above all nothing to delete on cancellation.
+    if (!isFolder) createdRemoteDirs.clear();
+    final dirList = createdRemoteDirs.toList();
+    for (int i = 0; i < dirList.length; i += 50) {
+      final batch = dirList.sublist(i, (i + 50).clamp(0, dirList.length));
       try {
-        final remotePath = '$remoteBase/${f.relPath}';
-        partialRemotePath = remotePath;
-        final lastSlash = remotePath.lastIndexOf('/');
-        final remoteDir = lastSlash > 0 ? remotePath.substring(0, lastSlash) : remoteBase;
-        if (!createdRemoteDirs.contains(remoteDir)) {
-          await state.ssh.execute('mkdir -p "$remoteDir"');
-          createdRemoteDirs.add(remoteDir);
-        }
+        await state.ssh.execute('mkdir -p ${batch.map(_shq).join(' ')}');
+      } catch (_) {}
+    }
 
-        await state.ssh.uploadFileFromPath(
-          f.localPath,
-          remotePath,
-          onProgress: (sent, fileTotal) {
-            // Checked on every packet sent: interrupts the transfer as
-            // soon as possible after cancellation is confirmed.
-            if (cancelled) throw const _TransferCancelledException();
-            fileProgress = fileTotal > 0 ? (sent / fileTotal).clamp(0.0, 1.0) : 0.0;
-            globalProgress = ((idx + fileProgress) / localFiles.length).clamp(0.0, 1.0);
-            if (mounted) dialogSetState?.call(() {});
-          },
-        );
-        saved.add(f.relPath);
-        partialRemotePath = null; // this file is complete
-      } on _TransferCancelledException {
-        break;
-      } catch (e) {
-        // Failures are accumulated instead of one snackbar per file (same
-        // reasoning as for download).
-        failed.add(f.relPath);
+    // ── Parallel upload: several workers pull from a shared queue.
+    // Each worker has its own SFTP channel, reused for all its files.
+    // The gain is mostly noticeable with many small files; with large files
+    // the network is already saturated. Capped at 6 (see
+    // _downloadSelected).
+    // No lock needed: Dart is single-threaded, shared counters are only
+    // modified between two `await`s.
+    int nextIdx = 0;
+
+    void refreshProgress() {
+      final inFlight = slotBytes.fold<int>(0, (a, b) => a + b);
+      globalProgress = totalBytes > 0
+          ? ((doneBytes + inFlight) / totalBytes).clamp(0.0, 1.0)
+          : (doneCount / localFiles.length).clamp(0.0, 1.0);
+      if (mounted) dialogSetState?.call(() {});
+    }
+
+    Future<void> worker(int w) async {
+      final sftp = await state.ssh
+          .openSftp()
+          .then<SftpClient?>((s) => s, onError: (_) => null);
+      // Channel refused (server limit): this worker stops, the others
+      // share the queue.
+      if (sftp == null) return;
+      try {
+        while (!cancelled && nextIdx < localFiles.length) {
+          final idx = nextIdx++;
+          final f = localFiles[idx];
+          final remotePath = '$remoteBase/${f.relPath}';
+          slotName[w] = f.relPath;
+          slotProgress[w] = 0.0;
+          slotBytes[w] = 0;
+          partialRemotePaths.add(remotePath);
+          refreshProgress();
+
+          try {
+            await state.ssh.uploadFileFromPath(
+              f.localPath,
+              remotePath,
+              sftp: sftp,
+              onProgress: (sent, fileTotal) {
+                // Checked on every packet: interrupts the transfer as soon
+                // as possible after cancellation is confirmed.
+                if (cancelled) throw const _TransferCancelledException();
+                slotBytes[w] = sent;
+                slotProgress[w] = fileTotal > 0 ? (sent / fileTotal).clamp(0.0, 1.0) : 0.0;
+                refreshProgress();
+              },
+            );
+            saved.add(f.relPath);
+            partialRemotePaths.remove(remotePath);
+          } on _TransferCancelledException {
+            break;
+          } catch (e) {
+            // Failures accumulated (a single summary at the end).
+            failed.add(f.relPath);
+            firstError ??= e is FileSystemException && e.osError?.errorCode == 13
+                ? 'read denied by Android (enable "All files access")'
+                : e.toString();
+            partialRemotePaths.remove(remotePath);
+          } finally {
+            doneCount++;
+            doneBytes += f.size;
+            slotName[w] = null;
+            slotProgress[w] = 0.0;
+            slotBytes[w] = 0;
+            refreshProgress();
+          }
+        }
+      } finally {
+        sftp.close();
+      }
+    }
+
+    await Future.wait(List.generate(workerCount, worker));
+
+    // No SFTP channel could be opened: unprocessed files are counted as
+    // failed.
+    if (!cancelled) {
+      for (int i = nextIdx; i < localFiles.length; i++) {
+        failed.add(localFiles[i].relPath);
       }
     }
 
     // ── Cancellation: full rollback on BATOCERA's side (already-uploaded
-    // files + partial file deleted via SSH, empty remote folders created
+    // files + partial files deleted via SSH, empty remote folders created
     // during the operation cleaned up) ──────────────────────────────────
     if (cancelled) {
-      if (partialRemotePath != null) {
-        try { await state.ssh.execute('rm -f "$partialRemotePath"'); } catch (_) {}
-      }
-      for (final rel in saved) {
-        try { await state.ssh.execute('rm -f "$remoteBase/$rel"'); } catch (_) {}
+      final toDelete = <String>[
+        ...partialRemotePaths,
+        ...saved.map((rel) => '$remoteBase/$rel'),
+      ];
+      for (int i = 0; i < toDelete.length; i += 50) {
+        final batch = toDelete.sublist(i, (i + 50).clamp(0, toDelete.length));
+        try {
+          await state.ssh.execute('rm -f ${batch.map(_shq).join(' ')}');
+        } catch (_) {}
       }
       // Remote folders created during this operation: best-effort deletion
       // from deepest to shallowest — `rmdir` (without -r) fails silently
@@ -1083,15 +1170,18 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       // behavior.
       final sortedDirs = createdRemoteDirs.toList()
         ..sort((a, b) => b.length.compareTo(a.length));
-      for (final dir in sortedDirs) {
-        try { await state.ssh.execute('rmdir "$dir" 2>/dev/null'); } catch (_) {}
+      for (int i = 0; i < sortedDirs.length; i += 50) {
+        final batch = sortedDirs.sublist(i, (i + 50).clamp(0, sortedDirs.length));
+        try {
+          await state.ssh.execute('rmdir ${batch.map(_shq).join(' ')} 2>/dev/null');
+        } catch (_) {}
       }
       // Safety net: if the top-level destination folder did NOT exist
       // before this operation, delete it entirely and recursively on
       // Batocera, no matter what's left inside it — safely, since we know
       // it didn't exist before.
       if (!remoteTopExisted) {
-        try { await state.ssh.execute('rm -rf "$remoteBase"'); } catch (_) {}
+        try { await state.ssh.execute('rm -rf ${_shq(remoteBase)}'); } catch (_) {}
       }
 
       if (mounted) {
@@ -1112,6 +1202,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       }
       if (failed.isNotEmpty) {
         parts.add('${failed.length} failed');
+        if (firstError != null) parts.add(firstError!);
       }
       if (parts.isNotEmpty) {
         _showSnack(
@@ -1148,7 +1239,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         )),
       );
       try {
-        final sizeStr = await state.ssh.execute('stat -c%s "${item.fullPath}" 2>/dev/null');
+        final sizeStr = await state.ssh.execute('stat -c%s ${_shq(item.fullPath)} 2>/dev/null');
         final totalSize = int.tryParse(sizeStr.trim()) ?? 0;
         await state.ssh.downloadFileToDisk(item.fullPath, localFile.path);
         if (!mounted) return;
@@ -1260,10 +1351,15 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       final state = context.read<AppState>();
       content = await state.ssh.readFile(item.fullPath);
     } catch (e) {
-      content = '';
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      // Read failed: DON'T open the editor (saving an empty editor would
+      // have wiped the file).
+      if (mounted) {
+        setState(() => _loading = false);
+        _showSnack('Cannot read file: $e', isError: true);
+      }
+      return;
     }
+    if (mounted) setState(() => _loading = false);
     if (!mounted) return;
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
@@ -1375,7 +1471,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       final knownText = _isText(item.name) || _isEditable(item.name);
       bool isText = knownText;
       if (!knownText) {
-        final fileType = await state.ssh.execute('file "${item.fullPath}" | grep -o text || echo binary');
+        final fileType = await state.ssh.execute('file ${_shq(item.fullPath)} | grep -o text || echo binary');
         isText = fileType.contains('text');
       }
       if (isText) {
@@ -1865,8 +1961,12 @@ class _TextEditorScreenState extends State<_TextEditorScreen> {
     setState(() => _saving = true);
     try {
       final state = context.read<AppState>();
-      final escaped = _ctrl.text.replaceAll("'", "'\\''");
-      await state.ssh.execute("cat > '${widget.fullPath}' << 'BATOCERA_EOF'\n$escaped\nBATOCERA_EOF");
+      // Direct write via SFTP: previously the content went through a shell
+      // heredoc that replaced $VARs, EXECUTED $(…) and collapsed \\.
+      await state.ssh.writeFileBytes(
+        widget.fullPath,
+        Uint8List.fromList(utf8.encode(_ctrl.text)),
+      );
       setState(() { _modified = false; _saving = false; });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

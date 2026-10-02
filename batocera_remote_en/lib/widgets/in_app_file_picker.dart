@@ -76,10 +76,10 @@ class _Shortcut {
 
 /// Raccourcis statiques vers les dossiers standards Android.
 const List<_Shortcut> _staticShortcuts = [
-  _Shortcut('Stockage interne', '/storage/emulated/0',            Icons.phone_android_rounded),
+  _Shortcut('Internal storage', '/storage/emulated/0',            Icons.phone_android_rounded),
   _Shortcut('Pictures',         '/storage/emulated/0/Pictures',   Icons.image_rounded),
   _Shortcut('DCIM',             '/storage/emulated/0/DCIM',       Icons.camera_alt_rounded),
-  _Shortcut('Téléchargements',  '/storage/emulated/0/Download',   Icons.download_rounded),
+  _Shortcut('Downloads',        '/storage/emulated/0/Download',   Icons.download_rounded),
   _Shortcut('Documents',        '/storage/emulated/0/Documents',  Icons.description_rounded),
   _Shortcut('Movies',           '/storage/emulated/0/Movies',     Icons.movie_rounded),
   _Shortcut('Music',            '/storage/emulated/0/Music',      Icons.music_note_rounded),
@@ -189,6 +189,8 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
   //  Permissions
   // ─────────────────────────────────────────────────────────────────────────
 
+  static bool _manageAsked = false;
+
   Future<void> _checkAndRequestPermissions() async {
     setState(() => _permState = _PermState.checking);
 
@@ -196,6 +198,25 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
     bool permanent = false;
 
     if (Platform.isAndroid) {
+      // Android 11+: without "All files access", only media files
+      // (images/videos/audio) are readable outside the app's folder →
+      // ROMs, saves, .romfs… fail with "Permission denied" on upload.
+      // Asked only once per launch so the user isn't sent back to the
+      // settings every time the picker opens.
+      var manage = await Permission.manageExternalStorage.status;
+      if (!manage.isGranted && !_manageAsked) {
+        _manageAsked = true;
+        manage = await Permission.manageExternalStorage.request();
+      }
+      if (manage.isGranted) {
+        if (!mounted) return;
+        setState(() {
+          _permState = _PermState.granted;
+          _shortcuts = _buildShortcuts();
+        });
+        return;
+      }
+
       // Essayer d'abord les permissions granulaires (Android 13+ / API 33+).
       // Sur API < 33, ces permissions retournent permanentlyDenied car elles
       // n'existent pas → on fallback sur Permission.storage.
@@ -272,7 +293,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
         if (!mounted) return;
         setState(() {
           _loading = false;
-          _error = 'Dossier introuvable';
+          _error = 'Folder not found';
         });
         return;
       }
@@ -308,7 +329,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Erreur lecture : $e';
+        _error = 'Read error: $e';
       });
     }
   }
@@ -393,8 +414,8 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
             const SizedBox(height: 16),
             Text(
               isPermanent
-                  ? 'Permission refusée définitivement'
-                  : 'Permission requise',
+                  ? 'Permission permanently denied'
+                  : 'Permission required',
               style: const TextStyle(
                 color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600,
               ),
@@ -403,8 +424,8 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
             const SizedBox(height: 10),
             Text(
               isPermanent
-                  ? 'Ouvre les paramètres de l\'app pour autoriser l\'accès aux fichiers.'
-                  : 'Le picker a besoin d\'accéder à tes fichiers pour les afficher.',
+                  ? 'Open the app settings to allow file access.'
+                  : 'The picker needs access to your files to display them.',
               style: const TextStyle(color: Colors.white54, fontSize: 13),
               textAlign: TextAlign.center,
             ),
@@ -416,7 +437,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
                   foregroundColor: Colors.white,
                 ),
                 icon: const Icon(Icons.settings_rounded, size: 18),
-                label: const Text('Ouvrir paramètres'),
+                label: const Text('Open settings'),
                 onPressed: () async {
                   await openAppSettings();
                   // Au retour des paramètres, re-check
@@ -430,13 +451,13 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
                   foregroundColor: Colors.white,
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Réessayer'),
+                label: const Text('Retry'),
                 onPressed: _checkAndRequestPermissions,
               ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Annuler',
+              child: const Text('Cancel',
                 style: TextStyle(color: Colors.white38),
               ),
             ),
@@ -495,7 +516,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
     }
     if (_entries.isEmpty) {
       return const Center(child: Text(
-        'Aucun fichier dans ce dossier',
+        'No files in this folder',
         style: TextStyle(color: Colors.white54, fontStyle: FontStyle.italic),
       ));
     }
@@ -631,9 +652,9 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
 
   String _buildTitle() {
     if (_multiMode) {
-      return '${_selected.length} sélectionné${_selected.length > 1 ? "s" : ""}';
+      return '${_selected.length} selected';
     }
-    if (_currentPath == null) return 'Choisir un fichier';
+    if (_currentPath == null) return widget.pickFolderMode ? 'Choose a folder' : 'Choose a file';
     final p = _currentPath!;
     for (final s in _shortcuts) {
       if (p == s.path) return s.label;
@@ -698,7 +719,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
                 onPressed: _confirmFolder,
                 icon: const Icon(Icons.check_rounded, size: 18, color: Color(0xFFE02020)),
                 label: const Text(
-                  'Choisir ce dossier',
+                  'Choose this folder',
                   style: TextStyle(color: Color(0xFFE02020), fontSize: 13),
                 ),
               )
@@ -706,7 +727,7 @@ class _InAppFilePickerState extends State<InAppFilePicker> {
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, size: 20),
                 onPressed: _loadCurrentDir,
-                tooltip: 'Actualiser',
+                tooltip: 'Refresh',
               ),
           ],
         ),
