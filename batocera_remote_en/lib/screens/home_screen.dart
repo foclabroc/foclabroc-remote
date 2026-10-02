@@ -15,11 +15,11 @@ import 'running_game_screen.dart';
 import 'games_screen.dart';
 import 'wine_tools_screen.dart';
 import 'foclabroc_tools_screen.dart';
-import 'quiz_screen.dart';
-import 'breakout_screen.dart';
 import 'links_screen.dart';
+import 'mini_games_screen.dart';
+import 'quiz_audio_service.dart';
 
-const kAppVersion = '3.9-EN';
+const kAppVersion = '3.12-EN';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,6 +29,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
+  bool _bannerDismissed = false; // banner closed by the user (until reconnection)
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _popLock = false; // prevents double MIUI back calls
 
@@ -47,13 +48,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _TabInfo(icon: Icons.settings_rounded,       label: 'System'),
     _TabInfo(icon: Icons.wine_bar_rounded,       label: 'Wine Tools'),
     _TabInfo(icon: Icons.build_circle_rounded,   label: 'Foclabroc Tools'),
-    _TabInfo(icon: Icons.quiz_rounded,              label: 'Retro Quiz'),
-    _TabInfo(icon: Icons.sports_tennis_rounded,     label: 'Breakout (offline)'),
     _TabInfo(icon: Icons.link_rounded,               label: 'Useful links'),
+    _TabInfo(icon: Icons.videogame_asset_rounded,    label: 'Mini games'),
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List.generate(13, (_) => GlobalKey<NavigatorState>());
+      List.generate(_tabs.length, (_) => GlobalKey<NavigatorState>());
 
   @override
   void initState() {
@@ -255,9 +255,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       7 => const SystemScreen(),
       8 => const WineToolsScreen(),
       9 => const FoclabroctoolsScreen(),
-      10 => const QuizScreen(),
-      11 => const BreakoutScreen(),
-      _ => const LinksScreen(),
+      10 => const LinksScreen(),
+      _ => const MiniGamesScreen(),
     }),
   );
 
@@ -265,6 +264,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Close virtual keyboard when switching tabs
     FocusManager.instance.primaryFocus?.unfocus();
     Navigator.of(context).pop();
+    if (i == _index && i == _tabs.length - 1) {
+      // Re-selecting "Mini games" from the menu: back to the list.
+      _navigatorKeys[i].currentState?.popUntil((r) => r.isFirst);
+    }
+    // Mini-game music: paused outside the tab, resumed on return
+    final mini = _tabs.length - 1;
+    if (_index == mini && i != mini) QuizAudio.musicPause();
+    if (_index != mini && i == mini) QuizAudio.musicResume();
     setState(() => _index = i);
   }
 
@@ -274,82 +281,98 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final connected = state.isConnected;
     final reconnecting = state.isReconnecting;
     final accent = Theme.of(context).colorScheme.primary;
+    if (connected) _bannerDismissed = false;
+    // No banner in mini-games (Batocera not needed), keyboard open, or closed
+    final showBanner = !connected &&
+        !_bannerDismissed &&
+        _index != _tabs.length - 1 &&
+        MediaQuery.of(context).viewInsets.bottom == 0;
 
     return Scaffold(
       key: _scaffoldKey,
       drawer: _buildDrawer(state, connected, accent),
       body: Stack(children: [
-        Stack(children: List.generate(13, (i) => Offstage(
-          offstage: _index != i,
-          child: _buildScreen(i),
-        ))),
-
-        // ── Reconnection / disconnection banner (visible on all tabs) ─────────
-        if (!connected)
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: AnimatedSlide(
-              offset: connected ? const Offset(0, 1) : Offset.zero,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              child: AnimatedOpacity(
-                opacity: connected ? 0 : 1,
-                duration: const Duration(milliseconds: 300),
-                child: SafeArea(
-                  top: false,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: reconnecting
-                          ? Colors.amberAccent.withOpacity(0.12)
-                          : Colors.redAccent.withOpacity(0.12),
-                      border: Border(
-                        top: BorderSide(
-                          color: reconnecting
-                              ? Colors.amberAccent.withOpacity(0.4)
-                              : Colors.redAccent.withOpacity(0.4),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(children: [
-                      reconnecting
-                          ? const SizedBox(
-                              width: 14, height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: Colors.amberAccent,
-                              ),
-                            )
-                          : const Icon(Icons.wifi_off_rounded,
-                              color: Colors.redAccent, size: 14),
-                      const SizedBox(width: 10),
-                      Text(
-                        reconnecting ? 'Reconnecting...' : 'Connection lost',
-                        style: TextStyle(
-                          color: reconnecting ? Colors.amberAccent : Colors.redAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (state.host.isNotEmpty)
-                        Text(
-                          state.host,
-                          style: TextStyle(
-                            color: reconnecting
-                                ? Colors.amberAccent.withOpacity(0.6)
-                                : Colors.redAccent.withOpacity(0.6),
-                            fontSize: 11,
-                          ),
-                        ),
-                    ]),
-                  ),
-                ),
-              ),
+        Column(children: [
+          // Tabs: the banner (below) handles the bottom inset itself
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeBottom: showBanner,
+              child: Stack(children: List.generate(_tabs.length, (i) => Offstage(
+                offstage: _index != i,
+                child: _buildScreen(i),
+              ))),
             ),
           ),
+
+          // ── Reconnection / disconnection banner (below the content, no longer covers it) ──
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            child: showBanner
+                ? SafeArea(
+                    top: false,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: reconnecting
+                            ? Colors.amberAccent.withOpacity(0.12)
+                            : Colors.redAccent.withOpacity(0.12),
+                        border: Border(
+                          top: BorderSide(
+                            color: reconnecting
+                                ? Colors.amberAccent.withOpacity(0.4)
+                                : Colors.redAccent.withOpacity(0.4),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(children: [
+                        reconnecting
+                            ? const SizedBox(
+                                width: 14, height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Colors.amberAccent,
+                                ),
+                              )
+                            : const Icon(Icons.wifi_off_rounded,
+                                color: Colors.redAccent, size: 14),
+                        const SizedBox(width: 10),
+                        Text(
+                          reconnecting ? 'Reconnecting...' : 'Connection lost',
+                          style: TextStyle(
+                            color: reconnecting ? Colors.amberAccent : Colors.redAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (state.host.isNotEmpty)
+                          Text(
+                            state.host,
+                            style: TextStyle(
+                              color: reconnecting
+                                  ? Colors.amberAccent.withOpacity(0.6)
+                                  : Colors.redAccent.withOpacity(0.6),
+                              fontSize: 11,
+                            ),
+                          ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => setState(() => _bannerDismissed = true),
+                          child: Icon(Icons.close_rounded, size: 16,
+                              color: reconnecting
+                                  ? Colors.amberAccent.withOpacity(0.6)
+                                  : Colors.redAccent.withOpacity(0.6)),
+                        ),
+                      ]),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ]),
 
         // ── Hamburger button ──────────────────────────────────────────────────
         Positioned(

@@ -118,11 +118,24 @@ class _BreakoutScreenState extends State<BreakoutScreen> {
   int _bestLevel = 1;
   String _bestName = '';
   bool _loading = true;
+  bool _showRules = false;
 
   @override
   void initState() {
     super.initState();
     _loadBest();
+    // Musique dès l'ouverture du jeu (accueil compris)
+    QuizAudio.loadPrefs().then((_) {
+      if (!mounted) return;
+      setState(() {});
+      QuizAudio.musicStart(0); // Disco Funk
+    });
+  }
+
+  @override
+  void dispose() {
+    QuizAudio.musicStop(); // retour à la liste des mini-jeux
+    super.dispose();
   }
 
   Future<void> _loadBest() async {
@@ -182,14 +195,23 @@ class _BreakoutScreenState extends State<BreakoutScreen> {
                 ),
                 const SizedBox(height: 16),
                 Row(children: [
-                  Expanded(child: TextButton(
+                  Expanded(flex: 2, child: TextButton(
                     onPressed: () => Navigator.pop(ctx, ''),
-                    child: const Text('Passer'),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Passer', maxLines: 1, softWrap: false),
+                    ),
                   )),
-                  const SizedBox(width: 12),
-                  Expanded(child: ElevatedButton(
+                  const SizedBox(width: 8),
+                  Expanded(flex: 3, child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    ),
                     onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-                    child: const Text('Sauvegarder'),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Sauvegarder', maxLines: 1, softWrap: false),
+                    ),
                   )),
                 ]),
               ]),
@@ -223,6 +245,7 @@ class _BreakoutScreenState extends State<BreakoutScreen> {
             child: Row(children: [
               Text('Breakout', style: Theme.of(context).textTheme.headlineMedium),
               const Spacer(),
+              // Musique on/off
               StatefulBuilder(
                 builder: (ctx, setS) => GestureDetector(
                   onTap: () => setS(() => QuizAudio.enabled = !QuizAudio.enabled),
@@ -245,39 +268,38 @@ class _BreakoutScreenState extends State<BreakoutScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               child: Column(children: [
-                // Hero
+                // Hero (compact)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 36),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1C2230),
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: accent.withOpacity(0.2)),
                   ),
-                  child: Column(children: [
+                  child: Row(children: [
                     Container(
-                      width: 100, height: 100,
+                      width: 56, height: 56,
                       decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withOpacity(0.1)),
-                      child: Icon(Icons.sports_tennis_rounded, size: 56, color: accent),
+                      child: Icon(Icons.sports_tennis_rounded, size: 30, color: accent),
                     ),
-                    const SizedBox(height: 16),
-                    const Text('Casse-briques Rétro 🎮',
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Détruis les logos de consoles rétro !\nCollecte les power-ups et active le multiball.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.5),
-                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Casse-briques Rétro 🎮',
+                          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                      SizedBox(height: 4),
+                      Text('Détruis les logos de consoles rétro ! Collecte les power-ups et active le multiball.',
+                          style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.4)),
+                    ])),
                   ]),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
                 // Meilleur score
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1C2230),
                     borderRadius: BorderRadius.circular(20),
@@ -330,9 +352,27 @@ class _BreakoutScreenState extends State<BreakoutScreen> {
                 // Règles
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(color: const Color(0xFF1C2230), borderRadius: BorderRadius.circular(16)),
                   child: Column(children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => setState(() => _showRules = !_showRules),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(children: [
+                          const Icon(Icons.help_outline_rounded, color: Colors.cyanAccent, size: 22),
+                          const SizedBox(width: 10),
+                          const Expanded(child: Text('Règles du jeu',
+                              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700))),
+                          Icon(_showRules ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                              color: Colors.white38),
+                        ]),
+                      ),
+                    ),
+                    if (_showRules)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: Column(children: [
                     _RuleRow(icon: Icons.swipe_rounded, color: Colors.cyanAccent, text: 'Glisse pour déplacer la raquette'),
                     const SizedBox(height: 10),
                     _RuleRow(icon: Icons.favorite_rounded, color: Colors.redAccent, text: '3 vies — toutes les balles perdues = 1 vie'),
@@ -352,6 +392,8 @@ class _BreakoutScreenState extends State<BreakoutScreen> {
                     _RuleRow(icon: Icons.blur_on_rounded, color: Colors.white70, text: 'Multiball ⚪ → 2 balles supplémentaires (max 4)'),
                     const SizedBox(height: 10),
                     _RuleRow(icon: Icons.local_fire_department_rounded, color: Colors.deepOrangeAccent, text: 'Light Gun 🔫 → tire des balles pendant 3 secondes'),
+                        ]),
+                      ),
                   ]),
                 ),
                 const SizedBox(height: 28),
@@ -484,6 +526,7 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
 
   @override
   void dispose() {
+    QuizAudio.musicResume(); // la musique continue sur l'accueil du jeu
     _ticker?.dispose();
     _flashTimer?.cancel();
     super.dispose();
@@ -985,6 +1028,11 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
     if (_gameOver || !_started) return;
     setState(() {
       _paused = !_paused;
+      if (_paused) {
+        QuizAudio.musicPause();
+      } else {
+        QuizAudio.musicResume();
+      }
       if (!_paused) {
         _lastTick = DateTime.now();
         if (_ticker == null || !_ticker!.isActive) _startLoop();
@@ -998,6 +1046,8 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
     return Scaffold(
       backgroundColor: const Color(0xFF0D0F14),
       body: SafeArea(
+        // Barre de navigation Android : marge garantie même si un parent l'a retirée
+        minimum: EdgeInsets.only(bottom: MediaQueryData.fromView(View.of(context)).viewPadding.bottom),
         child: !_assetsLoaded
             ? const Center(child: CircularProgressIndicator(color: Color(0xFFE02020)))
             : LayoutBuilder(builder: (_, c) {
@@ -1008,7 +1058,8 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
                     _startLoop();
                   });
                 }
-                return _gameOver ? _buildGameOver() : _buildGame(w, h);
+                // ClipRect : rien ne déborde sous la barre d'état ni sous la barre Android
+                return _gameOver ? _buildGameOver() : ClipRect(child: _buildGame(w, h));
               }),
       ),
     );
@@ -1199,7 +1250,7 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           child: Column(children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+              padding: const EdgeInsets.fromLTRB(40, 4, 0, 16), // laisse la place au bouton menu
               child: Row(children: [
                 Text('Résultats', style: Theme.of(context).textTheme.headlineMedium),
               ]),
@@ -1212,20 +1263,22 @@ class _BreakoutGameState extends State<_BreakoutGame> with TickerProviderStateMi
                 child: Column(children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: color.withOpacity(0.3)),
               ),
-              child: Column(children: [
-                Text(emoji, style: const TextStyle(fontSize: 56)),
-                const SizedBox(height: 12),
-                Text(msg, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                Text('$_score pts', style: const TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900)),
-                Text('Niveau $_level · ${_lives > 0 ? "$_lives vie(s)" : "0 vie"}',
-                    style: TextStyle(color: color.withOpacity(0.7), fontSize: 13)),
+              child: Row(children: [
+                Text(emoji, style: const TextStyle(fontSize: 40)),
+                const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(msg, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w700)),
+                  Text('$_score pts',
+                      style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, height: 1.15)),
+                  Text('Niveau $_level · ${_lives > 0 ? "$_lives vie(s)" : "0 vie"}',
+                    style: TextStyle(color: color.withOpacity(0.7), fontSize: 12)),
+                ])),
               ]),
             ),
             const SizedBox(height: 16),

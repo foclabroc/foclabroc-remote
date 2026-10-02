@@ -117,7 +117,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       }
     } else if (state == AppLifecycleState.paused) {
       if (_status == ConnectionStatus.connected) {
-        _ssh.execute('echo bg').catchError((_) {});
+        _ssh.execute('echo bg').catchError((_) => '');
       }
     }
   }
@@ -291,7 +291,7 @@ class AppState extends ChangeNotifier with WidgetsBindingObserver {
       await refreshVolume();
     } else {
       _status = ConnectionStatus.error;
-      _errorMessage = 'Impossible de se connecter à $host:$port';
+      _errorMessage = 'Unable to connect to $host:$port';
     }
     notifyListeners();
   }

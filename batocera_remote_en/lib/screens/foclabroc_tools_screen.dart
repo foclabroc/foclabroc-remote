@@ -994,7 +994,7 @@ class _MusicPackInstallScreenState extends State<_MusicPackInstallScreen> {
     _appendLog("✅ Download complete (${(size / 1024 / 1024).toStringAsFixed(0)} MB).");
 
     // 2. Extraction
-    _appendLog('\n📦 Extraction dans $_installDir...');
+    _appendLog('\n📦 Extracting to $_installDir...');
     await _exec('unzip -o "$_tmpZip" -d "$_destDir" 2>&1');
     if (!mounted) return;
     _appendLog('✅ Extraction complete.');
@@ -1457,7 +1457,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
     _appendLog('🔄 Reloading game list...');
     await _exec('curl -s http://127.0.0.1:1234/reloadgames');
 
-    _appendLog("\n✅ $name installe avec succes !");
+    _appendLog("\n✅ $name installed successfully!");
     setState(() { _installing = false; _installingGame = null; });
 
     if (mounted) {
@@ -1506,7 +1506,7 @@ class _WindowsGamesScreenState extends State<_WindowsGamesScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-              child: Text('${_games.length} jeux disponibles',
+              child: Text('${_games.length} games available',
                   style: const TextStyle(color: Colors.white38, fontSize: 11)),
             ),
             Expanded(
@@ -1793,7 +1793,7 @@ class _YoutubeTvInstallScreenState extends State<_YoutubeTvInstallScreen> {
       '-s "/gameList" -t elem -n "game" -v "" '
       '-s "/gameList/game[last()]" -t elem -n "path" -v "./YoutubeTV.sh" '
       '-s "/gameList/game[last()]" -t elem -n "name" -v "Youtube TV" '
-      '-s "/gameList/game[last()]" -t elem -n "desc" -v "YouTube TV pour Batocera Linux." '
+      '-s "/gameList/game[last()]" -t elem -n "desc" -v "YouTube TV for Batocera Linux." '
       '-s "/gameList/game[last()]" -t elem -n "developer" -v "Youtube" '
       '-s "/gameList/game[last()]" -t elem -n "publisher" -v "Youtube" '
       '-s "/gameList/game[last()]" -t elem -n "genre" -v "Divertissement" '
@@ -2083,7 +2083,7 @@ class _FoclabrocToolboxInstallScreenState extends State<_FoclabrocToolboxInstall
       '-s "/gameList" -t elem -n "game" -v "" '
       '-s "/gameList/game[last()]" -t elem -n "path" -v "./foclabroc-tools.sh" '
       '-s "/gameList/game[last()]" -t elem -n "name" -v "Foclabroc Toolbox" '
-      '-s "/gameList/game[last()]" -t elem -n "desc" -v "Boite a outils Foclabroc pour Batocera Linux." '
+      '-s "/gameList/game[last()]" -t elem -n "desc" -v "Foclabroc toolbox for Batocera Linux." '
       '-s "/gameList/game[last()]" -t elem -n "developer" -v "Foclabroc" '
       '-s "/gameList/game[last()]" -t elem -n "publisher" -v "Foclabroc" '
       '-s "/gameList/game[last()]" -t elem -n "genre" -v "Toolbox" '
@@ -2096,7 +2096,7 @@ class _FoclabrocToolboxInstallScreenState extends State<_FoclabrocToolboxInstall
       '"$gamelistFile" 2>/dev/null || true');
 
     // 6. Rechargement + redémarrage ES
-    _appendLog('\n🔄 Rechargement de la liste des jeux...');
+    _appendLog('\n🔄 Reloading the game list...');
     await _exec('curl -s http://127.0.0.1:1234/reloadgames');
 
     _appendLog('\n✅ Foclabroc Toolbox installed in Ports!');
@@ -2445,7 +2445,7 @@ class _RgsxInstallScreenState extends State<_RgsxInstallScreen> {
     await _exec('rm -f "$_portsDir/RGSX.zip" 2>/dev/null || true');
 
     // 11. Rechargement
-    _appendLog('\n🔄 Rechargement de la liste des jeux...');
+    _appendLog('\n🔄 Reloading the game list...');
     await _exec('curl -s http://127.0.0.1:1234/reloadgames');
 
     _appendLog('\n✅ RGSX installed successfully!');

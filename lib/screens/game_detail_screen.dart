@@ -119,7 +119,15 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
           '${testCmd("manual", manual)}; '
           '${testCmd("video", video)}';
 
-      final out = await state.ssh.execute(full);
+      // Exécution directe, sans l'enveloppe bash -l -c '…' de ssh.execute :
+      // les chemins sont entre apostrophes (_shQ), ce qui cassait l'enveloppe
+      // dès qu'un nom contenait un espace ou des parenthèses → boutons
+      // Manuel/Map/Vidéo grisés à tort.
+      final session = await state.ssh.client!.execute(full);
+      final outBytes = await session.stdout.fold<List<int>>([], (a, b) => a..addAll(b));
+      session.stderr.drain();
+      await session.done;
+      final out = utf8.decode(outBytes, allowMalformed: true);
       if (!mounted) return;
 
       bool parse(String key) => RegExp('$key=1').hasMatch(out);
