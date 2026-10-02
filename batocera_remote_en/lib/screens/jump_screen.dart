@@ -3,10 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-<<<<<<< HEAD
 import 'dart:typed_data';
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 import 'dart:ui' as ui;
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
@@ -43,18 +40,11 @@ const _kHapticsKey    = 'jump_haptics';
 const _kTiltKey       = 'jump_tilt';
 const _kThemeKey       = 'jump_theme';
 const _kThemeUnlockKey = 'jump_theme_unlocked';
-<<<<<<< HEAD
 const _kThemeV2Key     = 'jump_theme_v2'; // theme numbers after removing "Red"
 
 // Thèmes visuels (0 = classique, offert). Néon reste acquis si l'ancienne option était activée.
 const _themeNames  = ['Classic', 'Neon', 'Pocket', 'Sepia', 'CRT', 'Synthwave', 'Disco', 'Night', 'Negative', 'Matrix', 'Realistic', 'Frozen tower'];
 const _themePrices = [0, 100, 150, 200, 250, 300, 400, 450, 500, 550, 800, 900];
-=======
-
-// Thèmes visuels (0 = classique, offert). Néon reste acquis si l'ancienne option était activée.
-const _themeNames  = ['Classic', 'Neon', 'Pocket', 'Sepia', 'CRT', 'Synthwave', 'Red', 'Disco'];
-const _themePrices = [0, 100, 150, 200, 250, 300, 350, 400];
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 // Deux couleurs d'aperçu par thème (tuile du menu)
 const _themeSwatch = [
   [Color(0xFFE02020), Color(0xFF5C6BC0)],
@@ -63,17 +53,12 @@ const _themeSwatch = [
   [Color(0xFF704214), Color(0xFFE8D3A9)],
   [Color(0xFF102027), Color(0xFF80CBC4)],
   [Color(0xFF4A148C), Color(0xFFFF4081)],
-<<<<<<< HEAD
   [Color(0xFFFF4081), Color(0xFFFFEB3B)],
   [Color(0xFF0D1B3E), Color(0xFFFFF59D)],
   [Color(0xFF1FDFDF), Color(0xFFFFFFFF)],
   [Color(0xFF000000), Color(0xFF00FF41)],
   [Color(0xFF3A7BD5), Color(0xFF7CB342)],
   [Color(0xFF4A5568), Color(0xFFE3F2FD)],
-=======
-  [Color(0xFF000000), Color(0xFFFF1744)],
-  [Color(0xFFFF4081), Color(0xFFFFEB3B)],
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 ];
 
 /// Filtre de couleur appliqué à toute l'aire de jeu (null = aucun).
@@ -102,7 +87,6 @@ List<double>? _themeMatrix(int theme) {
         0.35, 0.1, 1.0, 0, 25,
         0, 0, 0, 1, 0,
       ];
-<<<<<<< HEAD
     case 8: // Negative: inverted colours
       return [
         -1, 0, 0, 0, 255,
@@ -115,19 +99,11 @@ List<double>? _themeMatrix(int theme) {
         lr * 0.25, lg * 0.25, lb * 0.25, 0, 0,
         lr * 1.35, lg * 1.35, lb * 1.35, 0, 12,
         lr * 0.3, lg * 0.3, lb * 0.3, 0, 0,
-=======
-    case 6: // Rouge sur noir (casque 3D des années 90)
-      return [
-        lr * 1.8, lg * 1.8, lb * 1.8, 0, -60,
-        lr * 0.08, lg * 0.08, lb * 0.08, 0, 0,
-        lr * 0.08, lg * 0.08, lb * 0.08, 0, 0,
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         0, 0, 0, 1, 0,
       ];
   }
   return null;
 }
-<<<<<<< HEAD
 // Jump trails (shop)
 const _kTrailKey       = 'jump_trail';
 const _kTrailUnlockKey = 'jump_trail_unlocked';
@@ -139,8 +115,6 @@ const _weatherNames   = ['Wind', 'Rain', 'Storm', 'Fog'];
 const _weatherIcons   = ['💨', '🌧️', '⛈️', '🌫️'];
 const _weatherBanners = ['💨 GUST OF WIND!', '🌧️ RAIN: IT\'S SLIPPERY!', '⛈️ STORM!', '🌫️ FOG'];
 const _weatherDur = 18.0; // seconds
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 const _kCodesUsedKey  = 'jump_codes_used';
 
 // Codes de triche : seule leur empreinte SHA-256 (avec sel) est stockée,
@@ -227,13 +201,8 @@ const _kMusicKey      = 'jump_music';
 const _kMusicUnlockKey = 'jump_music_unlocked';
 
 // Musiques (index = morceau joué côté Android) : la 1re est offerte
-<<<<<<< HEAD
 const _musicNames  = ['Disco Funk', 'Shop', 'Good Morning', '8-bit Retro', 'Mountain', 'Video Game', 'Pixel Fight'];
 const _musicPrices = [0, 300, 500, 600, 700, 800, 1000];
-=======
-const _musicNames  = ['Disco Funk', 'Shop', 'Good Morning'];
-const _musicPrices = [0, 300, 500];
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 const _kCollectionKey = 'jump_collection';
 
 // Collection par albums de 16 logos de consoles (assets du Breakout).
@@ -477,11 +446,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   String _dailyRank = '';  // « #3 / 57 »
   String _worldRank = '';  // rang tous temps « #12 / 340 »
   // Classement
-<<<<<<< HEAD
   int _lbTab = 0;         // 0 aujourd'hui, 1 tous temps, 2 semaine
-=======
-  int _lbTab = 0;         // 0 aujourd'hui, 1 tous temps
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   LbBoard? _lbBoard;
   bool _lbLoading = false, _lbFailed = false;
   String? _lbMyName;
@@ -492,11 +457,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Set<String> _completed = {};
   int _challengeLevel = 0;
   int _theme = 0;
-<<<<<<< HEAD
   int _trail = 0;
   Set<int> _trailUnlocked = {0};
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   Set<int> _themeUnlocked = {0};
   final Set<int> _bonusSel = {};
   Set<int> _freeBonus = {};   // bonus offerts par la roue (prochaine partie)
@@ -535,7 +497,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     });
   }
 
-<<<<<<< HEAD
   /// Old numbering (with "Red" as 6) → new one; a bought Red is refunded (350 coins).
   Future<void> _migrateThemes(SharedPreferences prefs) async {
     if (prefs.getBool(_kThemeV2Key) ?? false) return;
@@ -565,10 +526,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     await _migrateThemes(prefs);
-=======
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     if (!mounted) return;
     final unlocked = <int>{0};
     for (final s in prefs.getStringList(_kUnlockedKey) ?? const <String>[]) {
@@ -595,7 +552,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _theme = (prefs.getInt(_kThemeKey) ?? ((prefs.getBool(_kNeonKey) ?? false) ? 1 : 0))
           .clamp(0, _themeNames.length - 1);
       if (!_themeUnlocked.contains(_theme)) _theme = 0;
-<<<<<<< HEAD
       _trailUnlocked = {0};
       for (final s in prefs.getStringList(_kTrailUnlockKey) ?? const <String>[]) {
         final t = int.tryParse(s);
@@ -603,8 +559,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       }
       _trail = (prefs.getInt(_kTrailKey) ?? 0).clamp(0, _trailNames.length - 1);
       if (!_trailUnlocked.contains(_trail)) _trail = 0;
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
       _haptics   = prefs.getBool(_kHapticsKey) ?? true;
       _tilt      = prefs.getBool(_kTiltKey) ?? false;
       _wheelReady = prefs.getString(_kWheelDayKey) != _todayKey();
@@ -904,7 +858,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         : Colors.white.withOpacity(0.25))),
           ),
           const SizedBox(height: 6),
-<<<<<<< HEAD
           // Name always shown (greyed out while locked)
           Text(i < 0 ? 'Mute' : _musicNames[i],
                 maxLines: 1,
@@ -914,8 +867,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 )),
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
           if (locked)
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const _CoinIcon(size: 11),
@@ -924,18 +875,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w700)),
             ])
           else
-<<<<<<< HEAD
             const SizedBox(height: 14), // same height as the price row
-=======
-            Text(i < 0 ? 'Mute' : _musicNames[i],
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.white54,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                )),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         ]),
       ),
     );
@@ -1179,20 +1119,14 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         data[k] = {'t': 'l', 'v': v.map((e) => '$e').toList()};
       }
     }
-<<<<<<< HEAD
     // Online identity (name + leaderboard scores): travels with the save
     final dev = prefs.getString(kLbDeviceKey);
     if (dev != null) data[kLbDeviceKey] = {'t': 's', 'v': dev};
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     return data;
   }
 
   Future<void> _saveProgress() async {
-<<<<<<< HEAD
     if (Leaderboard.configured) await Leaderboard.deviceId(); // creates the identity if needed
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     final prefs = await SharedPreferences.getInstance();
     final data = jsonEncode(_collectSave(prefs));
     final content = const JsonEncoder.withIndent('  ').convert({
@@ -1263,11 +1197,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
         title: const Text('Load the save?'),
-<<<<<<< HEAD
         content: Text('Save from $when.\nYour current progress will be replaced, along with your online name and scores.', style: const TextStyle(color: Colors.white70, height: 1.4)),
-=======
-        content: Text('Save from $when.\nYour current progress will be replaced.', style: const TextStyle(color: Colors.white70, height: 1.4)),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Load')),
@@ -1281,13 +1211,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       final m = e.value;
       if (m is! Map) continue;
       final v = m['v'];
-<<<<<<< HEAD
       if (e.key == kLbDeviceKey) {
         if (v is String) await Leaderboard.adoptDevice(v); // become the same online player again
         continue;
       }
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
       switch (m['t']) {
         case 'b':
           if (v is bool) await prefs.setBool(e.key, v);
@@ -1405,7 +1332,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     _snack(s.coins > 0 ? 'Wheel: +${s.coins} coins!' : 'Wheel: free ${_prizeName(s.bonus)} for your next game!', ok: true);
   }
 
-<<<<<<< HEAD
   Future<void> _selectTrail(int i) async {
     if (!_trailUnlocked.contains(i)) {
       await _tryUnlockTrail(i);
@@ -1495,8 +1421,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     );
   }
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   Future<void> _selectTheme(int i) async {
     if (!_themeUnlocked.contains(i)) {
       await _tryUnlockTheme(i);
@@ -1564,7 +1488,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             ])),
           ),
           const SizedBox(height: 6),
-<<<<<<< HEAD
           // Name always shown (greyed out while locked)
           Text(_themeNames[i],
                 maxLines: 1,
@@ -1574,8 +1497,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 )),
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
           if (locked)
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const _CoinIcon(size: 11),
@@ -1584,18 +1505,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w700)),
             ])
           else
-<<<<<<< HEAD
             const SizedBox(height: 14), // same height as the price row
-=======
-            Text(_themeNames[i],
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.white54,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                )),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         ]),
       ),
     );
@@ -1651,10 +1561,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         bestScore: _bestScore,
         hero: _hero,
         theme: _theme,
-<<<<<<< HEAD
         trail: _trail,
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         haptics: _haptics,
         tilt: _tilt,
         completed: Set<String>.of(_completed),
@@ -1774,14 +1681,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                           Expanded(child: _homeTile(
                             icon: Icons.today_rounded,
                             color: Colors.lightBlueAccent,
-<<<<<<< HEAD
                             title: 'Daily challenge',
-=======
-                            title: 'Daily run',
-                            sub: _dailyBest > 0
-                                ? '${_fmtNum(_dailyBest)} pts${_dailyRank.isNotEmpty ? ' · $_dailyRank' : ''}'
-                                : 'Play today!',
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
                             badge: _dailyBest == 0,
                             trailing: Icons.play_arrow_rounded,
                             onTap: _openDaily,
@@ -1790,12 +1690,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                           Expanded(child: _homeTile(
                             icon: Icons.leaderboard_rounded,
                             color: Colors.amberAccent,
-<<<<<<< HEAD
                             title: 'Leaderboard',
-=======
-                            title: 'Ranking',
-                            sub: _worldRank.isNotEmpty ? '🌍 $_worldRank' : 'World top',
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
                             onTap: _openLeaderboard,
                           )),
                         ]),
@@ -2090,11 +1985,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     required IconData icon,
     required Color color,
     required String title,
-<<<<<<< HEAD
     String? sub,
-=======
-    required String sub,
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     required VoidCallback onTap,
     IconData trailing = Icons.chevron_right_rounded,
     bool badge = false,
@@ -2103,21 +1994,13 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Container(
-<<<<<<< HEAD
         padding: const EdgeInsets.fromLTRB(12, 14, 8, 14),
-=======
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         decoration: BoxDecoration(
           color: color.withOpacity(0.10),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withOpacity(badge ? 0.8 : 0.35), width: badge ? 1.5 : 1),
         ),
-<<<<<<< HEAD
         child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-=======
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
           Row(children: [
             Stack(clipBehavior: Clip.none, children: [
               Icon(icon, color: color, size: 22),
@@ -2144,13 +2027,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             )),
             Icon(trailing, color: color, size: 20),
           ]),
-<<<<<<< HEAD
           if (sub != null) const SizedBox(height: 6),
           if (sub != null) FittedBox(
-=======
-          const SizedBox(height: 6),
-          FittedBox(
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(sub,
@@ -2171,10 +2049,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _dayLoading = true;
       _dayFailed = false;
     });
-<<<<<<< HEAD
     await Leaderboard.setCoins(_coins);
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     final b = await Leaderboard.fetch('daily', Leaderboard.today());
     final pid = await Leaderboard.publicId();
     if (!mounted) return;
@@ -2368,14 +2243,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _lbFailed = false;
     });
     final daily = tab == 0;
-<<<<<<< HEAD
     await Leaderboard.setCoins(_coins); // Player's coins, shown on the leaderboard
     final b = tab == 2
         ? await Leaderboard.fetch('week', Leaderboard.weekKey())
         : await Leaderboard.fetch(daily ? 'daily' : 'all', daily ? Leaderboard.today() : lbAllDay);
-=======
-    final b = await Leaderboard.fetch(daily ? 'daily' : 'all', daily ? Leaderboard.today() : lbAllDay);
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     final n = await Leaderboard.name();
     final pid = await Leaderboard.publicId();
     if (!mounted || tab != _lbTab) return;
@@ -2386,11 +2257,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _lbMyName = n;
       _lbPid = pid;
       if (daily && b != null && b.me.rank != null) _dailyRank = '#${b.me.rank} / ${b.me.total}';
-<<<<<<< HEAD
       if (tab == 1 && b != null && b.me.rank != null) _worldRank = '#${b.me.rank} / ${b.me.total}';
-=======
-      if (!daily && b != null && b.me.rank != null) _worldRank = '#${b.me.rank} / ${b.me.total}';
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     });
   }
 
@@ -2411,17 +2278,11 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       final b = _lbBoard;
       return Column(children: [
         Row(children: [
-<<<<<<< HEAD
           Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Daily challenge', accent)),
           const SizedBox(width: 6),
           Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Week', accent)),
           const SizedBox(width: 6),
           Expanded(child: _lbTabBtn(1, Icons.public_rounded, 'Overall', accent)),
-=======
-          Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Today', accent)),
-          const SizedBox(width: 8),
-          Expanded(child: _lbTabBtn(1, Icons.public_rounded, 'All time', accent)),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         ]),
         const SizedBox(height: 10),
         // Pseudo
@@ -2468,13 +2329,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   ? 'Your rank : #${b.me.rank} / ${b.me.total}  ·  ${_fmtNum(b.me.score ?? 0)} pts'
                   : (_lbTab == 0
                       ? 'No score today yet: play the daily run!'
-<<<<<<< HEAD
                       : _lbTab == 2
                           ? 'No score this week yet: play a game!'
                           : 'No score yet: play a game to enter the leaderboard.'),
-=======
-                      : 'No score yet: play a game to enter the leaderboard.'),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
               style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w700),
             ),
           ),
@@ -2489,13 +2346,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         Text(
           _lbTab == 0
               ? 'Daily run: same course for everyone, no start bonus, continue or coins. New course every day at midnight. Only your best score counts.'
-<<<<<<< HEAD
               : _lbTab == 2
                   ? 'Each player\'s best score of the week. Reset every Monday · ends in ${Leaderboard.weekDaysLeft()} d.'
                   : 'Best score of each player, all games included.',
-=======
-              : 'Best score of each player, all games included.',
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
           style: const TextStyle(color: Colors.white38, fontSize: 12, height: 1.4),
         ),
       ]);
@@ -2515,17 +2368,12 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         _lbLoad();
       },
       child: Container(
-<<<<<<< HEAD
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-=======
-        padding: const EdgeInsets.symmetric(vertical: 10),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         decoration: BoxDecoration(
           color: sel ? accent.withOpacity(0.18) : const Color(0xFF1C2230),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: sel ? accent : Colors.white.withOpacity(0.06)),
         ),
-<<<<<<< HEAD
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 18, color: sel ? Colors.white : Colors.white54),
           const SizedBox(height: 3),
@@ -2535,14 +2383,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 maxLines: 1,
                 style: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.w700)),
           ),
-=======
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, size: 18, color: sel ? Colors.white : Colors.white54),
-          const SizedBox(width: 6),
-          Flexible(child: Text(label,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 13, fontWeight: FontWeight.w700))),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         ]),
       ),
     );
@@ -2569,7 +2409,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         SizedBox(width: 24, height: 22,
             child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1)))),
         const SizedBox(width: 10),
-<<<<<<< HEAD
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(e.name,
               maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -2582,11 +2421,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w700)),
             ]),
         ])),
-=======
-        Expanded(child: Text(e.name,
-            maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: me ? Colors.amberAccent : Colors.white, fontSize: 14, fontWeight: FontWeight.w700))),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         const SizedBox(width: 8),
         Text('${_fmtNum(e.score)} pts',
             style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
@@ -2725,17 +2559,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         _section('Theme  ·  ${_themeUnlocked.length}/${_themeNames.length}'),
         _grid(_themeNames.length, (i) => _themeTile(i, accent)),
         _section('Music  ·  ${_musicUnlocked.length}/${_musicNames.length}'),
-<<<<<<< HEAD
         _grid(_musicNames.length + 1, (k) => _musicTile(k - 1, accent)),
         _section('Trail  ·  ${_trailUnlocked.length}/${_trailNames.length}'),
         _grid(_trailNames.length, (i) => _trailTile(i, accent)), // Mute + tracks, 4 per row
-=======
-        Row(children: [
-          Expanded(child: _musicTile(-1, accent)),
-          for (int i = 0; i < _musicNames.length; i++)
-            Expanded(child: _musicTile(i, accent)),
-        ]),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
       ]));
 
   void _openChallenges() {
@@ -2927,7 +2753,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             ]),
           ),
           const SizedBox(height: 6),
-<<<<<<< HEAD
           // Name always shown (greyed out while locked)
           Text(_heroNames[i],
                 style: TextStyle(
@@ -2935,8 +2760,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 )),
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
           if (locked)
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const _CoinIcon(size: 11),
@@ -2945,16 +2768,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w700)),
             ])
           else
-<<<<<<< HEAD
             const SizedBox(height: 14), // same height as the price row
-=======
-            Text(_heroNames[i],
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.white54,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                )),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         ]),
       ),
     );
@@ -3233,11 +3047,7 @@ class _ThemeSwatch extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: c),
         border: Border.all(color: Colors.white24),
-<<<<<<< HEAD
         boxShadow: theme == 1 || theme == 5 || theme == 6 || theme == 9
-=======
-        boxShadow: theme == 1 || theme == 5 || theme == 7
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
             ? [BoxShadow(color: c[0].withOpacity(0.6), blurRadius: 8)]
             : null,
       ),
@@ -3445,10 +3255,7 @@ class _JumpGame extends StatefulWidget {
   final int bestScore;
   final int hero;
   final int theme;
-<<<<<<< HEAD
   final int trail; // chosen jump trail
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   final bool haptics;
   final bool tilt;
   final Set<String> completed;
@@ -3463,10 +3270,7 @@ class _JumpGame extends StatefulWidget {
     required this.bestScore,
     required this.hero,
     required this.theme,
-<<<<<<< HEAD
     this.trail = 0,
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     required this.haptics,
     required this.tilt,
     required this.completed,
@@ -3479,11 +3283,7 @@ class _JumpGame extends StatefulWidget {
     required this.onFinished,
   });
   /// Halo lumineux des thèmes Néon, Synthwave et Disco
-<<<<<<< HEAD
   bool get neon => theme == 1 || theme == 5 || theme == 6;
-=======
-  bool get neon => theme == 1 || theme == 5 || theme == 7;
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 
   @override
   State<_JumpGame> createState() => _JumpGameState();
@@ -3494,7 +3294,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
   final _rng = Random();
   Random _gen = Random(); // parcours (graine commune en partie du jour)
   int _runId = 0;
-<<<<<<< HEAD
   // Weather
   int _weather = -1;
   double _weatherT = 0, _boltT = 0, _flash = 0;
@@ -3503,21 +3302,16 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
   // Trail: (x, world y, time, seed)
   final List<(double, double, double, int)> _trailPts = [];
   double get _grip => (_weather == 1 || _weather == 2) ? 0.3 : 1.0; // slippery in the rain
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   LbRank? _lbRank;  // rang en ligne après la partie
   int _lbState = 0;  // 0 rien, 1 envoi, 2 reçu, 3 hors ligne
   List<(int, String, int)> _rivals = []; // daily run: (score, name, rank) of other players
   final Set<int> _rivalsPassed = {};
-<<<<<<< HEAD
   // Ghost (daily run): path recorded every 0.1 s
   final List<int> _ghX = [], _ghH = [];
   double _ghNext = 0;
   LbGhost? _ghost;              // ghost of the day's #1 (playback)
   Uint16List _gpX = Uint16List(0);
   Int32List _gpH = Int32List(0);
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   ui.Image? _turboImg;
   final List<ui.Image?> _logoImgs = List<ui.Image?>.filled(_logoAssets.length, null);
   List<int> _collection = List<int>.filled(_logoAssets.length, 0);
@@ -3645,7 +3439,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         if (b.top[i].pid != me && b.top[i].score > 0) (b.top[i].score, b.top[i].name, i + 1),
     ];
     if (mounted) setState(() => _rivals = list.take(20).toList());
-<<<<<<< HEAD
     if (day != null) {
       final g = await Leaderboard.topGhost(day);
       if (g == null || !mounted || g.data.length < 12) return;
@@ -3689,8 +3482,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     final x = (x1 - x0).abs() > 500 ? x0 : x0 + (x1 - x0) * t; // edge wrap
     final h = _gpH[i] + (_gpH[i + 1] - _gpH[i]) * t;
     return (x / 1000 * _w, _startY - h, g.name, g.hero, x1 >= x0);
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   }
 
   Future<void> _loadWallet() async {
@@ -3754,12 +3545,9 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     _gen = widget.daily != null ? SeededRandom(Leaderboard.seedFor(widget.daily!)) : Random();
     _runId++;
     _rivalsPassed.clear();
-<<<<<<< HEAD
     _ghX.clear();
     _ghH.clear();
     _ghNext = 0;
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     _lbRank = null;
     _lbState = 0;
     _w = w;
@@ -3797,7 +3585,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     _stomps = 0;
     _pickups.clear();
     _nextPickupPts = 300 + _gen.nextDouble() * 100;
-<<<<<<< HEAD
     // Weather: same event sequence for everyone in the daily run
     _wx = widget.daily != null ? SeededRandom(Leaderboard.seedFor(widget.daily!) ^ 0x5EED) : Random();
     _weather = -1;
@@ -3805,8 +3592,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     _flash = 0;
     _nextWeatherAt = 1100;
     _trailPts.clear();
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     _magnetT = 0;
     _doubleT = 0;
     _slowT = 0;
@@ -3975,20 +3760,12 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     final dir = _pointers.isNotEmpty || !widget.tilt ? _dir.toDouble() : _tiltDir;
     final target = dir * _moveSpeed * (widget.hero == 1 ? 1.12 : 1.0); // Joystick
     if (_vx < target) {
-<<<<<<< HEAD
       _vx = min(target, _vx + _moveAccel * _grip * dt);
     } else if (_vx > target) {
       _vx = max(target, _vx - _moveAccel * _grip * dt);
     }
     _x += _vx * dt;
     if (_weather == 0) _x += _windDir * (80 + 45 * sin(_time * 1.7)) * dt; // wind
-=======
-      _vx = min(target, _vx + _moveAccel * dt);
-    } else if (_vx > target) {
-      _vx = max(target, _vx - _moveAccel * dt);
-    }
-    _x += _vx * dt;
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     if (_x < -_heroW / 2) _x += _w + _heroW;
     if (_x > _w + _heroW / 2) _x -= _w + _heroW;
     if (dir.abs() > 0.05) _facingRight = dir > 0;
@@ -4022,7 +3799,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       _vy += _gravity * (widget.hero == 10 ? 0.88 : 1.0) * dt; // Chat : saute plus haut
     }
     _y += _vy * dt;
-<<<<<<< HEAD
     // Ghost: position recorded every 0.1 s (daily run)
     if (widget.daily != null) {
       while (_playTime >= _ghNext && _ghX.length < 6000) {
@@ -4031,8 +3807,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         _ghNext += 0.1;
       }
     }
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     if (_squash > 0) _squash = max(0, _squash - dt * 5);
 
     // Plateformes mobiles / cassées
@@ -4293,7 +4067,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       _haptic(1);
     }
 
-<<<<<<< HEAD
     // Dynamic weather
     if (_score >= _nextWeatherAt) {
       _nextWeatherAt += 1000;
@@ -4333,8 +4106,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       _trailPts.removeWhere((p) => _time - p.$3 > 0.45);
     }
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     // Nettoyage + génération
     final bottom = _camY + _h + 80;
     _plats.removeWhere((p) => p.y > bottom);
@@ -4522,25 +4293,18 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     final day = widget.daily;
     final score = _score;
     final time = max(1, _playTime.round());
-<<<<<<< HEAD
     final ghostData = day != null ? _ghostData() : '';
     var newDayBest = false;
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     if (day != null) {
       // Meilleur score du jour en local (affiché sur l'accueil)
       try {
         final prefs = await SharedPreferences.getInstance();
         final p = (prefs.getString(_kDailyKey) ?? '').split('|');
         final best = p.length >= 2 && p[0] == day ? int.tryParse(p[1]) ?? 0 : 0;
-<<<<<<< HEAD
         if (score > best) {
           newDayBest = true;
           await prefs.setString(_kDailyKey, '$day|$score');
         }
-=======
-        if (score > best) await prefs.setString(_kDailyKey, '$day|$score');
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
       } catch (_) {}
     }
     if (!Leaderboard.configured || score <= 0) return;
@@ -4557,11 +4321,8 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         : Leaderboard.submit(mode: 'daily', day: day, score: score, hero: widget.hero, time: time, name: name);
     final rAll = await all;
     final rDay = daily == null ? null : await daily;
-<<<<<<< HEAD
     if (day != null && rDay != null && newDayBest) await Leaderboard.uploadGhost(day, score, ghostData);
     await Leaderboard.setCoins(_wallet); // Player's coins, shown on the leaderboard
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     final r = day == null ? rAll : rDay;
     final wRank = rAll?.rank;
     if (rAll != null && wRank != null) {
@@ -4797,7 +4558,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             time: _time,
             neon: widget.neon,
             crt: widget.theme == 4,
-<<<<<<< HEAD
             disco: widget.theme == 6,
             theme: widget.theme,
             trailKind: widget.trail,
@@ -4810,12 +4570,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             recordY: widget.bestScore > 0 ? _startY - widget.bestScore * 10 : null,
             rivals: _rivals,
             ghost: _ghostPos(),
-=======
-            disco: widget.theme == 7,
-            startY: _startY,
-            recordY: widget.bestScore > 0 ? _startY - widget.bestScore * 10 : null,
-            rivals: _rivals,
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
           ),
         )),
 
@@ -4835,7 +4589,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
           ]),
         ),
 
-<<<<<<< HEAD
         // Current weather
         if (_weather >= 0)
           Positioned(
@@ -4852,8 +4605,6 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             ),
           ),
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
         // Bonus actifs (sous le score)
         if (_magnetT > 0 || _doubleT > 0 || _slowT > 0 || _superJumps > 0)
           Positioned(
@@ -5873,22 +5624,16 @@ class _JumpPainter extends CustomPainter {
   final double startY; // y monde du départ (hauteur 0)
   final bool facingRight, neon, shieldOn;
   final bool crt; // thème CRT : lignes de balayage + bords sombres
-<<<<<<< HEAD
   final int trailKind;
   final List<(double, double, double, int)> trailPts;
   final int weather, windDir;
   final double weatherAlpha, flash;
   final int theme; // 7 Night, 9 Matrix, 10 Realistic, 11 Frozen tower: drawn effects
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   final bool disco; // thème Disco : lumières qui clignotent
   final ui.Image? turboImg;
   final int hero;
   final double? recordY; // y monde de la ligne du record (null = pas de record)
-<<<<<<< HEAD
   final (double, double, String, int, bool)? ghost; // ghost: x, world y, name, hero, facing right
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   final List<(int, String, int)> rivals; // other players (score, name, rank)
 
   _JumpPainter({
@@ -5915,7 +5660,6 @@ class _JumpPainter extends CustomPainter {
     required this.neon,
     required this.crt,
     required this.disco,
-<<<<<<< HEAD
     this.theme = 0,
     this.trailKind = 0,
     this.trailPts = const [],
@@ -5927,16 +5671,10 @@ class _JumpPainter extends CustomPainter {
     required this.recordY,
     this.rivals = const [],
     this.ghost,
-=======
-    required this.startY,
-    required this.recordY,
-    this.rivals = const [],
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-<<<<<<< HEAD
     if (_real) {
       _paintRealSky(canvas, size);
     } else if (_castle) {
@@ -5946,16 +5684,12 @@ class _JumpPainter extends CustomPainter {
     }
     if (_night) _paintNightSky(canvas, size);
     if (_mx) _paintMatrixRain(canvas, size);
-=======
-    _paintBackground(canvas, size);
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     if (disco) _paintDiscoLights(canvas, size);
     _paintRecordLine(canvas, size);
     _paintRivals(canvas, size);
     for (final p in plats) {
       final sy = p.y - camY;
       if (sy < -40 || sy > size.height + 40) continue;
-<<<<<<< HEAD
       if (_real) {
         _paintRealPlat(canvas, p, Offset(p.x, sy));
       } else if (_castle) {
@@ -5963,9 +5697,6 @@ class _JumpPainter extends CustomPainter {
       } else {
         _paintCartridge(canvas, p, Offset(p.x, sy));
       }
-=======
-      _paintCartridge(canvas, p, Offset(p.x, sy));
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
       if (p.hasTurbo) _paintTurbo(canvas, Offset(p.x + _platW / 2, sy - 24));
       if (p.hasShield) _paintShieldItem(canvas, Offset(p.x + _platW / 2, sy - 24));
     }
@@ -6001,16 +5732,12 @@ class _JumpPainter extends CustomPainter {
         Paint()..color = pa.color.withOpacity(pa.life.clamp(0.0, 1.0)),
       );
     }
-<<<<<<< HEAD
     _paintGhost(canvas, size);
     _paintTrail(canvas);
     _paintHero(canvas, Offset(heroX, heroY - camY));
     if (_real || _night) _paintVignette(canvas, size);
     if (_castle) _paintSnowfall(canvas, size);
     _paintWeather(canvas, size);
-=======
-    _paintHero(canvas, Offset(heroX, heroY - camY));
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     if (crt) _paintCrt(canvas, size);
     if (disco) _paintDiscoPulse(canvas, size);
     if (slowmo) {
@@ -6019,7 +5746,6 @@ class _JumpPainter extends CustomPainter {
   }
 
   /// Thème Disco : boule à facettes, faisceaux de couleur, reflets et pulsation.
-<<<<<<< HEAD
   // ── Thème « Tour gelée » : tour de château réaliste sous la neige ──────────
   bool get _castle => theme == 11;
 
@@ -6559,8 +6285,6 @@ class _JumpPainter extends CustomPainter {
     if (_night) canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF1A237E).withOpacity(0.10));
   }
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   void _paintDiscoLights(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     final beat = (time * 2) % 1.0; // 2 pulsations par seconde (≈ 120 BPM)
@@ -7024,7 +6748,6 @@ class _JumpPainter extends CustomPainter {
     canvas.save();
     canvas.translate(c.dx, c.dy);
     canvas.scale(sx, 1);
-<<<<<<< HEAD
     if (_real || _castle) {
       // Gold coin: metallic gradient + highlight
       canvas.drawCircle(Offset.zero, _coinR, Paint()
@@ -7038,8 +6761,6 @@ class _JumpPainter extends CustomPainter {
       canvas.restore();
       return;
     }
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     canvas.drawCircle(Offset.zero, _coinR, Paint()..color = const Color(0xFFFFD740));
     canvas.drawCircle(Offset.zero, _coinR - 2.5, Paint()
       ..color = const Color(0xFFE6A800)
@@ -7232,7 +6953,6 @@ class _JumpPainter extends CustomPainter {
 
   /// Héros choisi, avec écrasement au rebond et flamme du turbo.
   /// [feet] = milieu du bas du héros, en coordonnées écran.
-<<<<<<< HEAD
   /// #1 ghost: translucent hero + name
   // ── Jump trail + weather ─────────────────────────────
   void _paintTrail(Canvas canvas) {
@@ -7352,8 +7072,6 @@ class _JumpPainter extends CustomPainter {
     tp.paint(canvas, Offset(g.$1 - tp.width / 2, sy - 62));
   }
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   void _paintHero(Canvas canvas, Offset feet) {
     final sx = 1 + 0.15 * squash;
     final sy = 1 - 0.20 * squash;

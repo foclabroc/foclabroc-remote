@@ -2,10 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-<<<<<<< HEAD
 import 'dart:typed_data';
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,11 +20,7 @@ const kLbUrl = 'https://wwyxfcdubdnwokeanigk.supabase.co';
 const kLbKey = 'sb_publishable_M1Rdee-lSEzCfq81zjYq5Q_NgJ0a35z';
 
 const _lbSalt = 'rj-lb#9d2e-foc';      // must match the SQL
-<<<<<<< HEAD
 const kLbDeviceKey = 'rjlb_device';     // not "jump_": survives a reset
-=======
-const _kDeviceKey  = 'rjlb_device';     // not "jump_": survives a reset
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 const _kPendingKey = 'rjlb_pending';
 const _kNameKey    = 'jump_lb_name';    // player name (exported with the save)
 const lbAllDay = '2000-01-01';          // "day" of the all-time board
@@ -43,12 +36,8 @@ class LbEntry {
   final String name;
   final int score;
   final int hero;
-<<<<<<< HEAD
   final int? coins;
   const LbEntry(this.pid, this.name, this.score, this.hero, [this.coins]);
-=======
-  const LbEntry(this.pid, this.name, this.score, this.hero);
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 }
 
 class LbRank {
@@ -58,7 +47,6 @@ class LbRank {
   const LbRank(this.rank, this.score, this.total);
 }
 
-<<<<<<< HEAD
 class LbGhost {
   final String name;
   final int hero;
@@ -67,8 +55,6 @@ class LbGhost {
   const LbGhost(this.name, this.hero, this.score, this.data);
 }
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 class LbBoard {
   final List<LbEntry> top;
   final LbRank me;
@@ -86,7 +72,6 @@ class Leaderboard {
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
-<<<<<<< HEAD
   /// Current week key: Monday "YYYY-MM-DD" (UTC, like the server).
   static String weekKey() {
     final n = DateTime.now().toUtc();
@@ -97,8 +82,6 @@ class Leaderboard {
   /// Days left before the Monday reset (1 to 7).
   static int weekDaysLeft() => 8 - DateTime.now().toUtc().weekday;
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   /// Daily course seed (same for every player).
   static int seedFor(String day) {
     var h = 0x811C9DC5;
@@ -112,24 +95,15 @@ class Leaderboard {
   static Future<String> deviceId() async {
     if (_device != null) return _device!;
     final prefs = await SharedPreferences.getInstance();
-<<<<<<< HEAD
     var id = prefs.getString(kLbDeviceKey);
     if (id == null || id.length < 16) {
       final r = Random.secure();
       id = List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
       await prefs.setString(kLbDeviceKey, id);
-=======
-    var id = prefs.getString(_kDeviceKey);
-    if (id == null || id.length < 16) {
-      final r = Random.secure();
-      id = List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
-      await prefs.setString(_kDeviceKey, id);
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     }
     return _device = id;
   }
 
-<<<<<<< HEAD
   /// Takes over the online identity from a save (same player, same name, same scores).
   static Future<void> adoptDevice(String id) async {
     if (!RegExp(r'^[0-9a-f]{32}$').hasMatch(id)) return;
@@ -138,8 +112,6 @@ class Leaderboard {
     _device = id;
   }
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   /// Public id (the real id stays secret).
   static Future<String> publicId() async =>
       sha256.convert(utf8.encode(await deviceId())).toString().substring(0, 16);
@@ -283,29 +255,20 @@ class Leaderboard {
       await flushPending();
       final dev = await deviceId();
       final rows = await _call('GET',
-<<<<<<< HEAD
           '/rest/v1/jump_scores?select=pid,name,score,hero,coins&mode=eq.$mode&day=eq.$day'
-=======
-          '/rest/v1/jump_scores?select=pid,name,score,hero&mode=eq.$mode&day=eq.$day'
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
           '&order=score.desc,updated_at.asc&limit=50');
       final me = await _rpc('jump_rank', {'p_device': dev, 'p_mode': mode, 'p_day': day});
       return LbBoard([
         for (final r in (rows as List))
           LbEntry(r['pid'] as String? ?? '', r['name'] as String? ?? '?',
-<<<<<<< HEAD
               (r['score'] as num?)?.toInt() ?? 0, ((r['hero'] as num?)?.toInt() ?? 0),
               (r['coins'] as num?)?.toInt()),
-=======
-              (r['score'] as num?)?.toInt() ?? 0, ((r['hero'] as num?)?.toInt() ?? 0)),
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
       ], _rankFrom(me));
     } catch (_) {
       return null;
     }
   }
 
-<<<<<<< HEAD
   /// Player's coins, shown on the leaderboard (no effect when offline).
   static Future<void> setCoins(int coins) async {
     if (!configured || coins < 0) return;
@@ -341,8 +304,6 @@ class Leaderboard {
     }
   }
 
-=======
->>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   static const renameOk = 0;      // saved
   static const renameTaken = 1;   // already used by another player
   static const renameOffline = 2; // kept locally, sent with the next score
