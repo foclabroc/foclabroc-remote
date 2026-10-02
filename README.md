@@ -208,12 +208,24 @@ Jeu de saut vertical rétro façon « doodle jump » :
 - **8 thèmes** : Classique, Néon, Pocket, Sépia, CRT, Synthwave, Rouge, **Disco**
 - **3 musiques** (1 offerte, 2 à débloquer) + muet
 - **Bonus de départ** achetables et cumulables (départ à 500 / 1 000 pts, bouclier, turbo)
-- **Roue de la fortune** : 1 tour gratuit par jour, puis 25 pièces
+- **Roue de la fortune** : 1 tour gratuit par jour (la roue s'ouvre d'elle-même tant qu'il n'est pas joué), puis 25 pièces
 - **Défis par séries** renouvelables et **collection par albums** de 16 logos (500 pièces par album complété)
 - **Statistiques à vie** (parties, points, sauts, combo, pièces, temps de jeu…)
 - **Codes secrets** (stockés en empreinte SHA-256 salée)
 - **Sauvegarde / chargement / reset** de la progression (fichier JSON signé, emplacement au choix)
-- Accueil « console » avec barre Boutique / Défis / Collection / Roue / Réglages, vibrations, partage du score
+- Accueil « console » : tuiles Partie du jour / Classement, héros à personnaliser, barre Boutique / Défis / Collection / Roue / Réglages, vibrations, partage du score
+
+#### 📅 Partie du jour 🆕
+- **Même parcours pour tous les joueurs**, nouveau chaque jour à minuit, **rejouable à volonté** (seul le meilleur score compte)
+- Sans bonus de départ, sans continue et **sans pièces** : que du skill
+- Page dédiée : règles, ton meilleur score et ton rang du jour, choix **Héros / Décor / Musique** (parmi ceux débloqués), scores du jour
+
+#### 🌍 Classement en ligne 🆕
+- Classements **Aujourd'hui** et **Tous temps** (top 50, médailles, héros de chaque joueur, ton rang)
+- **Sans compte** : pseudo demandé une fois, **unique** (pas de doublon possible), modifiable à tout moment
+- **Lignes des autres joueurs dans le parcours** (or / argent / bronze) avec bannière « TU DÉPASSES … ! »
+- Ton rang affiché à la fin de chaque partie ; scores mis en attente hors ligne et envoyés plus tard
+- Serveur Supabase : envoi signé et contrôle de cohérence des scores
 
 ---
 
@@ -280,6 +292,7 @@ flutter build apk --release
 | **wakelock_plus** | Écran allumé en permanence |
 | **shared_preferences** | Sauvegarde préférences et progression des mini-jeux |
 | **sensors_plus** | Inclinaison du téléphone (Rétro Jump) |
+| **Supabase** (API REST) | Classement en ligne Rétro Jump (aucun package, `dart:io`) |
 
 ---
 
@@ -295,6 +308,7 @@ lib/
 │   ├── metadata_service.dart    # Lecture/écriture gamelist.xml (Python via base64)
 │   ├── media_service.dart       # Détection dossiers médias + paths
 │   ├── pending_scrap_service.dart  # Sauvegarde/finalisation des scraps différés
+│   ├── leaderboard_service.dart # Classement en ligne Rétro Jump (Supabase REST)
 │   ├── quiz_audio_service.dart  # Sons chiptune + musique des mini-jeux (canal natif)
 │   └── update_check_service.dart   # Vérification nouvelle version GitHub
 ├── widgets/
@@ -328,6 +342,7 @@ lib/
 android/app/src/main/kotlin/…/MainActivity.kt  # Canal audio natif (ChipSynth + SoundPool + MediaPlayer)
 assets/game/game_music*.ogg                     # Musiques des mini-jeux
 check_fr_en.py                                  # Contrôle de symétrie FR / EN
+supabase_retro_jump.sql                         # Table + fonctions du classement (Supabase)
 ```
 
 **Endpoints API EmulationStation utilisés** (`http://127.0.0.1:1234/`) :
