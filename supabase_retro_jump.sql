@@ -20,10 +20,13 @@ create table if not exists public.jump_scores (
 );
 create index if not exists jump_scores_board on public.jump_scores (mode, day, score desc);
 
+<<<<<<< HEAD
 -- v4 : classement de la semaine (mode « week », day = lundi de la semaine, UTC)
 alter table public.jump_scores drop constraint if exists jump_scores_mode_check;
 alter table public.jump_scores add constraint jump_scores_mode_check check (mode in ('daily', 'all', 'week'));
 
+=======
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 -- Joueurs : un pseudo unique par téléphone (majuscules / espaces ignorés)
 create table if not exists public.jump_players (
   device     text        primary key,
@@ -147,6 +150,7 @@ begin
         updated_at = case when excluded.score > s.score then now() else s.updated_at end,
         score      = greatest(s.score, excluded.score);
 
+<<<<<<< HEAD
   -- Classement de la semaine : alimenté par chaque partie normale (aussi pour les anciennes versions)
   if p_mode = 'all' then
     insert into public.jump_scores as s (device, pid, mode, day, name, score, hero)
@@ -163,6 +167,8 @@ begin
     from public.jump_players p
    where p.device = p_device and sc.device = p_device and p.coins is not null and sc.coins is distinct from p.coins;
 
+=======
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   return query select r.rank, r.score, r.total, v_name from public.jump_rank(p_device, p_mode, p_day) r;
 end $$;
 
@@ -172,7 +178,11 @@ returns table(rank int, score int, total int)
 language plpgsql stable security definer set search_path = public as $$
 #variable_conflict use_column
 declare
+<<<<<<< HEAD
   v_day   date := case when p_mode in ('daily', 'week') then p_day::date else date '2000-01-01' end;
+=======
+  v_day   date := case when p_mode = 'daily' then p_day::date else date '2000-01-01' end;
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
   v_score int;
 begin
   select s.score into v_score from public.jump_scores s
@@ -216,6 +226,7 @@ grant execute on function public.jump_rank(text, text, text) to anon;
 revoke all on function public.rename_jump_player(text, text, text) from authenticated;
 grant execute on function public.rename_jump_player(text, text, text) to anon;
 
+<<<<<<< HEAD
 -- ── v3 : pièces du joueur affichées dans le classement ─────────────────────
 alter table public.jump_scores  add column if not exists coins int;
 alter table public.jump_players add column if not exists coins int;
@@ -295,9 +306,16 @@ grant execute on function public.submit_jump_ghost(text, text, int, text, text) 
 grant execute on function public.jump_top_ghost(text, text) to anon;
 
 -- Note « Security Advisor » : les avertissements « Public Can Execute SECURITY
+=======
+-- Note « Security Advisor » : les 3 avertissements « Public Can Execute SECURITY
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 -- DEFINER Function » sont VOULUS — l'appli (rôle anon) doit pouvoir appeler ces
 -- fonctions ; elles vérifient elles-mêmes la signature et la cohérence.
 
 -- Ménage : parties du jour de plus de 30 jours (à relancer de temps en temps si besoin)
+<<<<<<< HEAD
 -- delete from public.jump_scores where mode in ('daily', 'week') and day < current_date - 30;
 -- delete from public.jump_ghosts where day < current_date - 7;
+=======
+-- delete from public.jump_scores where mode = 'daily' and day < current_date - 30;
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81

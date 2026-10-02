@@ -124,10 +124,13 @@ class MainActivity : FlutterActivity() {
         "assets/game/game_music.ogg",    // 0 : Disco Funk
         "assets/game/game_music_2.ogg",  // 1 : Shop
         "assets/game/game_music_3.ogg",  // 2 : Good Morning
+<<<<<<< HEAD
         "assets/game/game_music_4.ogg",  // 3 : 8-bit Retro
         "assets/game/game_music_5.ogg",  // 4 : Mountain
         "assets/game/game_music_6.ogg",  // 5 : Video Game
         "assets/game/game_music_7.ogg",  // 6 : Pixel Fight
+=======
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
     )
 
     /** Lance le morceau [index] en boucle (reprend s'il est déjà chargé). */

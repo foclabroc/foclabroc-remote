@@ -4,6 +4,7 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+<<<<<<< HEAD
 ## v3.13.0+43 — Octobre 2026
 
 ### 🌦️ Rétro Jump : gameplay
@@ -43,6 +44,8 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+=======
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 ## v3.12.0+42 — Octobre 2026
 
 ### 🌍 Rétro Jump : classement en ligne

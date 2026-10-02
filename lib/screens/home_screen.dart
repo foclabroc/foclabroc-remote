@@ -19,7 +19,11 @@ import 'links_screen.dart';
 import 'mini_games_screen.dart';
 import 'quiz_audio_service.dart';
 
+<<<<<<< HEAD
 const kAppVersion = '3.13-FR';
+=======
+const kAppVersion = '3.12-FR';
+>>>>>>> 3a6a65d50b98427fe032e27c117dd488ac95bf81
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
