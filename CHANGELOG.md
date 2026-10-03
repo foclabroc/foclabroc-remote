@@ -4,6 +4,51 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+## v3.14.0+44 — Octobre 2026
+
+### 🏆 Rétro Jump : progression
+- **Niveau joueur (XP)** — chaque partie rapporte de l'XP : 1 XP pour 10 pts, +10 par partie, +25 par défi réussi, +30 pour la partie du jour
+  - Niveaux 1 à 99 (courbe 50·L·(L−1)), **rang tous les 10 niveaux** : Débutant → Bronze → Argent → Or → Platine → Diamant → Maître → Légende
+  - **Pièces offertes à chaque niveau** (20 × le niveau atteint)
+  - Barre de niveau sur l'accueil (touche = page « Gagner de l'XP » + liste des rangs), encadré « +XP / Niveau X atteint ! » dans les résultats
+  - Joueurs existants : XP de départ calculée d'après les stats à vie (points ÷ 10 + 10 par partie), sans pièces rétroactives
+  - XP incluse dans la sauvegarde
+- **52 trophées permanents** (bronze / argent / or) — parties, record, points cumulés, bugs, sauts, turbos, combo, pièces, sacs, logos, temps de jeu, niveau, albums, collection complète (héros, thèmes, musiques, traînées), séries de défis, **jours d'affilée**, parties du jour, **podium / 1ʳᵉ place du défi du jour**, premier message dans le chat, chutes
+  - Récompense : **25 / 75 / 200 pièces** selon la médaille
+  - Bouton **🏆 Trophées** dans l'en-tête de l'accueil (nombre débloqué), page avec progression de chaque trophée (débloqués en premier)
+  - Trophées gagnés listés dans les résultats ; ceux gagnés hors partie (achat, chat) annoncés par une notification
+  - Joueurs existants : trophées déjà mérités débloqués d'office, sans pièces
+  - Nouvelles stats suivies : parties du jour, série de jours joués, podium / victoire du défi du jour, messages envoyés
+
+### 🌍 Rétro Jump : en ligne
+- **Chat** (4ᵉ onglet du Classement) — 200 derniers messages gardés, rafraîchi toutes les 8 s tant que l'onglet est ouvert, pastille « nouveau message » sur la tuile Classement
+  - Filtre FR/EN côté serveur : gros mots (même déguisés : c0nn4rd, majuscules, lettres doublées), liens et numéros de téléphone masqués ; 120 caractères, 1 message / 10 s
+  - **Appui long = signaler** : message masqué pour soi tout de suite, pour tous au 3ᵉ signalement ; bannissement d'un appareil depuis Supabase (requêtes de modération en fin de fichier SQL)
+  - Liste des mots filtrés dans la table `jump_chat_words`, modifiable sans mettre l'appli à jour
+- **Mentions @pseudo** — suggestions de pseudos en tapant `@`, mentions colorées (la sienne en doré), message qui te cite encadré, notification « 💬 X t'a mentionné dans le chat » au lancement
+- **Fiche joueur** — touche un joueur (classement, page de la partie du jour, chat) : héros, niveau et rang, pièces, avancement, record et rangs (général, semaine, jour), défis joués / gagnés / meilleur défi, toutes les stats de jeu, collection et trophées, date d'inscription ; bouton « Mentionner » depuis le chat
+- **Avancement %** de chaque joueur dans le classement (📦) : **40 % boutique + 30 % albums + 30 % trophées**
+- **Pastille de niveau** devant chaque pseudo (classement, chat, fiche)
+
+### 🎨 Rétro Jump : interface
+- **Accueil fixe**, sans défilement : la scène du héros s'adapte à la place disponible
+- Bouton **Jouer** fixé au-dessus de la barre du bas (plus jamais masqué)
+- En-tête : **Pièces · Trophées · Stats · Son**, avec leur nom sous chaque bouton
+- **Règles du jeu** complétées (météo, partie du jour, fantôme, classements, niveau, trophées, avancement, chat, sauvegarde)
+- Correctif : une feuille ouverte depuis une autre (ex. Défis → Trophées) perdait son contexte à la fermeture de la première
+
+### 🗄️ Serveur (Supabase) — `supabase_retro_jump.sql` (v9) à relancer
+- v5 : colonne `progress` + fonction `set_jump_profile` (pièces + avancement)
+- v6 : tables `jump_chat`, `jump_chat_reports`, `jump_chat_bans`, `jump_chat_words` + fonctions `send_jump_chat` / `report_jump_chat` / `jump_chat_filter`
+- v7 : colonne `stats` + fonctions `set_jump_stats` / `jump_player_card` (fiche joueur), index sur `pid`
+- v8 : colonne `level` (joueurs, scores, chat)
+- v9 : clés `trophies` / `trophies_n` dans les stats publiques
+
+### 📦 Rétro Jump autonome (v1.0.1)
+- Mêmes nouveautés ; version affichée dans les Réglages + bouton « Vérifier les mises à jour » ; nouvelle icône (thème Nuit, titre « RÉTRO JUMP »)
+
+---
+
 ## v3.13.0+43 — Octobre 2026
 
 ### 🌦️ Rétro Jump : gameplay

@@ -245,7 +245,248 @@ List<String> get _logoAssets => _logoSets[_album % _logoSets.length];
 List<String> get _logoNames => _logoNameSets[_album % _logoNameSets.length];
 int get _logoGoal => 3 + _album ~/ _logoSets.length;
 
+/// Avancement du joueur (0-100 %), affiché dans le classement :
+/// 40 % boutique (héros, thèmes, musiques, traînées) + 30 % albums (4 premiers) + 30 % trophées.
+Future<int> _progressPct() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    int owned(String key, int max) {
+      final s = <int>{0};
+      for (final v in prefs.getStringList(key) ?? const <String>[]) {
+        final i = int.tryParse(v);
+        if (i != null && i >= 0 && i < max) s.add(i);
+      }
+      return s.length;
+    }
+    final shopTotal = _heroCount + _themeNames.length + _musicNames.length + _trailNames.length;
+    final shopHave = owned(_kUnlockedKey, _heroCount) + owned(_kThemeUnlockKey, _themeNames.length) +
+        owned(_kMusicUnlockKey, _musicNames.length) + owned(_kTrailUnlockKey, _trailNames.length);
+    // Albums (30 %) : 4 albums × 16 logos ; album en cours compté logo par logo
+    const albumsGoal = 4;
+    final perAlbum = _logoSets.first.length;
+    final album = prefs.getInt(_kAlbumKey) ?? 0;
+    var albumUnits = min(album, albumsGoal) * perAlbum;
+    if (album < albumsGoal) {
+      final goal = 3 + album ~/ _logoSets.length;
+      albumUnits += (prefs.getStringList(_kCollectionKey) ?? const <String>[])
+          .where((c) => (int.tryParse(c) ?? 0) >= goal)
+          .length
+          .clamp(0, perAlbum);
+    }
+    // Trophées (30 %)
+    final ids = {for (final x in _trophies) x.id};
+    final trophiesHave = (prefs.getStringList(_kTrophyKey) ?? const <String>[]).where(ids.contains).length;
+    final pct = 40 * shopHave / shopTotal + 30 * albumUnits / (albumsGoal * perAlbum) + 30 * trophiesHave / _trophies.length;
+    return pct.round().clamp(0, 100);
+  } catch (_) {
+    return 0;
+  }
+}
+
+
 /// Bonus versé quand un album est complété.
+// ─── Trophées (succès permanents) ────────────────────────────────────────────
+const _kTrophyKey = 'jump_trophies';
+
+class _Trophy {
+  final String id;
+  final int tier;        // 0 bronze, 1 argent, 2 or
+  final IconData icon;
+  final String key;      // clé de la photo de progression (_trophySnapshot)
+  final int goal;
+  final String name, desc;
+  const _Trophy(this.id, this.tier, this.icon, this.key, this.goal, this.name, this.desc);
+}
+
+const _tierColors = [Color(0xFFCD7F32), Color(0xFFCFD8DC), Color(0xFFFFD54F)];
+const _tierNames = ['Bronze', 'Argent', 'Or'];
+const _tierReward = [25, 75, 200];
+
+final _trophies = <_Trophy>[
+  _Trophy('g10', 0, Icons.sports_esports_rounded, 'games', 10, 'Premiers pas', 'Jouer 10 parties'),
+  _Trophy('g100', 1, Icons.sports_esports_rounded, 'games', 100, 'Habitué', 'Jouer 100 parties'),
+  _Trophy('g500', 2, Icons.sports_esports_rounded, 'games', 500, 'Accro', 'Jouer 500 parties'),
+  _Trophy('b1000', 0, Icons.emoji_events_rounded, 'best', 1000, 'Décollage', 'Record de 1 000 pts'),
+  _Trophy('b3000', 1, Icons.emoji_events_rounded, 'best', 3000, 'Haute voltige', 'Record de 3 000 pts'),
+  _Trophy('b6000', 2, Icons.emoji_events_rounded, 'best', 6000, 'Dans les étoiles', 'Record de 6 000 pts'),
+  _Trophy('p50k', 0, Icons.landscape_rounded, 'pts', 50000, 'Grimpeur', '50 000 pts cumulés'),
+  _Trophy('p500k', 1, Icons.landscape_rounded, 'pts', 500000, 'Alpiniste', '500 000 pts cumulés'),
+  _Trophy('p2m', 2, Icons.landscape_rounded, 'pts', 2000000, 'Conquérant', '2 000 000 pts cumulés'),
+  _Trophy('s100', 0, Icons.bug_report_rounded, 'stomps', 100, 'Chasseur de bugs', 'Écraser 100 bugs'),
+  _Trophy('s1000', 1, Icons.bug_report_rounded, 'stomps', 1000, 'Débogueur', 'Écraser 1 000 bugs'),
+  _Trophy('s5000', 2, Icons.bug_report_rounded, 'stomps', 5000, 'Exterminateur', 'Écraser 5 000 bugs'),
+  _Trophy('j1k', 0, Icons.keyboard_double_arrow_up_rounded, 'jumps', 1000, 'Sauteur', 'Faire 1 000 sauts'),
+  _Trophy('j10k', 1, Icons.keyboard_double_arrow_up_rounded, 'jumps', 10000, 'Kangourou', 'Faire 10 000 sauts'),
+  _Trophy('j100k', 2, Icons.keyboard_double_arrow_up_rounded, 'jumps', 100000, 'Ressort humain', 'Faire 100 000 sauts'),
+  _Trophy('t25', 0, Icons.rocket_launch_rounded, 'turbos', 25, 'Pied au plancher', 'Utiliser 25 turbos'),
+  _Trophy('t250', 1, Icons.rocket_launch_rounded, 'turbos', 250, 'Supersonique', 'Utiliser 250 turbos'),
+  _Trophy('c10', 0, Icons.local_fire_department_rounded, 'combo', 10, 'Enchaînement', 'Combo de 10 sauts'),
+  _Trophy('c25', 1, Icons.local_fire_department_rounded, 'combo', 25, 'En feu', 'Combo de 25 sauts'),
+  _Trophy('c50', 2, Icons.local_fire_department_rounded, 'combo', 50, 'Inarrêtable', 'Combo de 50 sauts'),
+  _Trophy('o1k', 0, Icons.monetization_on_rounded, 'coins', 1000, 'Tirelire', 'Gagner 1 000 pièces'),
+  _Trophy('o10k', 1, Icons.monetization_on_rounded, 'coins', 10000, 'Coffre-fort', 'Gagner 10 000 pièces'),
+  _Trophy('o50k', 2, Icons.monetization_on_rounded, 'coins', 50000, 'Trésor royal', 'Gagner 50 000 pièces'),
+  _Trophy('bag20', 0, Icons.savings_rounded, 'bags', 20, 'Ramasseur', 'Ramasser 20 sacs'),
+  _Trophy('bag200', 1, Icons.savings_rounded, 'bags', 200, 'Banquier', 'Ramasser 200 sacs'),
+  _Trophy('l50', 0, Icons.collections_bookmark_rounded, 'logos', 50, 'Collectionneur', 'Attraper 50 logos'),
+  _Trophy('l500', 1, Icons.collections_bookmark_rounded, 'logos', 500, 'Archiviste', 'Attraper 500 logos'),
+  _Trophy('h1', 0, Icons.timer_rounded, 'time', 3600, 'Une heure', 'Jouer 1 h au total'),
+  _Trophy('h10', 1, Icons.timer_rounded, 'time', 36000, 'Passionné', 'Jouer 10 h au total'),
+  _Trophy('h50', 2, Icons.timer_rounded, 'time', 180000, 'Légende du jump', 'Jouer 50 h au total'),
+  _Trophy('lv10', 0, Icons.military_tech_rounded, 'level', 10, 'Promu', 'Atteindre le niveau 10'),
+  _Trophy('lv25', 1, Icons.military_tech_rounded, 'level', 25, 'Vétéran', 'Atteindre le niveau 25'),
+  _Trophy('lv50', 2, Icons.military_tech_rounded, 'level', 50, 'Maître du saut', 'Atteindre le niveau 50'),
+  _Trophy('a1', 0, Icons.auto_stories_rounded, 'album', 1, 'Premier album', 'Compléter 1 album'),
+  _Trophy('a4', 2, Icons.auto_stories_rounded, 'album', 4, 'Musée', 'Compléter 4 albums'),
+  _Trophy('he5', 0, Icons.person_rounded, 'heroes', 5, 'Petite équipe', 'Débloquer 5 héros'),
+  _Trophy('heAll', 2, Icons.person_rounded, 'heroes', _heroCount, 'Toute la bande', 'Débloquer tous les héros'),
+  _Trophy('thAll', 1, Icons.palette_rounded, 'themes', _themeNames.length, 'Décorateur', 'Débloquer tous les thèmes'),
+  _Trophy('muAll', 1, Icons.music_note_rounded, 'musics', _musicNames.length, 'Mélomane', 'Débloquer toutes les musiques'),
+  _Trophy('trAll', 1, Icons.auto_awesome_rounded, 'trails', _trailNames.length, 'Comète', 'Débloquer toutes les traînées'),
+  _Trophy('se1', 0, Icons.workspace_premium_rounded, 'series', 1, 'Défi relevé', 'Terminer 1 série de défis'),
+  _Trophy('se5', 1, Icons.workspace_premium_rounded, 'series', 5, 'Persévérant', 'Terminer 5 séries de défis'),
+  _Trophy('se10', 2, Icons.workspace_premium_rounded, 'series', 10, 'Inépuisable', 'Terminer 10 séries de défis'),
+  _Trophy('st3', 0, Icons.event_repeat_rounded, 'streak_best', 3, 'Fidèle', 'Jouer 3 jours d’affilée'),
+  _Trophy('st7', 1, Icons.event_repeat_rounded, 'streak_best', 7, 'Une semaine', 'Jouer 7 jours d’affilée'),
+  _Trophy('st30', 2, Icons.event_repeat_rounded, 'streak_best', 30, 'Inséparable', 'Jouer 30 jours d’affilée'),
+  _Trophy('d10', 0, Icons.today_rounded, 'dailies', 10, 'Quotidien', 'Jouer 10 parties du jour'),
+  _Trophy('d50', 1, Icons.today_rounded, 'dailies', 50, 'Rituel', 'Jouer 50 parties du jour'),
+  _Trophy('top3', 1, Icons.leaderboard_rounded, 'top3', 1, 'Podium', 'Finir dans le top 3 d’un défi du jour'),
+  _Trophy('daily1', 2, Icons.leaderboard_rounded, 'daily1', 1, 'Champion du jour', 'Être 1er d’un défi du jour'),
+  _Trophy('chat1', 0, Icons.chat_bubble_rounded, 'chat', 1, 'Bavard', 'Écrire dans le chat'),
+  _Trophy('fall100', 0, Icons.south_rounded, 'falls', 100, 'Gravité', 'Tomber 100 fois'),
+];
+
+/// Progression actuelle du joueur (stats à vie + collection + niveau…).
+Future<Map<String, int>> _trophySnapshot(SharedPreferences prefs) async {
+  final s = <String, int>{};
+  try {
+    final st = jsonDecode(prefs.getString(_kStatsKey) ?? '{}') as Map;
+    st.forEach((k, v) {
+      if (v is num) s['$k'] = v.toInt();
+    });
+  } catch (_) {}
+  s['best'] = prefs.getInt(_kBestScoreKey) ?? 0;
+  s['level'] = _levelFor(await _readXp(prefs));
+  s['album'] = prefs.getInt(_kAlbumKey) ?? 0;
+  s['heroes'] = _ownedCount(prefs, _kUnlockedKey, _heroCount);
+  s['themes'] = _ownedCount(prefs, _kThemeUnlockKey, _themeNames.length);
+  s['musics'] = _ownedCount(prefs, _kMusicUnlockKey, _musicNames.length);
+  s['trails'] = _ownedCount(prefs, _kTrailUnlockKey, _trailNames.length);
+  s['series'] = prefs.getInt(_kChallengeLvlKey) ?? 0;
+  return s;
+}
+
+/// Débloque et enregistre les trophées atteints ; renvoie les nouveaux.
+Future<List<_Trophy>> _unlockTrophies({int score = 0}) async {
+  final prefs = await SharedPreferences.getInstance();
+  final have = (prefs.getStringList(_kTrophyKey) ?? const <String>[]).toSet();
+  final s = await _trophySnapshot(prefs);
+  s['best'] = max(s['best'] ?? 0, score);
+  final news = [for (final t in _trophies) if (!have.contains(t.id) && (s[t.key] ?? 0) >= t.goal) t];
+  if (news.isNotEmpty) await prefs.setStringList(_kTrophyKey, [...have, ...news.map((t) => t.id)]);
+  return news;
+}
+
+/// Ajoute à une statistique à vie (ou garde le maximum avec atLeast).
+Future<void> _bumpStat(String k, {int by = 1, int? atLeast}) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    Map<String, dynamic> st = {};
+    try {
+      st = Map<String, dynamic>.from(jsonDecode(prefs.getString(_kStatsKey) ?? '{}') as Map);
+    } catch (_) {}
+    final cur = (st[k] as num?)?.toInt() ?? 0;
+    st[k] = atLeast != null ? max(cur, atLeast) : cur + by;
+    await prefs.setString(_kStatsKey, jsonEncode(st));
+  } catch (_) {}
+}
+
+// ─── Niveau du joueur (XP) ───────────────────────────────────────────────────
+const _kXpKey = 'jump_xp';
+const _kMaxLevel = 99;
+
+/// XP totale pour atteindre le niveau l : niv. 2 = 100, niv. 10 = 4 500, niv. 50 = 122 500.
+int _xpForLevel(int l) => 50 * l * (l - 1);
+
+int _levelFor(int xp) {
+  var l = 1;
+  while (l < _kMaxLevel && xp >= _xpForLevel(l + 1)) {
+    l++;
+  }
+  return l;
+}
+
+/// XP d'une partie : 1 par 10 points, +10 par partie, +25 par défi réussi, +30 partie du jour.
+int _runXp(int score, int challenges, bool daily) => score ~/ 10 + 10 + challenges * 25 + (daily ? 30 : 0);
+
+/// Pièces offertes en atteignant le niveau l.
+int _levelReward(int l) => 20 * l;
+
+/// Rang par tranche de 10 niveaux.
+const _levelRanks = <(String, Color)>[
+  ('Débutant', Color(0xFF9E9E9E)), ('Bronze', Color(0xFFCD7F32)), ('Argent', Color(0xFFCFD8DC)), ('Or', Color(0xFFFFD54F)), ('Platine', Color(0xFF80DEEA)), ('Diamant', Color(0xFF64B5F6)), ('Maître', Color(0xFFCE93D8)), ('Légende', Color(0xFFFF5252)),
+];
+(String, Color) _rankFor(int l) => _levelRanks[min(l ~/ 10, _levelRanks.length - 1)];
+
+/// XP enregistrée ; la première fois, calculée d'après les stats à vie (les anciens joueurs ne repartent pas de 0).
+Future<int> _readXp(SharedPreferences prefs) async {
+  final x = prefs.getInt(_kXpKey);
+  if (x != null) return x;
+  var xp = 0;
+  try {
+    final st = jsonDecode(prefs.getString(_kStatsKey) ?? '{}') as Map;
+    xp = ((st['pts'] as num?)?.toInt() ?? 0) ~/ 10 + ((st['games'] as num?)?.toInt() ?? 0) * 10;
+  } catch (_) {}
+  await prefs.setInt(_kXpKey, xp);
+  return xp;
+}
+
+int _ownedCount(SharedPreferences prefs, String key, int max) {
+  final s = <int>{0};
+  for (final v in prefs.getStringList(key) ?? const <String>[]) {
+    final i = int.tryParse(v);
+    if (i != null && i >= 0 && i < max) s.add(i);
+  }
+  return s.length;
+}
+
+/// Statistiques visibles par les autres joueurs (fiche joueur du classement).
+Future<Map<String, int>> _publicStats() async {
+  final prefs = await SharedPreferences.getInstance();
+  final out = <String, int>{};
+  try {
+    final st = jsonDecode(prefs.getString(_kStatsKey) ?? '{}') as Map;
+    for (final k in const ['games', 'pts', 'time', 'jumps', 'combo', 'coins', 'bags', 'stomps', 'turbos',
+        'logos', 'cont', 'falls', 'bugdeaths']) {
+      final v = st[k];
+      if (v is num) out[k] = v.toInt();
+    }
+  } catch (_) {}
+  out['best'] = prefs.getInt(_kBestScoreKey) ?? 0;
+  out['album'] = prefs.getInt(_kAlbumKey) ?? 0;
+  out['heroes'] = _ownedCount(prefs, _kUnlockedKey, _heroCount);
+  out['heroes_n'] = _heroCount;
+  out['themes'] = _ownedCount(prefs, _kThemeUnlockKey, _themeNames.length);
+  out['themes_n'] = _themeNames.length;
+  out['musics'] = _ownedCount(prefs, _kMusicUnlockKey, _musicNames.length);
+  out['musics_n'] = _musicNames.length;
+  out['trails'] = _ownedCount(prefs, _kTrailUnlockKey, _trailNames.length);
+  out['trails_n'] = _trailNames.length;
+  out['trophies'] = (prefs.getStringList(_kTrophyKey) ?? const <String>[]).length;
+  out['trophies_n'] = _trophies.length;
+  final xp = await _readXp(prefs);
+  out['xp'] = xp;
+  out['level'] = _levelFor(xp);
+  return out;
+}
+
+/// Pièces, avancement et stats du joueur, visibles dans le classement.
+Future<void> _syncProfile(int coins) async {
+  await Leaderboard.setProfile(coins, await _progressPct());
+  await Leaderboard.setStats(await _publicStats());
+}
+
 int _albumBonus(int album) => 500; // cadeau fixe par album complété
 
 List<int> _readCollection(SharedPreferences prefs) {
@@ -446,7 +687,16 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   String _dailyRank = '';  // « #3 / 57 »
   String _worldRank = '';  // rang tous temps « #12 / 340 »
   // Classement
-  int _lbTab = 0;         // 0 aujourd'hui, 1 tous temps, 2 semaine
+  int _lbTab = 0;         // 0 aujourd'hui, 1 tous temps, 2 semaine, 3 chat
+  int _xp = 0;            // XP du joueur (niveau)
+  int _trophyCount = 0;   // trophées débloqués
+  // Chat
+  List<LbChatMsg> _chat = [];
+  bool _chatLoading = false, _chatFailed = false, _chatSending = false, _chatBusy = false;
+  bool _chatNew = false;  // pastille : message pas encore vu
+  bool _chatMention = false; // quelqu'un a écrit @mon_pseudo
+  Timer? _chatTimer;
+  final _chatCtrl = TextEditingController();
   LbBoard? _lbBoard;
   bool _lbLoading = false, _lbFailed = false;
   String? _lbMyName;
@@ -477,17 +727,24 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     QuizAudio.musicStop(); // retour à la liste des mini-jeux
     _idle.dispose();
     _rev.dispose();
+    _chatStop();
+    _chatCtrl.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    // Suggestions @pseudo mises à jour pendant la saisie
+    _chatCtrl.addListener(() {
+      if (mounted && _sheetCtx != null && _lbTab == 3) setState(() {});
+    });
     // Musique dès l'ouverture du jeu (accueil compris), une fois le morceau choisi connu
     _load().then((_) => QuizAudio.loadPrefs()).then((_) {
       if (!mounted) return;
       setState(() {});
       QuizAudio.musicStart(_musicTrack);
+      _chatCheckNew();
       // Tour gratuit du jour pas encore joué : la roue s'ouvre d'elle-même (1 fois à l'ouverture)
       if (_wheelReady) {
         Future.delayed(const Duration(milliseconds: 450), () {
@@ -526,6 +783,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     await _migrateThemes(prefs);
+    _xp = await _readXp(prefs);
     if (!mounted) return;
     final unlocked = <int>{0};
     for (final s in prefs.getStringList(_kUnlockedKey) ?? const <String>[]) {
@@ -587,8 +845,46 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _dailyRank = dr.length >= 3 && dr[0] == today ? '#${dr[1]} / ${dr[2]}' : '';
       final wr = (prefs.getString(_kWorldRankKey) ?? '').split('|');
       _worldRank = wr.length >= 2 ? '#${wr[0]} / ${wr[1]}' : '';
+      _trophyCount = (prefs.getStringList(_kTrophyKey) ?? const <String>[]).length;
       _loading   = false;
     });
+    _homeTrophies();
+  }
+
+  /// Trophées gagnés hors partie (achats, chat…) ; la 1re fois : rattrapage sans pièces.
+  bool _trBusy = false;
+  Future<void> _homeTrophies() async {
+    if (_trBusy) return;
+    _trBusy = true;
+    try {
+      await _homeTrophiesRun();
+    } finally {
+      _trBusy = false;
+    }
+  }
+
+  Future<void> _homeTrophiesRun() async {
+    final prefs = await SharedPreferences.getInstance();
+    final first = prefs.getStringList(_kTrophyKey) == null;
+    final news = await _unlockTrophies(score: _bestScore);
+    if (!mounted) return;
+    final count = (prefs.getStringList(_kTrophyKey) ?? const <String>[]).length;
+    if (news.isEmpty) {
+      if (count != _trophyCount) setState(() => _trophyCount = count);
+      return;
+    }
+    if (first) {
+      setState(() => _trophyCount = count);
+      _snack('🏆 ${news.length} trophées débloqués d\'après ta progression', ok: true);
+      return;
+    }
+    final gain = news.fold<int>(0, (a, x) => a + _tierReward[x.tier]);
+    _coins += gain;
+    await prefs.setInt(_kCoinsKey, _coins);
+    if (!mounted) return;
+    setState(() => _trophyCount = count);
+    QuizAudio.win();
+    _snack(news.length == 1 ? '🏆 Trophée « ${news.first.name} » +$gain' : '🏆 ${news.length} trophées débloqués +$gain', ok: true);
   }
 
   /// Pseudo en ligne encore automatique : on le demande une seule fois après une partie
@@ -826,6 +1122,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     });
     await prefs.setInt(_kCoinsKey, _coins);
     await prefs.setStringList(_kMusicUnlockKey, _musicUnlocked.map((e) => '$e').toList());
+    _homeTrophies();
   }
 
   Widget _musicTile(int i, Color accent) {
@@ -919,6 +1216,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     });
     await prefs.setInt(_kCoinsKey, _coins);
     await prefs.setStringList(_kUnlockedKey, _unlocked.map((e) => '$e').toList());
+    _homeTrophies();
     await prefs.setInt(_kHeroKey, i);
   }
 
@@ -1370,6 +1668,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     });
     await prefs.setInt(_kCoinsKey, _coins);
     await prefs.setStringList(_kTrailUnlockKey, _trailUnlocked.map((e) => '$e').toList());
+    _homeTrophies();
     await prefs.setInt(_kTrailKey, i);
   }
 
@@ -1459,6 +1758,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     });
     await prefs.setInt(_kCoinsKey, _coins);
     await prefs.setStringList(_kThemeUnlockKey, _themeUnlocked.map((e) => '$e').toList());
+    _homeTrophies();
     await prefs.setInt(_kThemeKey, i);
   }
 
@@ -1604,8 +1904,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              _hdrItem('Pièces', Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: Colors.amberAccent.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(20),
@@ -1617,10 +1918,30 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   Text('$_coins',
                       style: const TextStyle(color: Colors.amberAccent, fontSize: 14, fontWeight: FontWeight.w800)),
                 ]),
-              ),
+              )),
+              const SizedBox(width: 8),
+              // Trophées (avec le nombre débloqué)
+              _hdrItem('Trophées', GestureDetector(
+                onTap: _openTrophies,
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD54F).withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFFD54F).withOpacity(0.35)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD54F), size: 19),
+                    const SizedBox(width: 3),
+                    Text('$_trophyCount',
+                        style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 13, fontWeight: FontWeight.w800)),
+                  ]),
+                ),
+              )),
               const SizedBox(width: 8),
               // Statistiques à vie
-              GestureDetector(
+              _hdrItem('Stats', GestureDetector(
                 onTap: _openStats,
                 child: Container(
                   width: 36, height: 36,
@@ -1631,9 +1952,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   ),
                   child: const Icon(Icons.bar_chart_rounded, color: Colors.tealAccent, size: 20),
                 ),
-              ),
+              )),
               const SizedBox(width: 8),
-              StatefulBuilder(
+              _hdrItem('Son', StatefulBuilder(
                 builder: (ctx, setS) => GestureDetector(
                   onTap: () => setS(() => QuizAudio.enabled = !QuizAudio.enabled),
                   child: Container(
@@ -1650,15 +1971,18 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                     ),
                   ),
                 ),
-              ),
+              )),
             ]),
           ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFFE02020)))
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+                // Accueil fixe (sans défilement) : la scène du héros prend la place restante
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                     child: Column(children: [
+                      _levelBar(),
+                      const SizedBox(height: 12),
                       // Record
                       Row(children: [
                         const Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 20),
@@ -1691,14 +2015,15 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                             icon: Icons.leaderboard_rounded,
                             color: Colors.amberAccent,
                             title: 'Classement',
+                            badge: _chatNew || _chatMention,
                             onTap: _openLeaderboard,
                           )),
                         ]),
                       ),
                       const SizedBox(height: 12),
 
-                      // Scène du héros : touche = boutique
-                      GestureDetector(
+                      // Scène du héros : touche = boutique (réduite si l'écran est petit)
+                      Expanded(child: GestureDetector(
                         onTap: _openShop,
                         child: Container(
                           width: double.infinity,
@@ -1717,7 +2042,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                             ),
                           ),
                           child: Stack(alignment: Alignment.topCenter, clipBehavior: Clip.none, children: [
-                        Column(children: [
+                        Center(child: FittedBox(fit: BoxFit.scaleDown, child: Column(mainAxisSize: MainAxisSize.min, children: [
                             AnimatedBuilder(
                               animation: _idle,
                               builder: (_, __) => SizedBox(
@@ -1741,7 +2066,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                                 QuizAudio.musicEnabled ? _musicNames[_musicTrack] : 'Muet',
                               ),
                             ]),
-                          ]),
+                          ]))),
                         Positioned(
                           top: -2, right: -4,
                           child: Container(
@@ -1761,8 +2086,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         ),
                           ]),
                         ),
-                      ),
-                      const SizedBox(height: 14),
+                      )),
+                      const SizedBox(height: 12),
 
                       // Bonus de départ
                       Row(children: [
@@ -1790,24 +2115,27 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         for (int i = 0; i < _bonusNames.length; i++)
                           Expanded(child: _bonusTile(i, accent)),
                       ]),
-                      const SizedBox(height: 16),
-
-                      // Jouer
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _startGame,
-                          icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                          label: const Text('Jouer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                          ),
-                        ),
-                      ),
                     ]),
                   ),
           ),
+
+          // Jouer : fixé au-dessus de la barre du bas (toujours visible, quelle que soit la taille d'écran)
+          if (!_loading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _startGame,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 28),
+                  label: const Text('Jouer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  ),
+                ),
+              ),
+            ),
 
           // Barre du bas : boutique, défis, collection, réglages
           Container(
@@ -1902,6 +2230,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _openSheet(String title, IconData icon, Color color, Widget Function(Color accent) body,
       {bool showCoins = true}) {
     final accent = Theme.of(context).colorScheme.primary;
+    BuildContext? mine;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1913,7 +2242,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: ScaffoldMessenger(
             child: Builder(builder: (ctx) {
-              _sheetCtx = ctx;
+              _sheetCtx = mine = ctx;
               return Scaffold(
                 backgroundColor: const Color(0xFF151A24),
                 body: Column(children: [
@@ -1958,7 +2287,11 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           ),
         ),
       ),
-    ).whenComplete(() => _sheetCtx = null);
+    ).whenComplete(() {
+      // Une autre feuille a pu s'ouvrir entre-temps : on ne l'oublie pas
+      if (_sheetCtx == mine) _sheetCtx = null;
+      _chatStop(); // plus de rafraîchissement du chat une fois la feuille fermée
+    });
   }
 
   Widget _section(String text) => Padding(
@@ -1981,6 +2314,13 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       ]);
 
   /// Tuile de l'accueil (partie du jour, classement) : même gabarit pour les deux
+  /// Bouton de l'en-tête avec son nom en dessous.
+  Widget _hdrItem(String label, Widget child) => Column(mainAxisSize: MainAxisSize.min, children: [
+        child,
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9.5, fontWeight: FontWeight.w600)),
+      ]);
+
   Widget _homeTile({
     required IconData icon,
     required Color color,
@@ -2049,7 +2389,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _dayLoading = true;
       _dayFailed = false;
     });
-    await Leaderboard.setCoins(_coins);
+    await _syncProfile(_coins);
     final b = await Leaderboard.fetch('daily', Leaderboard.today());
     final pid = await Leaderboard.publicId();
     if (!mounted) return;
@@ -2243,7 +2583,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _lbFailed = false;
     });
     final daily = tab == 0;
-    await Leaderboard.setCoins(_coins); // Pièces du joueur, affichées dans le classement
+    await _syncProfile(_coins); // Pièces du joueur, affichées dans le classement
     final b = tab == 2
         ? await Leaderboard.fetch('week', Leaderboard.weekKey())
         : await Leaderboard.fetch(daily ? 'daily' : 'all', daily ? Leaderboard.today() : lbAllDay);
@@ -2264,7 +2604,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _openLeaderboard() {
     _lbBoard = null;
     if (Leaderboard.configured) {
-      _lbLoad();
+      _lbTab == 3 ? _chatOpen() : _lbLoad();
     } else {
       Leaderboard.name().then((n) {
         if (mounted) setState(() => _lbMyName = n);
@@ -2276,14 +2616,20 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             'Renseigne kLbUrl et kLbKey dans leaderboard_service.dart.');
       }
       final b = _lbBoard;
+      final tabs = Row(children: [
+        Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Défi journalier', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Semaine', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(1, Icons.public_rounded, 'Général', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(3, Icons.chat_bubble_rounded, 'Chat', accent, badge: _chatNew || _chatMention)),
+      ]);
+      if (_lbTab == 3) {
+        return Column(children: [tabs, const SizedBox(height: 10), _chatView(accent)]);
+      }
       return Column(children: [
-        Row(children: [
-          Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Défi journalier', accent)),
-          const SizedBox(width: 6),
-          Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Semaine', accent)),
-          const SizedBox(width: 6),
-          Expanded(child: _lbTabBtn(1, Icons.public_rounded, 'Général', accent)),
-        ]),
+        tabs,
         const SizedBox(height: 10),
         // Pseudo
         Container(
@@ -2341,6 +2687,15 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               child: Text('Aucun score pour l\'instant.', style: TextStyle(color: Colors.white38)),
             ),
           for (int i = 0; i < b.top.length; i++) _lbRow(i, b.top[i]),
+          if (b.top.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Row(children: [
+                Icon(Icons.touch_app_rounded, size: 14, color: Colors.white38),
+                SizedBox(width: 6),
+                Text('Touche un joueur pour voir sa fiche.', style: TextStyle(color: Colors.white38, fontSize: 12)),
+              ]),
+            ),
         ],
         const SizedBox(height: 8),
         Text(
@@ -2355,7 +2710,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     });
   }
 
-  Widget _lbTabBtn(int i, IconData icon, String label, Color accent) {
+  Widget _lbTabBtn(int i, IconData icon, String label, Color accent, {bool badge = false}) {
     final sel = _lbTab == i;
     return InkWell(
       borderRadius: BorderRadius.circular(12),
@@ -2365,7 +2720,12 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           _lbTab = i;
           _lbBoard = null;
         });
-        _lbLoad();
+        if (i == 3) {
+          _chatOpen();
+        } else {
+          _chatStop();
+          _lbLoad();
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -2375,7 +2735,17 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           border: Border.all(color: sel ? accent : Colors.white.withOpacity(0.06)),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 18, color: sel ? Colors.white : Colors.white54),
+          Stack(clipBehavior: Clip.none, children: [
+            Icon(icon, size: 18, color: sel ? Colors.white : Colors.white54),
+            if (badge)
+              Positioned(
+                right: -4, top: -3,
+                child: Container(
+                  width: 9, height: 9,
+                  decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                ),
+              ),
+          ]),
           const SizedBox(height: 3),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -2388,7 +2758,552 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _lbRow(int i, LbEntry e) {
+  // ── Chat ───────────────────────────────────────────────────────────────────
+  void _chatStop() {
+    _chatTimer?.cancel();
+    _chatTimer = null;
+  }
+
+  /// Pastille « nouveau message » sur la tuile Classement (au lancement du jeu).
+  Future<void> _chatCheckNew() async {
+    final last = await Leaderboard.chatLastId();
+    final seen = await Leaderboard.chatSeen();
+    if (mounted && last != null && last > seen) setState(() => _chatNew = true);
+    // Mentions @pseudo pas encore vues
+    final n = await Leaderboard.name();
+    if (n == null) return;
+    final pid = await Leaderboard.publicId();
+    final m = (await Leaderboard.chatMentions(n, await Leaderboard.mentionSeen()))
+        ?.where((x) => x.pid != pid)
+        .toList();
+    if (!mounted || m == null || m.isEmpty) return;
+    setState(() => _chatMention = true);
+    _snack('💬 ${m.first.name} t\'a mentionné dans le chat');
+  }
+
+  Future<void> _chatOpen() async {
+    _chatStop();
+    setState(() {
+      _chat = [];
+      _chatLoading = true;
+      _chatFailed = false;
+    });
+    final n = await Leaderboard.name();
+    final pid = await Leaderboard.publicId();
+    if (!mounted) return;
+    setState(() {
+      _lbMyName = n;
+      _lbPid = pid;
+    });
+    await _chatLoad();
+    // Rafraîchi toutes les 8 s tant que l'onglet est affiché
+    _chatTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted || _sheetCtx == null || _lbTab != 3) {
+        _chatStop();
+        return;
+      }
+      _chatLoad();
+    });
+  }
+
+  Future<void> _chatLoad() async {
+    if (_chatBusy) return;
+    _chatBusy = true;
+    final res = await Leaderboard.chat(afterId: _chat.isEmpty ? 0 : _chat.last.id);
+    _chatBusy = false;
+    if (!mounted) return;
+    if (res == null) {
+      if (_chat.isEmpty) {
+        setState(() {
+          _chatFailed = true;
+          _chatLoading = false;
+        });
+      }
+      return;
+    }
+    if (res.isEmpty && !_chatLoading && !_chatFailed) return;
+    setState(() {
+      _chatFailed = false;
+      _chatLoading = false;
+      _chat = [..._chat, ...res];
+      if (_chat.length > 100) _chat = _chat.sublist(_chat.length - 100);
+      _chatNew = false;
+      _chatMention = false;
+    });
+    if (_chat.isNotEmpty) {
+      Leaderboard.setChatSeen(_chat.last.id);
+      Leaderboard.setMentionSeen(_chat.last.id);
+    }
+  }
+
+  Future<void> _chatSend() async {
+    final txt = _chatCtrl.text;
+    if (txt.trim().isEmpty || _chatSending) return;
+    setState(() => _chatSending = true);
+    final r = await Leaderboard.sendChat(txt, _hero);
+    if (!mounted) return;
+    setState(() => _chatSending = false);
+    if (r == Leaderboard.chatOk || r == Leaderboard.chatEmpty) {
+      _chatCtrl.clear();
+      if (r == Leaderboard.chatOk) {
+        _chatLoad();
+        _bumpStat('chat').then((_) => _homeTrophies());
+      }
+    } else if (r == Leaderboard.chatWait) {
+      _snack('Attends quelques secondes avant d\'envoyer un autre message');
+    } else if (r == Leaderboard.chatNoName) {
+      _snack('Choisis d\'abord un pseudo');
+      _lbEditName();
+    } else if (r == Leaderboard.chatBanned) {
+      _snack('Tu ne peux plus écrire dans le chat');
+    } else {
+      _snack('Hors ligne : message non envoyé');
+    }
+  }
+
+  Future<void> _chatReport(LbChatMsg m) async {
+    final ok = await showDialog<bool>(
+      context: _sheetCtx ?? context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Text('Signaler ce message ?', style: TextStyle(color: Colors.white)),
+        content: Text('${m.name} : ${m.msg}', style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Signaler')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await Leaderboard.reportChat(m.id);
+    if (!mounted) return;
+    setState(() => _chat = _chat.where((x) => x.id != m.id).toList());
+    _snack('Message signalé, merci !', ok: true);
+  }
+
+  String _chatTime(DateTime d) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    final now = DateTime.now();
+    final hm = '${two(d.hour)}:${two(d.minute)}';
+    if (d.year == now.year && d.month == now.month && d.day == now.day) return hm;
+    final y = now.subtract(const Duration(days: 1));
+    if (d.year == y.year && d.month == y.month && d.day == y.day) return 'hier $hm';
+    return '${two(d.day)}/${two(d.month)} $hm';
+  }
+
+  static const _chatNameColors = [
+    Colors.lightBlueAccent, Colors.pinkAccent, Colors.lightGreenAccent, Colors.orangeAccent,
+    Colors.purpleAccent, Colors.cyanAccent, Colors.limeAccent, Colors.tealAccent,
+  ];
+
+  Widget _chatView(Color accent) {
+    final h = MediaQuery.of(context).size.height * 0.42;
+    Widget box;
+    if (_chatLoading && _chat.isEmpty) {
+      box = const Center(child: CircularProgressIndicator(color: Colors.amberAccent));
+    } else if (_chatFailed) {
+      box = Center(child: _lbInfo(Icons.wifi_off_rounded, 'Hors ligne', 'Chat indisponible pour le moment.', retry: _chatOpen));
+    } else if (_chat.isEmpty) {
+      box = const Center(child: Text('Aucun message pour l\'instant. Lance la discussion !', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38)));
+    } else {
+      box = ListView.builder(
+        reverse: true, // le plus récent en bas
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        itemCount: _chat.length,
+        itemBuilder: (_, i) => _chatRow(_chat[_chat.length - 1 - i]),
+      );
+    }
+    return Column(children: [
+      Container(
+        height: h,
+        decoration: BoxDecoration(
+          color: const Color(0xFF10141C),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.06)),
+        ),
+        child: box,
+      ),
+      const SizedBox(height: 8),
+      if (_lbMyName != null && _chatMentionSuggestions().isNotEmpty)
+        SizedBox(
+          height: 38,
+          child: ListView(scrollDirection: Axis.horizontal, children: [
+            for (final n in _chatMentionSuggestions())
+              Padding(
+                padding: const EdgeInsets.only(right: 6, bottom: 4),
+                child: ActionChip(
+                  avatar: const Icon(Icons.alternate_email_rounded, size: 16, color: Colors.lightBlueAccent),
+                  label: Text(n, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  backgroundColor: const Color(0xFF1C2230),
+                  side: BorderSide(color: Colors.lightBlueAccent.withOpacity(0.4)),
+                  onPressed: () => _chatInsertMention(n),
+                ),
+              ),
+          ]),
+        ),
+      if (_lbMyName == null)
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _lbEditName,
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+            label: const Text('Choisis un pseudo pour écrire'),
+          ),
+        )
+      else
+        Row(children: [
+          Expanded(child: TextField(
+            controller: _chatCtrl,
+            maxLength: 120,
+            maxLines: 1,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => _chatSend(),
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Ton message…',
+              hintStyle: const TextStyle(color: Colors.white38),
+              counterText: '',
+              isDense: true,
+              filled: true,
+              fillColor: const Color(0xFF1C2230),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          )),
+          const SizedBox(width: 6),
+          IconButton(
+            onPressed: _chatSending ? null : _chatSend,
+            icon: _chatSending
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : Icon(Icons.send_rounded, color: accent),
+          ),
+        ]),
+      const SizedBox(height: 8),
+      const Text('Sois sympa ! Messages filtrés, 1 message toutes les 10 s. Écris @pseudo pour mentionner un joueur (ou touche son message). Appui long pour signaler.',
+          style: TextStyle(color: Colors.white38, fontSize: 12, height: 1.4)),
+    ]);
+  }
+
+  Widget _chatRow(LbChatMsg m) {
+    final me = m.pid == _lbPid;
+    final nameColor = me ? Colors.amberAccent : _chatNameColors[m.pid.codeUnits.fold<int>(0, (a, c) => a + c) % _chatNameColors.length];
+    return GestureDetector(
+      onTap: () => _openPlayerCard(m.pid, m.name, m.hero, mention: true),
+      onLongPress: me ? null : () => _chatReport(m),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: SizedBox(width: 20, height: 18,
+                child: CustomPaint(painter: _HeroPreviewPainter(min(max(m.hero, 0), _heroCount - 1)))),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 6, 10, 7),
+            decoration: BoxDecoration(
+              color: me ? Colors.amberAccent.withOpacity(0.10) : const Color(0xFF1C2230),
+              borderRadius: BorderRadius.circular(12),
+              // Message qui me mentionne : encadré
+              border: !me && _lbMyName != null && Leaderboard.mentions(m.msg, _lbMyName!)
+                  ? Border.all(color: Colors.amberAccent.withOpacity(0.7), width: 1.2)
+                  : null,
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                if (m.level != null) ...[
+                  _LevelBadge(level: m.level!, size: 15),
+                  const SizedBox(width: 5),
+                ],
+                Expanded(child: Text(m.name,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: nameColor, fontSize: 12, fontWeight: FontWeight.w800))),
+                const SizedBox(width: 6),
+                Text(_chatTime(m.at), style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              ]),
+              const SizedBox(height: 2),
+              Text.rich(TextSpan(children: _chatSpans(m.msg)),
+                  style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.3)),
+            ]),
+          )),
+        ]),
+      ),
+    );
+  }
+
+  /// Texte d'un message : les @pseudo en couleur (le mien en doré).
+  List<TextSpan> _chatSpans(String msg) {
+    if (!msg.contains('@')) return [TextSpan(text: msg)];
+    final names = {for (final c in _chat) c.name, if (_lbMyName != null) _lbMyName!}.toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    final re = RegExp('@(?:${[for (final n in names) RegExp.escape(n), r'[^\s@]+'].join('|')})', caseSensitive: false);
+    final out = <TextSpan>[];
+    var pos = 0;
+    for (final mt in re.allMatches(msg)) {
+      if (mt.start > pos) out.add(TextSpan(text: msg.substring(pos, mt.start)));
+      final mine = _lbMyName != null && mt.group(0)!.toLowerCase() == '@${_lbMyName!.toLowerCase()}';
+      out.add(TextSpan(
+        text: mt.group(0),
+        style: TextStyle(
+          color: mine ? Colors.amberAccent : Colors.lightBlueAccent,
+          fontWeight: FontWeight.w800,
+          backgroundColor: mine ? Colors.amberAccent.withOpacity(0.15) : null,
+        ),
+      ));
+      pos = mt.end;
+    }
+    if (pos < msg.length) out.add(TextSpan(text: msg.substring(pos)));
+    return out;
+  }
+
+  /// Ajoute « @pseudo » au message en cours de saisie.
+  void _chatInsertMention(String name) {
+    final t = _chatCtrl.text;
+    final m = RegExp(r'@[^@\n]*$').firstMatch(t);
+    final base = m != null && _chatMentionQuery() != null ? t.substring(0, m.start) : (t.isEmpty || t.endsWith(' ') ? t : '$t ');
+    final nt = '$base@$name ';
+    _chatCtrl.value = TextEditingValue(text: nt, selection: TextSelection.collapsed(offset: nt.length));
+  }
+
+  /// Texte tapé après le dernier « @ » (null si on n'est pas en train de mentionner).
+  String? _chatMentionQuery() {
+    final m = RegExp(r'@([^@\n]{0,16})$').firstMatch(_chatCtrl.text);
+    return m?.group(1);
+  }
+
+  /// Pseudos proposés pendant la saisie de « @… » (joueurs présents dans le chat).
+  List<String> _chatMentionSuggestions() {
+    final q = _chatMentionQuery();
+    if (q == null) return const [];
+    final ql = q.toLowerCase();
+    final seen = <String>{};
+    final out = <String>[];
+    for (final c in _chat.reversed) {
+      if (c.pid == _lbPid || !seen.add(c.name.toLowerCase())) continue;
+      if (c.name.toLowerCase().startsWith(ql) && c.name.toLowerCase() != ql) out.add(c.name);
+      if (out.length >= 6) break;
+    }
+    return out;
+  }
+
+  Widget _lbRow(int i, LbEntry e) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _openPlayerCard(e.pid, e.name, e.hero),
+        child: _lbRowBody(i, e),
+      );
+
+  // ── Fiche joueur ────────────────────────────────────────────────────────────
+  Future<void> _openPlayerCard(String pid, String name, int hero, {bool mention = false}) async {
+    final f = Leaderboard.playerCard(pid);
+    await showDialog<void>(
+      context: _sheetCtx ?? context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF151A24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: FutureBuilder<Map<String, dynamic>?>(
+          future: f,
+          builder: (_, snap) {
+            final c = snap.data;
+            final loading = snap.connectionState != ConnectionState.done;
+            final h = (c?['hero'] as num?)?.toInt() ?? hero;
+            final coins = (c?['coins'] as num?)?.toInt();
+            final prog = (c?['progress'] as num?)?.toInt();
+            final lvl = (c?['level'] as num?)?.toInt() ??
+                ((c?['stats'] is Map) ? ((c!['stats'] as Map)['level'] as num?)?.toInt() : null);
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Row(children: [
+                  Container(
+                    width: 52, height: 52,
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(color: const Color(0xFF1C2230), borderRadius: BorderRadius.circular(14)),
+                    child: CustomPaint(painter: _HeroPreviewPainter(min(max(h, 0), _heroCount - 1))),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text((c?['name'] as String?) ?? name,
+                        maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 3),
+                    Row(children: [
+                      if (lvl != null) ...[
+                        _LevelBadge(level: lvl, size: 16),
+                        const SizedBox(width: 4),
+                        Text(_rankFor(lvl).$1,
+                            style: TextStyle(color: _rankFor(lvl).$2, fontSize: 13, fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 12),
+                      ],
+                      if (coins != null) ...[
+                        const _CoinIcon(size: 12),
+                        const SizedBox(width: 4),
+                        Text(_fmtNum(coins),
+                            style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 12),
+                      ],
+                      if (prog != null) ...[
+                        const Icon(Icons.inventory_2_rounded, size: 13, color: Colors.lightBlueAccent),
+                        const SizedBox(width: 4),
+                        Text('$prog %',
+                            style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13, fontWeight: FontWeight.w700)),
+                      ],
+                    ]),
+                  ])),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                if (loading)
+                  const Padding(
+                    padding: EdgeInsets.all(28),
+                    child: CircularProgressIndicator(color: Colors.amberAccent),
+                  )
+                else if (c == null)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Fiche indisponible (hors ligne ?)', style: TextStyle(color: Colors.white54)),
+                  )
+                else
+                  Flexible(child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _playerCardBody(c),
+                  )),
+                if (mention && pid != _lbPid && _lbMyName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, right: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _chatInsertMention((c?['name'] as String?) ?? name);
+                        },
+                        icon: const Icon(Icons.alternate_email_rounded, size: 18),
+                        label: Text('Mentionner @${(c?['name'] as String?) ?? name}'),
+                      ),
+                    ),
+                  ),
+              ]),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _playerCardBody(Map<String, dynamic> c) {
+    final st = c['stats'] is Map ? Map<String, dynamic>.from(c['stats'] as Map) : <String, dynamic>{};
+    int? n(String k) => (c[k] as num?)?.toInt();
+    int? v(String k) => (st[k] as num?)?.toInt();
+    String fmt(int? x) => x == null ? '—' : _fmtNum(x);
+    String rank(int? r, [int? total]) => r == null ? '' : (total == null ? '  #$r' : '  #$r/$total');
+    String own(String k) => v(k) == null ? '—' : '${v(k)}/${v('${k}_n') ?? '?'}';
+    final secs = v('time');
+    final time = secs == null
+        ? '—'
+        : secs >= 3600 ? '${secs ~/ 3600} h ${(secs % 3600) ~/ 60} min' : '${secs ~/ 60} min';
+    final games = v('games');
+    final best = n('best') ?? v('best');
+    Widget tile(IconData icon, Color color, String label, String value) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C2230),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.25)),
+          ),
+          child: Row(children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(value,
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                ),
+                Text(label,
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white54, fontSize: 10.5)),
+              ],
+            )),
+          ]),
+        );
+    Widget grid(List<Widget> tiles) => GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 6,
+          crossAxisSpacing: 6,
+          childAspectRatio: 2.7,
+          children: tiles,
+        );
+    Widget head(String txt) => Padding(
+          padding: const EdgeInsets.fromLTRB(2, 10, 2, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(txt,
+                style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+          ),
+        );
+    final since = DateTime.tryParse(c['since'] as String? ?? '')?.toLocal();
+    final chat = n('chat') ?? 0;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      head('CLASSEMENT'),
+      grid([
+        tile(Icons.emoji_events_rounded, Colors.amberAccent, 'Record${rank(n('rank_all'), n('total_all'))}', fmt(best)),
+        tile(Icons.date_range_rounded, Colors.lightBlueAccent, 'Semaine${rank(n('rank_week'))}', fmt(n('week'))),
+        tile(Icons.today_rounded, Colors.cyanAccent, 'Défi du jour${rank(n('rank_today'))}', fmt(n('today'))),
+        tile(Icons.workspace_premium_rounded, Colors.orangeAccent, 'Défis gagnés', fmt(n('daily_wins'))),
+        tile(Icons.event_repeat_rounded, Colors.tealAccent, 'Défis joués', fmt(n('dailies'))),
+        tile(Icons.star_rounded, Colors.yellowAccent, 'Meilleur défi', fmt(n('daily_best'))),
+      ]),
+      head('PARTIES'),
+      grid([
+        tile(Icons.sports_esports_rounded, Colors.cyanAccent, 'Parties jouées', fmt(games)),
+        tile(Icons.timer_rounded, Colors.tealAccent, 'Temps de jeu', time),
+        tile(Icons.landscape_rounded, Colors.purpleAccent, 'Points cumulés', fmt(v('pts'))),
+        tile(Icons.show_chart_rounded, Colors.lightBlueAccent, 'Moyenne / partie',
+            games == null || games == 0 || v('pts') == null ? '—' : _fmtNum(v('pts')! ~/ games)),
+        tile(Icons.local_fire_department_rounded, Colors.deepOrangeAccent, 'Meilleur combo', fmt(v('combo'))),
+        tile(Icons.monetization_on_rounded, Colors.amberAccent, 'Pièces gagnées', fmt(v('coins'))),
+        tile(Icons.keyboard_double_arrow_up_rounded, Colors.cyanAccent, 'Sauts', fmt(v('jumps'))),
+        tile(Icons.bug_report_rounded, Colors.lightGreenAccent, 'Bugs écrasés', fmt(v('stomps'))),
+        tile(Icons.savings_rounded, Colors.amberAccent, 'Sacs ramassés', fmt(v('bags'))),
+        tile(Icons.rocket_launch_rounded, Colors.greenAccent, 'Turbos', fmt(v('turbos'))),
+        tile(Icons.south_rounded, Colors.redAccent, 'Chutes', fmt(v('falls'))),
+        tile(Icons.collections_bookmark_rounded, Colors.lightBlueAccent, 'Logos attrapés', fmt(v('logos'))),
+      ]),
+      head('COLLECTION'),
+      grid([
+        tile(Icons.auto_stories_rounded, Colors.lightBlueAccent, 'Albums complétés', fmt(v('album'))),
+        tile(Icons.person_rounded, Colors.pinkAccent, 'Héros', own('heroes')),
+        tile(Icons.palette_rounded, Colors.purpleAccent, 'Thèmes', own('themes')),
+        tile(Icons.music_note_rounded, Colors.greenAccent, 'Musiques', own('musics')),
+        tile(Icons.auto_awesome_rounded, Colors.amberAccent, 'Traînées', own('trails')),
+        tile(Icons.emoji_events_rounded, Colors.amberAccent, 'Trophées', own('trophies')),
+      ]),
+      if (st.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: Text('Stats détaillées visibles quand ce joueur aura mis à jour son jeu.', style: TextStyle(color: Colors.white38, fontSize: 12, height: 1.4)),
+        ),
+      const SizedBox(height: 10),
+      Text(
+        [
+          if (since != null) 'Joueur depuis le ${since.day.toString().padLeft(2, '0')}/${since.month.toString().padLeft(2, '0')}/${since.year}',
+          if (chat > 0) '$chat messages dans le chat',
+        ].join('  ·  '),
+        style: const TextStyle(color: Colors.white38, fontSize: 12),
+      ),
+    ]);
+  }
+
+  Widget _lbRowBody(int i, LbEntry e) {
     final me = e.pid == _lbPid;
     const medals = ['🥇', '🥈', '🥉'];
     return Container(
@@ -2410,15 +3325,31 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1)))),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(e.name,
-              maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: me ? Colors.amberAccent : Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
-          if (e.coins != null)
+          Row(children: [
+            if (e.level != null) ...[
+              _LevelBadge(level: e.level!, size: 18),
+              const SizedBox(width: 6),
+            ],
+            Flexible(child: Text(e.name,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: me ? Colors.amberAccent : Colors.white, fontSize: 14, fontWeight: FontWeight.w700))),
+          ]),
+          if (e.coins != null || e.progress != null)
             Row(children: [
-              const _CoinIcon(size: 10),
-              const SizedBox(width: 4),
-              Text(_fmtNum(e.coins!),
-                  style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+              if (e.coins != null) ...[
+                const _CoinIcon(size: 10),
+                const SizedBox(width: 4),
+                Text(_fmtNum(e.coins!),
+                    style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 10),
+              ],
+              // Avancement : objets débloqués + albums
+              if (e.progress != null) ...[
+                const Icon(Icons.inventory_2_rounded, size: 11, color: Colors.lightBlueAccent),
+                const SizedBox(width: 3),
+                Text('${e.progress} %',
+                    style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+              ],
             ]),
         ])),
         const SizedBox(width: 8),
@@ -2485,6 +3416,84 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     _snack(ok ? 'Pseudo enregistré' : 'Pseudo enregistré (envoyé au prochain score)', ok: ok);
     if (ok && Leaderboard.configured) _lbLoad();
   }
+
+  // ── Niveau du joueur ─────────────────────────────────────────────────────────
+  Widget _levelBar() {
+    final lvl = _levelFor(_xp);
+    final rk = _rankFor(lvl);
+    final base = _xpForLevel(lvl), next = _xpForLevel(lvl + 1);
+    final frac = lvl >= _kMaxLevel ? 1.0 : ((_xp - base) / (next - base)).clamp(0.0, 1.0);
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: _openLevels,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: rk.$2.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: rk.$2.withOpacity(0.35)),
+        ),
+        child: Row(children: [
+          _LevelBadge(level: lvl, size: 32),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text('Niveau $lvl', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 8),
+              Text(rk.$1, style: TextStyle(color: rk.$2, fontSize: 12, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Text(lvl >= _kMaxLevel ? 'Niveau max !' : '${_fmtNum(_xp - base)} / ${_fmtNum(next - base)} XP',
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            ]),
+            const SizedBox(height: 5),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(value: frac, minHeight: 6, backgroundColor: Colors.white10, color: rk.$2),
+            ),
+          ])),
+        ]),
+      ),
+    );
+  }
+
+  void _openLevels() => _openSheet('Niveau', Icons.military_tech_rounded, _rankFor(_levelFor(_xp)).$2, (accent) {
+        Widget line(IconData icon, Color color, String txt) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 10),
+                Expanded(child: Text(txt, style: const TextStyle(color: Colors.white70, fontSize: 13))),
+              ]),
+            );
+        final lvl = _levelFor(_xp);
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          IgnorePointer(child: _levelBar()),
+          _section('GAGNER DE L\'XP'),
+          line(Icons.landscape_rounded, Colors.purpleAccent, '1 XP pour 10 points marqués'),
+          line(Icons.sports_esports_rounded, Colors.cyanAccent, '+10 XP par partie jouée'),
+          line(Icons.military_tech_rounded, Colors.greenAccent, '+25 XP par défi réussi'),
+          line(Icons.today_rounded, Colors.lightBlueAccent, '+30 XP pour la partie du jour'),
+          line(Icons.monetization_on_rounded, Colors.amberAccent, 'À chaque niveau : 20 pièces × le niveau atteint'),
+          _section('RANGS'),
+          for (int i = 0; i < _levelRanks.length; i++)
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _rankFor(lvl) == _levelRanks[i] ? _levelRanks[i].$2.withOpacity(0.12) : const Color(0xFF1C2230),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _levelRanks[i].$2.withOpacity(_rankFor(lvl) == _levelRanks[i] ? 0.6 : 0.15)),
+              ),
+              child: Row(children: [
+                _LevelBadge(level: max(1, i * 10), size: 24),
+                const SizedBox(width: 10),
+                Expanded(child: Text(_levelRanks[i].$1,
+                    style: TextStyle(color: _levelRanks[i].$2, fontSize: 14, fontWeight: FontWeight.w800))),
+                Text('${'dès le niveau'} ${max(1, i * 10)}', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+              ]),
+            ),
+        ]);
+      });
 
   void _openStats() => _openSheet('Statistiques', Icons.bar_chart_rounded, Colors.tealAccent, (accent) {
         final s = _stats;
@@ -2563,6 +3572,97 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         _section('Traînée  ·  ${_trailUnlocked.length}/${_trailNames.length}'),
         _grid(_trailNames.length, (i) => _trailTile(i, accent)), // Muet + morceaux, 4 par ligne
       ]));
+
+  Future<void> _openTrophies() async {
+    final prefs = await SharedPreferences.getInstance();
+    final have = (prefs.getStringList(_kTrophyKey) ?? const <String>[]).toSet();
+    final snap = await _trophySnapshot(prefs);
+    snap['best'] = max(snap['best'] ?? 0, _bestScore);
+    if (!mounted) return;
+    final got = _trophies.where((x) => have.contains(x.id)).length;
+    _openSheet('Trophées', Icons.emoji_events_rounded, const Color(0xFFFFD54F), (accent) => Column(children: [
+          Row(children: [
+            Text('$got / ${_trophies.length}',
+                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+            const Spacer(),
+            for (int k = 0; k < 3; k++) ...[
+              Icon(Icons.emoji_events_rounded, size: 16, color: _tierColors[k]),
+              const SizedBox(width: 3),
+              Text('${_trophies.where((x) => x.tier == k && have.contains(x.id)).length}',
+                  style: TextStyle(color: _tierColors[k], fontSize: 13, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 10),
+            ],
+          ]),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+                value: got / _trophies.length, minHeight: 6, backgroundColor: Colors.white10, color: const Color(0xFFFFD54F)),
+          ),
+          const SizedBox(height: 14),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 2.0,
+            children: [
+              for (final x in [..._trophies.where((x) => have.contains(x.id)), ..._trophies.where((x) => !have.contains(x.id))])
+                _trophyTile(x, have.contains(x.id), snap[x.key] ?? 0),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Chaque trophée débloqué rapporte des pièces : bronze 25, argent 75, or 200. Ils comptent aussi dans ton % d\'avancement.', style: TextStyle(color: Colors.white38, fontSize: 12, height: 1.4)),
+        ]));
+  }
+
+  Widget _trophyTile(_Trophy x, bool got, int value) {
+    final c = _tierColors[x.tier];
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: got ? c.withOpacity(0.10) : const Color(0xFF1C2230),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: got ? c.withOpacity(0.6) : Colors.white.withOpacity(0.05)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 34, height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: got ? c.withOpacity(0.2) : Colors.white.withOpacity(0.04),
+            border: Border.all(color: got ? c : Colors.white24, width: 1.5),
+          ),
+          child: Icon(got ? x.icon : Icons.lock_rounded, size: 17, color: got ? c : Colors.white24),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(x.name,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: got ? Colors.white : Colors.white60, fontSize: 12.5, fontWeight: FontWeight.w800)),
+            Text(x.desc,
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white38, fontSize: 10.5, height: 1.2)),
+            const SizedBox(height: 3),
+            if (got)
+              Text('${_tierNames[x.tier]} · +${_tierReward[x.tier]}',
+                  style: TextStyle(color: c, fontSize: 10, fontWeight: FontWeight.w700))
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                    value: (value / x.goal).clamp(0.0, 1.0), minHeight: 3,
+                    backgroundColor: Colors.white10, color: c.withOpacity(0.7)),
+              ),
+          ],
+        )),
+      ]),
+    );
+  }
 
   void _openChallenges() {
     final challenges = _challengesFor(_challengeLevel);
@@ -2721,7 +3821,51 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.collections_bookmark_rounded, color: Colors.lightBlueAccent,
                         text: 'Logo de console → attrape-le 3 fois (plus dans les albums suivants) pour le valider dans ta collection'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.thunderstorm_rounded, color: Colors.blueGrey.shade200,
+                        text: 'Météo (vers 1 100, 2 100… pts) : 💨 vent qui pousse, 🌧️ pluie qui fait glisser, ⛈️ orage avec pluie de pièces, 🌫️ brouillard'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.today_rounded, color: Colors.lightBlueAccent,
+                        text: 'Partie du jour : même parcours pour tous, sans bonus ni pièces. Rejouable à volonté, seul ton meilleur score compte'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.blur_on_rounded, color: Colors.white70,
+                        text: 'Fantôme : dans la partie du jour, le n°1 du jour grimpe en même temps que toi'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.leaderboard_rounded, color: Colors.amberAccent,
+                        text: 'Classements : défi journalier, semaine (remis à zéro le lundi) et général. Touche un joueur pour voir sa fiche'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.military_tech_rounded, color: Colors.lightGreenAccent,
+                        text: 'Niveau : 1 XP pour 10 pts, +10 par partie, +25 par défi réussi, +30 pour la partie du jour. Chaque niveau rapporte 20 × le niveau en pièces'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.emoji_events_rounded, color: Color(0xFFFFD54F),
+                        text: 'Trophées : 52 badges permanents à débloquer (bronze +25, argent +75, or +200 pièces)'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.inventory_2_rounded, color: Colors.lightBlueAccent,
+                        text: 'Avancement % (classement) : 40 % boutique + 30 % albums + 30 % trophées'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.chat_bubble_rounded, color: Colors.cyanAccent,
+                        text: 'Chat : sois sympa ! Écris @pseudo pour mentionner un joueur, appui long sur un message pour le signaler'),
+                    SizedBox(height: 10),
+                    _RuleRow(icon: Icons.save_rounded, color: Colors.greenAccent,
+                        text: 'Sauvegarde : garde aussi ton pseudo et tes scores en ligne (pratique pour changer de téléphone)'),
         ]),
+        // Version (appli Rétro Jump seule) + vérification manuelle des mises à jour
+        if (lbAppVersion.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Center(child: Text('Rétro Jump v$lbAppVersion',
+              style: const TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.w600))),
+          if (lbCheckUpdate != null)
+            Center(child: TextButton.icon(
+              onPressed: () async {
+                final r = await lbCheckUpdate!();
+                if (!mounted) return;
+                if (r == 0) _snack('Tu as la dernière version', ok: true);
+                if (r == 2) _snack('Hors ligne : vérification impossible');
+              },
+              icon: const Icon(Icons.system_update_rounded, size: 18),
+              label: const Text('Vérifier les mises à jour'),
+            )),
+        ],
       ]));
 
   Widget _heroTile(int i, Color accent) {
@@ -2776,6 +3920,33 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
 }
 
 // ─── Petits widgets ───────────────────────────────────────────────────────────
+
+/// Pastille de niveau (couleur du rang).
+class _LevelBadge extends StatelessWidget {
+  final int level;
+  final double size;
+  const _LevelBadge({required this.level, this.size = 18});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _rankFor(level).$2;
+    return Container(
+      width: size, height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.18),
+        shape: BoxShape.circle,
+        border: Border.all(color: c, width: size >= 30 ? 2 : 1.2),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(size * 0.14),
+        child: FittedBox(
+          child: Text('$level', style: TextStyle(color: c, fontWeight: FontWeight.w900, fontSize: size * 0.5)),
+        ),
+      ),
+    );
+  }
+}
 
 class _CoinIcon extends StatelessWidget {
   final double size;
@@ -3358,6 +4529,8 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
   bool _resultsReady = false;
   List<_Challenge> _newChallenges = [];
   int _coinsEarned = 0;
+  int _xpGain = 0, _xpNow = 0, _lvlFrom = 1, _lvlTo = 1, _lvlReward = 0; // niveau du joueur
+  List<_Trophy> _newTrophies = const []; // trophées gagnés à cette partie
 
   // Bandeau (palier, record)
   String _banner = '';
@@ -4236,13 +5409,26 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       add('cont', _contUsed);
       add(_deathByBug ? 'bugdeaths' : 'falls', 1);
       add('time', _playTime.round());
+      if (widget.daily != null) add('dailies', 1);
       st['combo'] = max(((st['combo'] as num?) ?? 0).toInt(), _bestCombo);
+      // Série de jours joués d'affilée
+      final now = DateTime.now();
+      final d = now.year * 10000 + now.month * 100 + now.day;
+      final last = (st['last_day'] as num?)?.toInt() ?? 0;
+      if (last != d) {
+        final y = now.subtract(const Duration(days: 1));
+        final yd = y.year * 10000 + y.month * 100 + y.day;
+        final streak = last == yd ? ((st['streak'] as num?)?.toInt() ?? 0) + 1 : 1;
+        st['streak'] = streak;
+        st['last_day'] = d;
+        st['streak_best'] = max(((st['streak_best'] as num?) ?? 0).toInt(), streak);
+      }
       await prefs.setString(_kStatsKey, jsonEncode(st));
     } catch (_) {}
   }
 
   Future<void> _saveRun() async {
-    _saveStats();
+    await _saveStats();
     final chals = _challengesFor(_chLevel);
     final newOnes = chals.where((c) => !_done.contains(c.id) && _challengeMet(c)).toList();
     final rewards = newOnes.fold<int>(0, (a, c) => a + c.reward);
@@ -4263,10 +5449,29 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       _logoList.clear();
       _loadLogoImgs();
     }
-    final earned = _coinsRun + rewards + bonus + albumBonus;
-    final net = earned - _spent;
+    var earned = _coinsRun + rewards + bonus + albumBonus;
+    // XP : niveau(x) gagné(s) = pièces offertes
+    final xpGain = _runXp(_score, newOnes.length, widget.daily != null);
+    var xpNow = 0, lvlFrom = 1, lvlTo = 1, lvlReward = 0;
+    var newTrophies = <_Trophy>[];
     try {
       final prefs = await SharedPreferences.getInstance();
+      final xp0 = await _readXp(prefs);
+      xpNow = xp0 + xpGain;
+      lvlFrom = _levelFor(xp0);
+      lvlTo = _levelFor(xpNow);
+      for (var l = lvlFrom + 1; l <= lvlTo; l++) {
+        lvlReward += _levelReward(l);
+      }
+      await prefs.setInt(_kXpKey, xpNow);
+      earned += lvlReward;
+      // Trophées (la toute 1re vérification se fait à l'accueil, sans pièces)
+      if (prefs.getStringList(_kTrophyKey) != null) {
+        await prefs.setInt(_kChallengeLvlKey, _chLevel);
+        newTrophies = await _unlockTrophies(score: _score);
+        earned += newTrophies.fold<int>(0, (a, x) => a + _tierReward[x.tier]);
+      }
+      final net = earned - _spent;
       final total = max(0, (prefs.getInt(_kCoinsKey) ?? 0) + net);
       await prefs.setInt(_kCoinsKey, total);
       _wallet = total;
@@ -4281,9 +5486,15 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       _seriesBonusEarned = bonus;
       _albumBonusEarned = albumBonus;
       _coinsEarned = earned;
+      _xpGain = xpGain;
+      _xpNow = xpNow;
+      _lvlFrom = lvlFrom;
+      _lvlTo = lvlTo;
+      _lvlReward = lvlReward;
+      _newTrophies = newTrophies;
       _resultsReady = true;
     });
-    if (newOnes.isNotEmpty) QuizAudio.win();
+    if (newOnes.isNotEmpty || lvlTo > lvlFrom || newTrophies.isNotEmpty) QuizAudio.win();
     _submitOnline();
   }
 
@@ -4322,7 +5533,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     final rAll = await all;
     final rDay = daily == null ? null : await daily;
     if (day != null && rDay != null && newDayBest) await Leaderboard.uploadGhost(day, score, ghostData);
-    await Leaderboard.setCoins(_wallet); // Pièces du joueur, affichées dans le classement
+    await _syncProfile(_wallet); // Pièces du joueur, affichées dans le classement
     final r = day == null ? rAll : rDay;
     final wRank = rAll?.rank;
     if (rAll != null && wRank != null) {
@@ -4332,6 +5543,10 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       } catch (_) {}
     }
     final rank = r?.rank;
+    if (day != null && rank != null && rank <= 3) {
+      await _bumpStat('top3', atLeast: 1);
+      if (rank == 1) await _bumpStat('daily1', atLeast: 1);
+    }
     if (day != null && r != null && rank != null) {
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -4343,6 +5558,57 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       _lbRank = r;
       _lbState = r == null ? 3 : 2;
     });
+  }
+
+  /// Résultats : XP gagnée, barre de niveau, niveau atteint + récompense.
+  Widget _xpPanel() {
+    final lvl = _lvlTo;
+    final rk = _rankFor(lvl);
+    final base = _xpForLevel(lvl), next = _xpForLevel(lvl + 1);
+    final frac = lvl >= _kMaxLevel ? 1.0 : ((_xpNow - base) / (next - base)).clamp(0.0, 1.0);
+    final up = _lvlTo > _lvlFrom;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: rk.$2.withOpacity(up ? 0.14 : 0.07),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: rk.$2.withOpacity(up ? 0.8 : 0.35), width: up ? 1.5 : 1),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          _LevelBadge(level: lvl, size: 36),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(up ? 'Niveau $lvl atteint !' : 'Niveau $lvl',
+                style: TextStyle(color: up ? rk.$2 : Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+            Text(rk.$1, style: TextStyle(color: rk.$2, fontSize: 12, fontWeight: FontWeight.w700)),
+          ])),
+          Text('+${_fmtNum(_xpGain)} XP',
+              style: const TextStyle(color: Colors.lightGreenAccent, fontSize: 16, fontWeight: FontWeight.w900)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: LinearProgressIndicator(value: frac, minHeight: 8, backgroundColor: Colors.white10, color: rk.$2),
+        ),
+        const SizedBox(height: 4),
+        Text(lvl >= _kMaxLevel
+                ? 'Niveau max !'
+                : '${_fmtNum(_xpNow - base)} / ${_fmtNum(next - base)} XP  ·  niveau ${lvl + 1}',
+            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        if (up && _lvlReward > 0) ...[
+          const SizedBox(height: 8),
+          Row(children: [
+            const _CoinIcon(size: 16),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Récompense de niveau', style: TextStyle(color: Colors.white, fontSize: 13))),
+            Text('+$_lvlReward',
+                style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w800)),
+          ]),
+        ],
+      ]),
+    );
   }
 
   String _lbText() {
@@ -4920,6 +6186,41 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         ),
         if (_resultsReady) ...[
           const SizedBox(height: 12),
+          _xpPanel(),
+          const SizedBox(height: 12),
+          if (_newTrophies.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD54F).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFFD54F).withOpacity(0.6), width: 1.3),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD54F), size: 20),
+                  const SizedBox(width: 8),
+                  Text(_newTrophies.length == 1 ? 'Trophée débloqué' : 'Trophées débloqués',
+                      style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 15, fontWeight: FontWeight.w900)),
+                ]),
+                for (final x in _newTrophies) ...[
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Icon(x.icon, color: _tierColors[x.tier], size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(x.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+                      Text(x.desc, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                    ])),
+                    Text('+${_tierReward[x.tier]}',
+                        style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w800)),
+                  ]),
+                ],
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),

@@ -23,7 +23,16 @@ const _lbSalt = 'rj-lb#9d2e-foc';      // must match the SQL
 const kLbDeviceKey = 'rjlb_device';     // not "jump_": survives a reset
 const _kPendingKey = 'rjlb_pending';
 const _kNameKey    = 'jump_lb_name';    // player name (exported with the save)
-const lbAllDay = '2000-01-01';          // "day" of the all-time board
+const _kChatSeenKey   = 'rjlb_chat_seen';
+const _kChatHiddenKey = 'rjlb_chat_hidden';
+const _kMentionSeenKey = 'rjlb_mention_seen';
+const lbAllDay = '2000-01-01';
+
+/// Standalone Retro Jump app version (set by its main.dart); empty in Foclabroc Remote.
+String lbAppVersion = '';
+
+/// Manual update check (standalone Retro Jump): 0 up to date, 1 update offered, 2 offline.
+Future<int> Function()? lbCheckUpdate;          // "day" of the all-time board
 
 /// Score rejected by the server (checks): no point sending it again.
 class _LbRejected implements Exception {
@@ -37,7 +46,9 @@ class LbEntry {
   final int score;
   final int hero;
   final int? coins;
-  const LbEntry(this.pid, this.name, this.score, this.hero, [this.coins]);
+  final int? progress; // progress in %
+  final int? level; // player level (1 to 99)
+  const LbEntry(this.pid, this.name, this.score, this.hero, [this.coins, this.progress, this.level]);
 }
 
 class LbRank {
@@ -53,6 +64,18 @@ class LbGhost {
   final int score;
   final Uint8List data; // x (uint16, ‰ of width) + height (int32, px) every 0.1 s
   const LbGhost(this.name, this.hero, this.score, this.data);
+}
+
+/// Chat message.
+class LbChatMsg {
+  final int id;
+  final String pid;
+  final String name;
+  final int hero;
+  final String msg;
+  final DateTime at;
+  final int? level;
+  const LbChatMsg(this.id, this.pid, this.name, this.hero, this.msg, this.at, [this.level]);
 }
 
 class LbBoard {
@@ -255,14 +278,15 @@ class Leaderboard {
       await flushPending();
       final dev = await deviceId();
       final rows = await _call('GET',
-          '/rest/v1/jump_scores?select=pid,name,score,hero,coins&mode=eq.$mode&day=eq.$day'
+          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level&mode=eq.$mode&day=eq.$day'
           '&order=score.desc,updated_at.asc&limit=50');
       final me = await _rpc('jump_rank', {'p_device': dev, 'p_mode': mode, 'p_day': day});
       return LbBoard([
         for (final r in (rows as List))
           LbEntry(r['pid'] as String? ?? '', r['name'] as String? ?? '?',
               (r['score'] as num?)?.toInt() ?? 0, ((r['hero'] as num?)?.toInt() ?? 0),
-              (r['coins'] as num?)?.toInt()),
+              (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(),
+              (r['level'] as num?)?.toInt()),
       ], _rankFrom(me));
     } catch (_) {
       return null;
@@ -302,6 +326,165 @@ class Leaderboard {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Player's coins + progress (%), shown on the leaderboard.
+  static Future<void> setProfile(int coins, int progress) async {
+    if (!configured || coins < 0) return;
+    try {
+      final dev = await deviceId();
+      await _rpc('set_jump_profile',
+          {'p_device': dev, 'p_coins': coins, 'p_progress': progress, 'p_sig': _sig([dev, coins, progress])});
+    } catch (_) {}
+  }
+
+  // ── Chat ─────────────────────────────────────────────────────────────────
+  static const chatOk = 0;
+  static const chatWait = 1;     // 10 s between 2 messages
+  static const chatNoName = 2;
+  static const chatBanned = 3;
+  static const chatOffline = 4;
+  static const chatEmpty = 5;
+
+  /// Chat messages (oldest first); afterId > 0: only new ones. null when offline.
+  static Future<List<LbChatMsg>?> chat({int afterId = 0}) async {
+    if (!configured) return null;
+    try {
+      final rows = await _call('GET',
+          '/rest/v1/jump_chat?select=id,pid,name,hero,msg,created_at,level'
+          '${afterId > 0 ? '&id=gt.$afterId' : ''}&order=id.desc&limit=60');
+      final prefs = await SharedPreferences.getInstance();
+      final hidden = (prefs.getStringList(_kChatHiddenKey) ?? const []).toSet();
+      return [
+        for (final r in (rows as List).reversed)
+          if (!hidden.contains('${r['id']}'))
+            LbChatMsg((r['id'] as num).toInt(), r['pid'] as String? ?? '', r['name'] as String? ?? '?',
+                (r['hero'] as num?)?.toInt() ?? 0, r['msg'] as String? ?? '',
+                DateTime.tryParse(r['created_at'] as String? ?? '')?.toLocal() ?? DateTime.now(),
+                (r['level'] as num?)?.toInt()),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Id of the latest message (for the "new" dot); null when offline.
+  static Future<int?> chatLastId() async {
+    if (!configured) return null;
+    try {
+      final rows = await _call('GET', '/rest/v1/jump_chat?select=id&order=id.desc&limit=1');
+      final l = rows as List;
+      return l.isEmpty ? 0 : (l.first['id'] as num).toInt();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Sends a message (filtered server-side).
+  static Future<int> sendChat(String text, int hero) async {
+    final msg = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (msg.isEmpty) return chatEmpty;
+    if (!configured) return chatOffline;
+    final m = msg.length > 120 ? msg.substring(0, 120) : msg;
+    try {
+      final dev = await deviceId();
+      Future<dynamic> send() => _rpc('send_jump_chat', {'p_device': dev, 'p_msg': m, 'p_hero': hero, 'p_sig': _sig([dev, m])});
+      var res = await send();
+      if (res == 'noname') {
+        // Local name not yet known by the server: register it, then retry
+        final n = await name();
+        if (n != null && await rename(n) == renameOk) res = await send();
+      }
+      return switch (res) {
+        'ok' => chatOk,
+        'wait' => chatWait,
+        'noname' => chatNoName,
+        'banned' => chatBanned,
+        'empty' => chatEmpty,
+        _ => chatOffline,
+      };
+    } catch (_) {
+      return chatOffline;
+    }
+  }
+
+  /// Reports a message (hidden for everyone after 3 reports, right away for yourself).
+  static Future<void> reportChat(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final l = prefs.getStringList(_kChatHiddenKey) ?? <String>[];
+    if (!l.contains('$id')) l.add('$id');
+    await prefs.setStringList(_kChatHiddenKey, l.length > 100 ? l.sublist(l.length - 100) : l);
+    if (!configured) return;
+    try {
+      final dev = await deviceId();
+      await _rpc('report_jump_chat', {'p_device': dev, 'p_id': id, 'p_sig': _sig([dev, id])});
+    } catch (_) {}
+  }
+
+  /// Last message seen ("new" dot).
+  static Future<int> chatSeen() async =>
+      (await SharedPreferences.getInstance()).getInt(_kChatSeenKey) ?? 0;
+  static Future<void> setChatSeen(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kChatSeenKey, id);
+  }
+
+  /// Player's public stats (sent only when they changed).
+  static String? _lastStats;
+  static Future<void> setStats(Map<String, int> stats) async {
+    if (!configured) return;
+    final data = jsonEncode(stats);
+    if (data == _lastStats) return;
+    try {
+      final dev = await deviceId();
+      final h = sha256.convert(utf8.encode(data)).toString();
+      await _rpc('set_jump_stats', {'p_device': dev, 'p_stats': data, 'p_sig': _sig([dev, h])});
+      _lastStats = data;
+    } catch (_) {}
+  }
+
+  /// A player's public card (stats, ranks); null when offline.
+  static Future<Map<String, dynamic>?> playerCard(String pid) async {
+    if (!configured || pid.isEmpty) return null;
+    try {
+      final r = await _rpc('jump_player_card', {'p_pid': pid, 'p_day': today()});
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Chat messages mentioning @name (after afterId); null when offline.
+  static Future<List<LbChatMsg>?> chatMentions(String name, int afterId) async {
+    if (!configured || name.isEmpty) return null;
+    try {
+      final q = Uri.encodeComponent('@$name');
+      final rows = await _call('GET',
+          '/rest/v1/jump_chat?select=id,pid,name,hero,msg,created_at,level'
+          '&id=gt.$afterId&msg=ilike.*$q*&order=id.desc&limit=20');
+      return [
+        for (final r in (rows as List))
+          if (mentions(r['msg'] as String? ?? '', name))
+            LbChatMsg((r['id'] as num).toInt(), r['pid'] as String? ?? '', r['name'] as String? ?? '?',
+                (r['hero'] as num?)?.toInt() ?? 0, r['msg'] as String? ?? '',
+                DateTime.tryParse(r['created_at'] as String? ?? '')?.toLocal() ?? DateTime.now(),
+                (r['level'] as num?)?.toInt()),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// True when the message mentions @name (whole name, case-insensitive).
+  static bool mentions(String msg, String name) => name.isNotEmpty &&
+      RegExp('@${RegExp.escape(name)}(?![\\p{L}\\p{N}_])', caseSensitive: false, unicode: true).hasMatch(msg);
+
+  /// Last mention seen ("someone mentioned you" dot).
+  static Future<int> mentionSeen() async =>
+      (await SharedPreferences.getInstance()).getInt(_kMentionSeenKey) ?? 0;
+  static Future<void> setMentionSeen(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kMentionSeenKey, id);
   }
 
   static const renameOk = 0;      // saved
