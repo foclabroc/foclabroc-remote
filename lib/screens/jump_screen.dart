@@ -37,6 +37,8 @@ const _kChallengesKey = 'jump_challenges';
 const _kChallengeLvlKey = 'jump_challenge_level';
 const _kNeonKey       = 'jump_neon';
 const _kHapticsKey    = 'jump_haptics';
+const _kAvatarKey     = 'jump_avatar';     // avatar façon Mii (8 caractères)
+const _kHapticLvlKey  = 'jump_haptic_lvl'; // intensité des vibrations : 0 faible, 1 normale, 2 forte
 const _kTiltKey       = 'jump_tilt';
 const _kGhostKey      = 'jump_ghost';      // fantôme du n°1 affiché (partie du jour)
 const _kSensTouchKey  = 'jump_sens_touch'; // sensibilité tactile (0,7 à 1,3)
@@ -46,8 +48,8 @@ const _kThemeUnlockKey = 'jump_theme_unlocked';
 const _kThemeV2Key     = 'jump_theme_v2'; // numéros de thème après retrait de « Rouge »
 
 // Thèmes visuels (0 = classique, offert). Néon reste acquis si l'ancienne option était activée.
-const _themeNames  = ['Classique', 'Néon', 'Pocket', 'Sépia', 'CRT', 'Synthwave', 'Disco', 'Nuit', 'Négatif', 'Matrix', 'Réaliste', 'Tour gelée'];
-const _themePrices = [0, 100, 150, 200, 250, 300, 400, 450, 500, 550, 800, 900];
+const _themeNames  = ['Classique', 'Néon', 'Pocket', 'Sépia', 'CRT', 'Synthwave', 'Disco', 'Nuit', 'Négatif', 'Matrix', 'Réaliste', 'Tour gelée', 'Jungle', 'Plage', 'Ville la nuit', 'Canyon'];
+const _themePrices = [0, 100, 150, 200, 250, 300, 400, 450, 500, 550, 800, 900, 950, 1000, 1050, 1100];
 // Deux couleurs d'aperçu par thème (tuile du menu)
 const _themeSwatch = [
   [Color(0xFFE02020), Color(0xFF5C6BC0)],
@@ -62,6 +64,10 @@ const _themeSwatch = [
   [Color(0xFF000000), Color(0xFF00FF41)],
   [Color(0xFF3A7BD5), Color(0xFF7CB342)],
   [Color(0xFF4A5568), Color(0xFFE3F2FD)],
+  [Color(0xFF1B5E20), Color(0xFF9CCC65)], // Jungle
+  [Color(0xFFFF7043), Color(0xFF4FC3F7)], // Plage
+  [Color(0xFF1A237E), Color(0xFFFF4081)], // Ville la nuit
+  [Color(0xFFBF5B2C), Color(0xFFFFCC80)], // Canyon
 ];
 
 /// Filtre de couleur appliqué à toute l'aire de jeu (null = aucun).
@@ -119,6 +125,7 @@ const _weatherIcons   = ['💨', '🌧️', '⛈️', '🌫️'];
 const _weatherBanners = ['💨 COUP DE VENT !', '🌧️ PLUIE : ÇA GLISSE !', '⛈️ ORAGE !', '🌫️ BROUILLARD'];
 const _weatherDur = 18.0; // secondes
 const _kCodesUsedKey  = 'jump_codes_used';
+const _kCodeMaxUses   = 3; // utilisations max par code
 
 // Codes de triche : seule leur empreinte SHA-256 (avec sel) est stockée,
 // les codes eux-mêmes n'apparaissent nulle part dans le source.
@@ -183,6 +190,10 @@ const _heroPowers = [
   'Combo : palier tous les 4 sauts au lieu de 5',
   'Saute 13 % plus haut',
   'Turbo 60 % plus long',
+  'Écraser un bug rapporte 6 pièces',
+  'Chaque logo attrapé compte double',
+  'Une 2ᵉ chance gratuite par partie (hors partie du jour)',
+  '+25 % d\'XP à chaque partie',
 ];
 
 const _codeSalt = 'rj#7f3a9c-foc';
@@ -204,8 +215,9 @@ const _kMusicKey      = 'jump_music';
 const _kMusicUnlockKey = 'jump_music_unlocked';
 
 // Musiques (index = morceau joué côté Android) : la 1re est offerte
-const _musicNames  = ['Disco Funk', 'Shop', 'Good Morning', '8-bit Retro', 'Mountain', 'Video Game', 'Pixel Fight'];
-const _musicPrices = [0, 300, 500, 600, 700, 800, 1000];
+const _musicNames  = ['Disco Funk', 'Shop', 'Good Morning', '8-bit Retro', 'Mountain', 'Video Game', 'Pixel Fight',
+    'RPG Battle', '8-bit Console', 'Byte Blast', 'Game On'];
+const _musicPrices = [0, 300, 500, 600, 700, 800, 1000, 1100, 1200, 1300, 1500];
 const _kCollectionKey = 'jump_collection';
 
 // Collection par albums de 16 logos de consoles (assets du Breakout).
@@ -309,39 +321,51 @@ final _trophies = <_Trophy>[
   _Trophy('g10', 0, Icons.sports_esports_rounded, 'games', 10, 'Premiers pas', 'Jouer 10 parties'),
   _Trophy('g100', 1, Icons.sports_esports_rounded, 'games', 100, 'Habitué', 'Jouer 100 parties'),
   _Trophy('g500', 2, Icons.sports_esports_rounded, 'games', 500, 'Accro', 'Jouer 500 parties'),
+  _Trophy('g1000', 2, Icons.sports_esports_rounded, 'games', 1000, 'Légende vivante', 'Jouer 1 000 parties'),
   _Trophy('b1000', 0, Icons.emoji_events_rounded, 'best', 1000, 'Décollage', 'Record de 1 000 pts'),
   _Trophy('b3000', 1, Icons.emoji_events_rounded, 'best', 3000, 'Haute voltige', 'Record de 3 000 pts'),
   _Trophy('b6000', 2, Icons.emoji_events_rounded, 'best', 6000, 'Dans les étoiles', 'Record de 6 000 pts'),
+  _Trophy('b10000', 2, Icons.emoji_events_rounded, 'best', 10000, 'Au-delà de l\'espace', 'Record de 10 000 pts'),
   _Trophy('p50k', 0, Icons.landscape_rounded, 'pts', 50000, 'Grimpeur', '50 000 pts cumulés'),
   _Trophy('p500k', 1, Icons.landscape_rounded, 'pts', 500000, 'Alpiniste', '500 000 pts cumulés'),
   _Trophy('p2m', 2, Icons.landscape_rounded, 'pts', 2000000, 'Conquérant', '2 000 000 pts cumulés'),
+  _Trophy('p10m', 2, Icons.landscape_rounded, 'pts', 10000000, 'Titan', '10 000 000 pts cumulés'),
   _Trophy('s100', 0, Icons.bug_report_rounded, 'stomps', 100, 'Chasseur de bugs', 'Écraser 100 bugs'),
   _Trophy('s1000', 1, Icons.bug_report_rounded, 'stomps', 1000, 'Débogueur', 'Écraser 1 000 bugs'),
   _Trophy('s5000', 2, Icons.bug_report_rounded, 'stomps', 5000, 'Exterminateur', 'Écraser 5 000 bugs'),
+  _Trophy('s20000', 2, Icons.bug_report_rounded, 'stomps', 20000, 'Fléau des bugs', 'Écraser 20 000 bugs'),
   _Trophy('j1k', 0, Icons.keyboard_double_arrow_up_rounded, 'jumps', 1000, 'Sauteur', 'Faire 1 000 sauts'),
   _Trophy('j10k', 1, Icons.keyboard_double_arrow_up_rounded, 'jumps', 10000, 'Kangourou', 'Faire 10 000 sauts'),
   _Trophy('j100k', 2, Icons.keyboard_double_arrow_up_rounded, 'jumps', 100000, 'Ressort humain', 'Faire 100 000 sauts'),
   _Trophy('t25', 0, Icons.rocket_launch_rounded, 'turbos', 25, 'Pied au plancher', 'Utiliser 25 turbos'),
   _Trophy('t250', 1, Icons.rocket_launch_rounded, 'turbos', 250, 'Supersonique', 'Utiliser 250 turbos'),
+  _Trophy('t1000', 2, Icons.rocket_launch_rounded, 'turbos', 1000, 'Fusée humaine', 'Utiliser 1 000 turbos'),
   _Trophy('c10', 0, Icons.local_fire_department_rounded, 'combo', 10, 'Enchaînement', 'Combo de 10 sauts'),
   _Trophy('c25', 1, Icons.local_fire_department_rounded, 'combo', 25, 'En feu', 'Combo de 25 sauts'),
   _Trophy('c50', 2, Icons.local_fire_department_rounded, 'combo', 50, 'Inarrêtable', 'Combo de 50 sauts'),
   _Trophy('o1k', 0, Icons.monetization_on_rounded, 'coins', 1000, 'Tirelire', 'Gagner 1 000 pièces'),
   _Trophy('o10k', 1, Icons.monetization_on_rounded, 'coins', 10000, 'Coffre-fort', 'Gagner 10 000 pièces'),
   _Trophy('o50k', 2, Icons.monetization_on_rounded, 'coins', 50000, 'Trésor royal', 'Gagner 50 000 pièces'),
+  _Trophy('o200k', 2, Icons.monetization_on_rounded, 'coins', 200000, 'Fortune', 'Gagner 200 000 pièces'),
   _Trophy('bag20', 0, Icons.savings_rounded, 'bags', 20, 'Ramasseur', 'Ramasser 20 sacs'),
   _Trophy('bag200', 1, Icons.savings_rounded, 'bags', 200, 'Banquier', 'Ramasser 200 sacs'),
+  _Trophy('bag1000', 2, Icons.savings_rounded, 'bags', 1000, 'Magnat', 'Ramasser 1 000 sacs'),
   _Trophy('l50', 0, Icons.collections_bookmark_rounded, 'logos', 50, 'Collectionneur', 'Attraper 50 logos'),
   _Trophy('l500', 1, Icons.collections_bookmark_rounded, 'logos', 500, 'Archiviste', 'Attraper 500 logos'),
+  _Trophy('l2000', 2, Icons.collections_bookmark_rounded, 'logos', 2000, 'Conservateur', 'Attraper 2 000 logos'),
   _Trophy('h1', 0, Icons.timer_rounded, 'time', 3600, 'Une heure', 'Jouer 1 h au total'),
   _Trophy('h10', 1, Icons.timer_rounded, 'time', 36000, 'Passionné', 'Jouer 10 h au total'),
   _Trophy('h50', 2, Icons.timer_rounded, 'time', 180000, 'Légende du jump', 'Jouer 50 h au total'),
   _Trophy('lv10', 0, Icons.military_tech_rounded, 'level', 10, 'Promu', 'Atteindre le niveau 10'),
   _Trophy('lv25', 1, Icons.military_tech_rounded, 'level', 25, 'Vétéran', 'Atteindre le niveau 25'),
   _Trophy('lv50', 2, Icons.military_tech_rounded, 'level', 50, 'Maître du saut', 'Atteindre le niveau 50'),
+  _Trophy('lv75', 2, Icons.military_tech_rounded, 'level', 75, 'Demi-dieu', 'Atteindre le niveau 75'),
+  _Trophy('lv99', 2, Icons.military_tech_rounded, 'level', 99, 'Niveau max', 'Atteindre le niveau 99'),
   _Trophy('a1', 0, Icons.auto_stories_rounded, 'album', 1, 'Premier album', 'Compléter 1 album'),
   _Trophy('a4', 2, Icons.auto_stories_rounded, 'album', 4, 'Musée', 'Compléter 4 albums'),
+  _Trophy('a8', 2, Icons.auto_stories_rounded, 'album', 8, 'Encyclopédie', 'Compléter 8 albums'),
   _Trophy('he5', 0, Icons.person_rounded, 'heroes', 5, 'Petite équipe', 'Débloquer 5 héros'),
+  _Trophy('he10', 1, Icons.person_rounded, 'heroes', 10, 'Grande famille', 'Débloquer 10 héros'),
   _Trophy('heAll', 2, Icons.person_rounded, 'heroes', _heroCount, 'Toute la bande', 'Débloquer tous les héros'),
   _Trophy('thAll', 1, Icons.palette_rounded, 'themes', _themeNames.length, 'Décorateur', 'Débloquer tous les thèmes'),
   _Trophy('muAll', 1, Icons.music_note_rounded, 'musics', _musicNames.length, 'Mélomane', 'Débloquer toutes les musiques'),
@@ -349,15 +373,19 @@ final _trophies = <_Trophy>[
   _Trophy('se1', 0, Icons.workspace_premium_rounded, 'series', 1, 'Défi relevé', 'Terminer 1 série de défis'),
   _Trophy('se5', 1, Icons.workspace_premium_rounded, 'series', 5, 'Persévérant', 'Terminer 5 séries de défis'),
   _Trophy('se10', 2, Icons.workspace_premium_rounded, 'series', 10, 'Inépuisable', 'Terminer 10 séries de défis'),
+  _Trophy('se20', 2, Icons.workspace_premium_rounded, 'series', 20, 'Maître des défis', 'Terminer 20 séries de défis'),
   _Trophy('st3', 0, Icons.event_repeat_rounded, 'streak_best', 3, 'Fidèle', 'Jouer 3 jours d’affilée'),
   _Trophy('st7', 1, Icons.event_repeat_rounded, 'streak_best', 7, 'Une semaine', 'Jouer 7 jours d’affilée'),
   _Trophy('st30', 2, Icons.event_repeat_rounded, 'streak_best', 30, 'Inséparable', 'Jouer 30 jours d’affilée'),
   _Trophy('d10', 0, Icons.today_rounded, 'dailies', 10, 'Quotidien', 'Jouer 10 parties du jour'),
   _Trophy('d50', 1, Icons.today_rounded, 'dailies', 50, 'Rituel', 'Jouer 50 parties du jour'),
+  _Trophy('d100', 2, Icons.today_rounded, 'dailies', 100, 'Assidu', 'Jouer 100 parties du jour'),
   _Trophy('top3', 1, Icons.leaderboard_rounded, 'top3', 1, 'Podium', 'Finir dans le top 3 d’un défi du jour'),
   _Trophy('daily1', 2, Icons.leaderboard_rounded, 'daily1', 1, 'Champion du jour', 'Être 1er d’un défi du jour'),
   _Trophy('chat1', 0, Icons.chat_bubble_rounded, 'chat', 1, 'Bavard', 'Écrire dans le chat'),
   _Trophy('fall100', 0, Icons.south_rounded, 'falls', 100, 'Gravité', 'Tomber 100 fois'),
+  _Trophy('cont10', 0, Icons.replay_rounded, 'cont', 10, 'Increvable', 'Utiliser 10 Continue'),
+  _Trophy('bd50', 0, Icons.pest_control_rounded, 'bugdeaths', 50, 'Piqûre de rappel', 'Être attrapé 50 fois par un bug'),
 ];
 
 /// Progression actuelle du joueur (stats à vie + collection + niveau…).
@@ -488,6 +516,8 @@ Future<Map<String, int>> _publicStats() async {
 Future<void> _syncProfile(int coins) async {
   await Leaderboard.setProfile(coins, await _progressPct());
   await Leaderboard.setStats(await _publicStats());
+  final av = (await SharedPreferences.getInstance()).getString(_kAvatarKey);
+  if (_avParse(av) != null) await Leaderboard.setAvatar(av!);
 }
 
 int _albumBonus(int album) => 500; // cadeau fixe par album complété
@@ -501,8 +531,8 @@ List<int> _readCollection(SharedPreferences prefs) {
 
 // ─── Textes ───────────────────────────────────────────────────────────────────
 
-const _heroNames  = ['Robot', 'Joystick', 'Borne', 'Jeton', 'Cartouche', 'Disquette', 'CD', 'Cassette', 'Télé', 'Souris', 'Chat', 'Fusée'];
-const _heroPrices = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550];
+const _heroNames  = ['Robot', 'Joystick', 'Borne', 'Jeton', 'Cartouche', 'Disquette', 'CD', 'Cassette', 'Télé', 'Souris', 'Chat', 'Fusée', 'Manette', 'Portable', 'Fantôme', 'Casque'];
+const _heroPrices = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 800];
 const _continuePrice = 20; // pièces pour continuer après une chute (1 fois par partie)
 const _txtRecordLine = 'RECORD';
 const _txtNewRecord  = 'NOUVEAU RECORD !';
@@ -542,6 +572,23 @@ class _Challenge {
 }
 
 const _thousandSep = ' ';
+
+/// Vibration de force [level] (0 à 3) décalée selon l'intensité choisie (0 faible, 1 normale, 2 forte).
+void _hapticAt(int level, int strength) {
+  switch ((level + strength - 1).clamp(0, 3)) {
+    case 0:
+      HapticFeedback.selectionClick();
+      break;
+    case 1:
+      HapticFeedback.lightImpact();
+      break;
+    case 2:
+      HapticFeedback.mediumImpact();
+      break;
+    default:
+      HapticFeedback.heavyImpact();
+  }
+}
 
 String _fmtNum(int n) {
   final s = '$n';
@@ -701,6 +748,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Timer? _chatTimer;
   final _chatCtrl = TextEditingController();
   LbBoard? _lbBoard;
+  List<LbEntry> _lbMore = [];        // pages suivantes (« Voir plus »), jusqu'à 500
+  bool _lbMoreLoading = false, _lbNoMore = false;
+  final _lbMeKey = GlobalKey();       // ma ligne (« Ma position »)
   bool _lbLoading = false, _lbFailed = false;
   String? _lbMyName;
   String _lbPid = '';
@@ -719,6 +769,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   Map<String, dynamic> _stats = {};
   bool _freeContinue = false; // « rejouer » offert par la roue (prochaine partie)
   bool _haptics = true;
+  String? _avatar;        // avatar façon Mii (null = héros)
+  int _hapticLvl = 1;     // intensité des vibrations (0 faible, 1 normale, 2 forte)
+  Future<List<LbOvertake>>? _overtakesF; // « record battu » : joueurs qui m'ont dépassé
+  bool _afterSplashDone = false;
   bool _tilt = false;
   bool _ghostOn = true;
   double _sensTouch = 1.0, _sensTilt = 1.0;
@@ -758,8 +812,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _chatCheckNew();
       // Tour gratuit du jour pas encore joué : la roue s'ouvrira après l'écran de démarrage
       _wheelAtStart = _wheelReady;
-      if (!_splashOn) _wheelAfterSplash();
+      if (!_splashOn) _afterSplash();
     });
+    _overtakesF = Leaderboard.overtakes();
     // Écran de démarrage : reste affiché jusqu'à ce que le joueur touche l'écran
     _loadPodium();
   }
@@ -775,7 +830,70 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _endSplash() {
     if (!mounted || !_splashOn || _loading) return; // pas avant la fin du chargement
     setState(() => _splashOn = false);
+    _afterSplash();
+  }
+
+  /// Après l'écran de démarrage : « record battu » s'il y a lieu, puis la roue.
+  Future<void> _afterSplash() async {
+    if (_afterSplashDone) return;
+    _afterSplashDone = true;
+    final list = await (_overtakesF ?? Future.value(const <LbOvertake>[]))
+        .timeout(const Duration(seconds: 4), onTimeout: () => const <LbOvertake>[]);
+    if (list.isNotEmpty && mounted && ModalRoute.of(context)?.isCurrent == true) {
+      await Future.delayed(const Duration(milliseconds: 450));
+      if (mounted) await _showOvertakes(list);
+    }
     _wheelAfterSplash();
+  }
+
+  Future<void> _showOvertakes(List<LbOvertake> list) async {
+    if (_haptics) HapticFeedback.mediumImpact();
+    QuizAudio.sfx('powerup');
+    final shown = list.take(5).toList();
+    final see = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 24),
+          SizedBox(width: 8),
+          Expanded(child: Text('Record battu !')),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Ils t\'ont doublé au classement général depuis ta dernière visite :',
+              style: TextStyle(color: Colors.white60, fontSize: 13)),
+          const SizedBox(height: 10),
+          for (final o in shown)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(children: [
+                const Icon(Icons.arrow_upward_rounded, color: Colors.redAccent, size: 18),
+                const SizedBox(width: 6),
+                Expanded(child: Text.rich(TextSpan(children: [
+                  TextSpan(text: o.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                  const TextSpan(text: ' t\'a dépassé', style: TextStyle(color: Colors.white70)),
+                ]), overflow: TextOverflow.ellipsis)),
+                Text('${_fmtNum(o.score)} pts',
+                    style: const TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.w800)),
+              ]),
+            ),
+          if (list.length > shown.length)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('et ${list.length - shown.length} autres joueurs',
+                  style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('OK')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Voir le classement')),
+        ],
+      ),
+    );
+    if (see == true && mounted) {
+      setState(() => _lbTab = 1);
+      _openLeaderboard();
+    }
   }
 
   void _wheelAfterSplash() {
@@ -850,6 +968,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _trail = (prefs.getInt(_kTrailKey) ?? 0).clamp(0, _trailNames.length - 1);
       if (!_trailUnlocked.contains(_trail)) _trail = 0;
       _haptics   = prefs.getBool(_kHapticsKey) ?? true;
+      _hapticLvl = (prefs.getInt(_kHapticLvlKey) ?? 1).clamp(0, 2);
+      _avatar    = _avParse(prefs.getString(_kAvatarKey)) == null ? null : prefs.getString(_kAvatarKey);
       _tilt      = prefs.getBool(_kTiltKey) ?? false;
       _ghostOn   = prefs.getBool(_kGhostKey) ?? true;
       _sensTouch = (prefs.getDouble(_kSensTouchKey) ?? 1.0).clamp(0.7, 1.3).toDouble();
@@ -1028,6 +1148,16 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     await prefs.setInt(_kBestScoreKey, score);
     if (!mounted) return;
     setState(() => _bestScore = score);
+    // Pseudo déjà choisi : record enregistré à ce nom, sans redemander
+    final pseudo = await Leaderboard.name();
+    if (pseudo != null && !pseudo.startsWith('Joueur-') && !pseudo.startsWith('Player-')) {
+      await prefs.setString(_kBestNameKey, pseudo);
+      if (!mounted) return;
+      setState(() => _bestName = pseudo);
+      _snack('🏆 Nouveau record : ${_fmtNum(score)} pts !', ok: true);
+      return;
+    }
+    if (!mounted) return;
     final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
@@ -1295,20 +1425,37 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         ],
       ),
     );
-    ctrl.dispose();
+    // Libéré après l'animation de fermeture (sinon le champ l'utilise encore)
+    Future.delayed(const Duration(milliseconds: 600), ctrl.dispose);
     if (code == null || code.trim().isEmpty || !mounted) return;
-    final msg = await _applyCode(code);
+    (String, bool) msg;
+    try {
+      msg = await _applyCode(code);
+    } catch (_) {
+      msg = ('Erreur, réessaie', false);
+    }
     if (!mounted) return;
-    ScaffoldMessenger.of(_sheetCtx ?? context).showSnackBar(SnackBar(
-      content: Text(msg.$1, style: const TextStyle(color: Colors.white)),
-      backgroundColor: msg.$2 ? const Color(0xFF1B5E20) : const Color(0xFF1C2230),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
     if (msg.$2) {
       QuizAudio.sfx('powerup');
       await _load();
+      if (!mounted) return;
+      _rev.value++; // feuilles ouvertes (pièces) rafraîchies
     }
+    // Résultat dans une fenêtre : toujours visible, même par-dessus une feuille
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        content: Row(children: [
+          Icon(msg.$2 ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+              color: msg.$2 ? Colors.greenAccent : Colors.redAccent, size: 28),
+          const SizedBox(width: 12),
+          Expanded(child: Text(msg.$1,
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700))),
+        ]),
+        actions: [ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+      ),
+    );
   }
 
   /// Applique un code ; renvoie (message, réussi).
@@ -1318,8 +1465,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final effect = _cheatCodes[hash];
     if (effect == null) return ('Code invalide', false);
     final prefs = await SharedPreferences.getInstance();
-    final used = (prefs.getStringList(_kCodesUsedKey) ?? const <String>[]).toSet();
-    if (used.contains(hash)) return ('Code déjà utilisé', false);
+    // Chaque code est utilisable 3 fois (une entrée par utilisation)
+    final used = List<String>.of(prefs.getStringList(_kCodesUsedKey) ?? const <String>[]);
+    final uses = used.where((h) => h == hash).length;
+    if (uses >= _kCodeMaxUses) return ('Code déjà utilisé 3 fois', false);
     final coins = prefs.getInt(_kCoinsKey) ?? 0;
     Future<void> all(String key, int count) =>
         prefs.setStringList(key, [for (int i = 0; i < count; i++) '$i']);
@@ -1342,8 +1491,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         msg = 'Code accepté : toutes les musiques débloquées !';
     }
     used.add(hash);
-    await prefs.setStringList(_kCodesUsedKey, used.toList());
-    return (msg, true);
+    await prefs.setStringList(_kCodesUsedKey, used);
+    return ('$msg (${uses + 1}/$_kCodeMaxUses)', true);
   }
 
   int get _bonusTotal =>
@@ -1865,6 +2014,153 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     await prefs.setBool(_kGhostKey, v);
   }
 
+  Future<void> _setHapticLvl(int v) async {
+    setState(() => _hapticLvl = v);
+    _hapticAt(2, v);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kHapticLvlKey, v);
+  }
+
+  Widget _hapticLvlRow(Color color) {
+    const labels = ['Faible', 'Normal', 'Fort'];
+    return Opacity(
+      opacity: _haptics ? 1 : 0.4,
+      child: Row(children: [
+        Icon(Icons.vibration_rounded, color: color, size: 20),
+        const SizedBox(width: 8),
+        SizedBox(width: 84, child: Text('Vibrations', style: const TextStyle(color: Colors.white70, fontSize: 13))),
+        for (int i = 0; i < 3; i++)
+          Expanded(child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+            child: GestureDetector(
+              onTap: _haptics ? () => _setHapticLvl(i) : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: _hapticLvl == i ? color.withOpacity(0.18) : Colors.white.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _hapticLvl == i ? color : Colors.white12),
+                ),
+                child: Text(labels[i], textAlign: TextAlign.center,
+                    style: TextStyle(color: _hapticLvl == i ? color : Colors.white60,
+                        fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          )),
+      ]),
+    );
+  }
+
+  // ── Avatar façon Mii ────────────────────────────────────────────────────
+  Future<void> _setAvatar(String? code) async {
+    setState(() => _avatar = code);
+    _rev.value++;
+    final prefs = await SharedPreferences.getInstance();
+    if (code == null) {
+      await prefs.remove(_kAvatarKey);
+    } else {
+      await prefs.setString(_kAvatarKey, code);
+    }
+    await Leaderboard.setAvatar(code ?? '');
+  }
+
+  Future<void> _openAvatarEditor() async {
+    const cats = ['Peau', 'Visage', 'Coiffure', 'Cheveux', 'Yeux', 'Bouche', 'Accessoire', 'Fond'];
+    final rnd = Random();
+    final a = _avParse(_avatar) ?? _avRandom(rnd);
+    int cat = 0;
+    final res = await showDialog<List<int>>(
+      context: _sheetCtx ?? context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        Widget swatch(int v) {
+          final col = cat == 0 ? _avSkin[v] : cat == 3 ? _avHair[v] : cat == 7 ? _avBg[v] : null;
+          if (col != null) {
+            return Center(child: Container(width: 34, height: 34,
+                decoration: BoxDecoration(color: Color(col), shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24))));
+          }
+          return CustomPaint(painter: _MiiPainter(List<int>.of(a)..[cat] = v));
+        }
+        return Dialog(
+          backgroundColor: const Color(0xFF151A24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 28),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                const Icon(Icons.face_rounded, color: Colors.pinkAccent),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Mon avatar',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800))),
+                TextButton.icon(
+                  onPressed: () => setD(() {
+                    final r = _avRandom(rnd);
+                    for (int i = 0; i < a.length; i++) {
+                      a[i] = r[i];
+                    }
+                  }),
+                  icon: const Icon(Icons.casino_rounded, size: 18),
+                  label: const Text('Aléatoire'),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              SizedBox(width: 120, height: 120, child: CustomPaint(painter: _MiiPainter(List<int>.of(a)))),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 36,
+                child: ListView(scrollDirection: Axis.horizontal, children: [
+                  for (int i = 0; i < cats.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ChoiceChip(
+                        label: Text(cats[i]),
+                        selected: cat == i,
+                        onSelected: (_) => setD(() => cat = i),
+                      ),
+                    ),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 210,
+                child: GridView.count(
+                  crossAxisCount: 5,
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 6,
+                  children: [
+                    for (int v = 0; v < _avCounts[cat]; v++)
+                      GestureDetector(
+                        onTap: () => setD(() => a[cat] = v),
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: a[cat] == v ? Colors.pinkAccent : Colors.white12, width: 2),
+                          ),
+                          child: swatch(v),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+                const SizedBox(width: 8),
+                ElevatedButton(onPressed: () => Navigator.pop(ctx, List<int>.of(a)), child: const Text('Enregistrer')),
+              ]),
+            ]),
+          ),
+        );
+      }),
+    );
+    if (res == null || !mounted) return;
+    await _setAvatar(_avCode(res));
+    if (mounted) _snack('Avatar enregistré', ok: true);
+  }
+
   Future<void> _saveSens() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_kSensTouchKey, _sensTouch);
@@ -1929,6 +2225,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         theme: _theme,
         trail: _trail,
         haptics: _haptics,
+        hapticLvl: _hapticLvl,
         tilt: _tilt,
         ghost: _ghostOn,
         touchSens: _sensTouch,
@@ -2696,12 +2993,61 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     if (!mounted || tab != _lbTab) return;
     setState(() {
       _lbBoard = b;
+      _lbMore = [];
+      _lbNoMore = b == null || b.top.length < 50;
       _lbFailed = b == null;
       _lbLoading = false;
       _lbMyName = n;
       _lbPid = pid;
       if (daily && b != null && b.me.rank != null) _dailyRank = '#${b.me.rank} / ${b.me.total}';
       if (tab == 1 && b != null && b.me.rank != null) _worldRank = '#${b.me.rank} / ${b.me.total}';
+    });
+  }
+
+  (String, String) _lbModeDay() => _lbTab == 2
+      ? ('week', Leaderboard.weekKey())
+      : _lbTab == 0
+          ? ('daily', Leaderboard.today())
+          : ('all', lbAllDay);
+
+  /// Charge les lignes suivantes (50 par défaut), sans dépasser 500.
+  Future<bool> _lbLoadMore([int count = 50]) async {
+    final b = _lbBoard;
+    if (b == null || _lbMoreLoading || _lbNoMore) return false;
+    final shown = b.top.length + _lbMore.length;
+    final n = min(count, 500 - shown);
+    if (n <= 0) return false;
+    final tab = _lbTab;
+    setState(() => _lbMoreLoading = true);
+    final (mode, day) = _lbModeDay();
+    final page = await Leaderboard.fetchPage(mode, day, shown, n);
+    if (!mounted || tab != _lbTab) return false;
+    setState(() {
+      _lbMoreLoading = false;
+      if (page != null) {
+        _lbMore = [..._lbMore, ...page];
+        if (page.length < n || b.top.length + _lbMore.length >= 500) _lbNoMore = true;
+      }
+    });
+    return page != null;
+  }
+
+  /// Fait défiler jusqu'à ma ligne (charge les pages manquantes si besoin).
+  Future<void> _lbGoToMe() async {
+    final b = _lbBoard;
+    final r = b?.me.rank;
+    if (b == null || r == null) return;
+    if (r > 500) {
+      _snack('Ta position est au-delà des 500 premiers');
+      return;
+    }
+    final shown = b.top.length + _lbMore.length;
+    if (r > shown) await _lbLoadMore(r - shown + 5);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _lbMeKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), alignment: 0.4);
+      }
     });
   }
 
@@ -2785,7 +3131,33 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               padding: EdgeInsets.all(20),
               child: Text('Aucun score pour l\'instant.', style: TextStyle(color: Colors.white38)),
             ),
-          for (int i = 0; i < b.top.length; i++) _lbRow(i, b.top[i]),
+          for (int i = 0; i < b.top.length + _lbMore.length; i++)
+            _lbRow(i, i < b.top.length ? b.top[i] : _lbMore[i - b.top.length],
+                key: (i < b.top.length ? b.top[i] : _lbMore[i - b.top.length]).pid == _lbPid ? _lbMeKey : null),
+          // Voir plus (jusqu'à 500) + Ma position
+          if (b.top.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 6),
+              child: Row(children: [
+                if (!_lbNoMore)
+                  Expanded(child: OutlinedButton.icon(
+                    onPressed: _lbMoreLoading ? null : () => _lbLoadMore(),
+                    icon: _lbMoreLoading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.expand_more_rounded, size: 18),
+                    label: Text('Voir plus (${b.top.length + _lbMore.length + 1}-${min(500, b.top.length + _lbMore.length + 50)})'),
+                  )),
+                if (!_lbNoMore && b.me.rank != null) const SizedBox(width: 8),
+                if (b.me.rank != null)
+                  Expanded(child: OutlinedButton.icon(
+                    onPressed: _lbMoreLoading ? null : _lbGoToMe,
+                    icon: const Icon(Icons.my_location_rounded, size: 18),
+                    label: Text('Ma position #${b.me.rank}'),
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.amberAccent,
+                        side: BorderSide(color: Colors.amberAccent.withOpacity(0.5))),
+                  )),
+              ]),
+            ),
           if (b.top.isNotEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 2),
@@ -3089,8 +3461,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: SizedBox(width: 20, height: 18,
-                child: CustomPaint(painter: _HeroPreviewPainter(min(max(m.hero, 0), _heroCount - 1)))),
+            child: _Avatar(code: m.avatar, hero: m.hero, size: 24),
           ),
           const SizedBox(width: 8),
           Expanded(child: Container(
@@ -3180,7 +3551,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     return out;
   }
 
-  Widget _lbRow(int i, LbEntry e) => GestureDetector(
+  Widget _lbRow(int i, LbEntry e, {Key? key}) => GestureDetector(
+        key: key,
         behavior: HitTestBehavior.opaque,
         onTap: () => _openPlayerCard(e.pid, e.name, e.hero),
         child: _lbRowBody(i, e),
@@ -3201,6 +3573,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             final c = snap.data;
             final loading = snap.connectionState != ConnectionState.done;
             final h = (c?['hero'] as num?)?.toInt() ?? hero;
+            final av = c?['avatar'] as String?;
             final coins = (c?['coins'] as num?)?.toInt();
             final prog = (c?['progress'] as num?)?.toInt();
             final lvl = (c?['level'] as num?)?.toInt() ??
@@ -3209,12 +3582,15 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Row(children: [
-                  Container(
-                    width: 52, height: 52,
-                    padding: const EdgeInsets.all(9),
-                    decoration: BoxDecoration(color: const Color(0xFF1C2230), borderRadius: BorderRadius.circular(14)),
-                    child: CustomPaint(painter: _HeroPreviewPainter(min(max(h, 0), _heroCount - 1))),
-                  ),
+                  if (_avParse(av) != null)
+                    _Avatar(code: av, hero: h, size: 56)
+                  else
+                    Container(
+                      width: 52, height: 52,
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(color: const Color(0xFF1C2230), borderRadius: BorderRadius.circular(14)),
+                      child: CustomPaint(painter: _HeroPreviewPainter(min(max(h, 0), _heroCount - 1))),
+                    ),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text((c?['name'] as String?) ?? name,
@@ -3345,6 +3721,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           ),
         );
     final since = DateTime.tryParse(c['since'] as String? ?? '')?.toLocal();
+    final lastPlayed = DateTime.tryParse(c['last_played'] as String? ?? '')?.toLocal();
     final chat = n('chat') ?? 0;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       head('CLASSEMENT'),
@@ -3389,6 +3766,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       const SizedBox(height: 10),
       Text(
         [
+          if (lastPlayed != null) 'Dernière partie : ${_chatTime(lastPlayed)}',
           if (since != null) 'Joueur depuis le ${since.day.toString().padLeft(2, '0')}/${since.month.toString().padLeft(2, '0')}/${since.year}',
           if (chat > 0) '$chat messages dans le chat',
         ].join('  ·  '),
@@ -3415,8 +3793,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               ? Text(medals[i], style: const TextStyle(fontSize: 18))
               : Text('${i + 1}', style: const TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.w800)),
         ),
-        SizedBox(width: 24, height: 22,
-            child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1)))),
+        _Avatar(code: e.avatar, hero: e.hero, size: 28),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -3428,7 +3805,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: me ? Colors.amberAccent : Colors.white, fontSize: 14, fontWeight: FontWeight.w700))),
           ]),
-          if (e.coins != null || e.progress != null)
+          if (e.coins != null || e.progress != null || e.lastPlayed != null)
             Row(children: [
               if (e.coins != null) ...[
                 const _CoinIcon(size: 10),
@@ -3443,10 +3820,25 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 const SizedBox(width: 3),
                 Text('${e.progress} %',
                     style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 10),
+              ],
+              // Heure de la dernière partie
+              if (e.lastPlayed != null) ...[
+                const Icon(Icons.schedule_rounded, size: 11, color: Colors.white38),
+                const SizedBox(width: 3),
+                Flexible(child: Text(_chatTime(e.lastPlayed!),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600))),
               ],
             ]),
         ])),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
+        // Héros utilisé pour ce record (déjà à gauche si le joueur n'a pas d'avatar)
+        if (_avParse(e.avatar) != null) ...[
+          SizedBox(width: 22, height: 20,
+              child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1)))),
+          const SizedBox(width: 6),
+        ],
         Text('${_fmtNum(e.score)} pts',
             style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
       ]),
@@ -3911,6 +4303,22 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           ]);
 
   void _openSettings() => _openSheet('Réglages', Icons.settings_rounded, Colors.cyanAccent, (accent) => Column(children: [
+        _section('Avatar'),
+        Row(children: [
+          GestureDetector(onTap: _openAvatarEditor, child: _Avatar(code: _avatar, hero: _hero, size: 56)),
+          const SizedBox(width: 12),
+          Expanded(child: Text('Affiché dans le classement, le chat et ta fiche.', style: const TextStyle(color: Colors.white54, fontSize: 12))),
+          const SizedBox(width: 8),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+            ElevatedButton.icon(
+              onPressed: _openAvatarEditor,
+              icon: const Icon(Icons.face_rounded, size: 18),
+              label: Text(_avatar == null ? 'Créer mon avatar' : 'Modifier'),
+            ),
+            if (_avatar != null)
+              TextButton(onPressed: () => _setAvatar(null), child: const Text('Retirer')),
+          ]),
+        ]),
         _section('Options'),
         Row(children: [
           Expanded(child: _OptionTile(icon: Icons.vibration_rounded, color: Colors.cyanAccent,
@@ -3931,6 +4339,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         _sensSlider(Icons.screen_rotation_rounded, Colors.lightGreenAccent, 'Inclinaison', _sensTilt, 0.5, 2.0,
             (v) => setState(() => _sensTilt = v)),
         Text('Tactile : vitesse et réactivité du déplacement · Inclinaison : moins il faut pencher, plus c\'est sensible', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        _hapticLvlRow(Colors.cyanAccent),
         _section('Sauvegarde'),
         Row(children: [
           Expanded(child: _saveButton(Icons.save_rounded, 'Sauver', Colors.greenAccent, _saveProgress)),
@@ -4183,8 +4592,13 @@ class _SplashViewState extends State<_SplashView> with SingleTickerProviderState
         width: 104,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (i == 0) const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD54F), size: 22),
-          SizedBox(width: 40, height: 34,
-              child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1)))),
+          SizedBox(width: 50, height: 46, child: Stack(clipBehavior: Clip.none, children: [
+            _Avatar(code: e.avatar, hero: e.hero, size: 42),
+            // Héros du record en pastille (si l'avatar le remplace)
+            if (_avParse(e.avatar) != null)
+              Positioned(right: -2, bottom: -2, child: SizedBox(width: 20, height: 18,
+                  child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1))))),
+          ])),
           const SizedBox(height: 4),
           Text(e.name,
               maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -4868,6 +5282,7 @@ class _JumpGame extends StatefulWidget {
   final int theme;
   final int trail; // traînée de saut choisie
   final bool haptics;
+  final int hapticLvl;     // intensité des vibrations (0 faible, 1 normale, 2 forte)
   final bool tilt;
   final bool ghost;        // fantôme du n°1 (partie du jour)
   final double touchSens;  // sensibilité tactile
@@ -4886,6 +5301,7 @@ class _JumpGame extends StatefulWidget {
     required this.theme,
     this.trail = 0,
     required this.haptics,
+    this.hapticLvl = 1,
     required this.tilt,
     this.ghost = true,
     this.touchSens = 1.0,
@@ -4991,6 +5407,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
   double _startY = 0, _maxHeight = 0;
   double _turbo = 0;
   bool _shield = false;
+  bool _spiritUsed = false;    // Fantôme : 2ᵉ chance déjà utilisée
   bool _shieldReserve = false; // 2ᵉ bouclier ramassé : en réserve (bulle en bas, touche pour l'activer)
   Rect _reserveRect = Rect.zero;
   double _invuln = 0;
@@ -5148,19 +5565,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
 
   void _haptic(int level) {
     if (!widget.haptics) return;
-    switch (level) {
-      case 0:
-        HapticFeedback.selectionClick();
-        break;
-      case 1:
-        HapticFeedback.lightImpact();
-        break;
-      case 2:
-        HapticFeedback.mediumImpact();
-        break;
-      default:
-        HapticFeedback.heavyImpact();
-    }
+    _hapticAt(level, widget.hapticLvl);
   }
 
   // ── Initialisation ─────────────────────────────────────────────────────────
@@ -5233,6 +5638,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     _turbo = 0;
     _shield = false;
     _shieldReserve = false;
+    _spiritUsed = false;
     _invuln = 0;
     _squash = 0;
     _vx = 0;
@@ -5517,7 +5923,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       if (_turbo > 0 || stomp) {
         e.dead = true;
         _stomps++;
-        if (widget.daily == null) _coinsRun += 3;
+        if (widget.daily == null) _coinsRun += widget.hero == 12 ? 6 : 3; // Manette : ×2
         if (_turbo <= 0) {
           _vy = _stompV;
           _squash = 1;
@@ -5641,7 +6047,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       if (lg.taken) continue;
       if ((Offset(lg.x, lg.y) - heroC).distance < 32) {
         lg.taken = true;
-        _collection[lg.idx]++;
+        _collection[lg.idx] += widget.hero == 13 ? 2 : 1; // Portable : compte double
         _logosRun.add(lg.idx);
         final n = _collection[lg.idx];
         final name = _logoNames[lg.idx];
@@ -5769,6 +6175,17 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
 
   void _die({required bool byBug}) {
     if (_gameOver || _offer) return;
+    // Fantôme : une 2ᵉ chance gratuite par partie (hors partie du jour)
+    if (widget.hero == 14 && widget.daily == null && !_spiritUsed) {
+      _spiritUsed = true;
+      final keep = _freeCont;
+      _offer = true;
+      _freeCont = true;
+      _acceptContinue();
+      _freeCont = keep;
+      _showBanner('👻 2ᵉ CHANCE !');
+      return;
+    }
     _deathByBug = byBug;
     QuizAudio.lose();
     _haptic(3);
@@ -5912,7 +6329,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     }
     var earned = _coinsRun + rewards + bonus + albumBonus;
     // XP : niveau(x) gagné(s) = pièces offertes
-    final xpGain = _runXp(_score, newOnes.length, widget.daily != null);
+    final xpGain = (_runXp(_score, newOnes.length, widget.daily != null) * (widget.hero == 15 ? 1.25 : 1.0)).round(); // Casque : +25 %
     var xpNow = 0, lvlFrom = 1, lvlTo = 1, lvlReward = 0;
     var newTrophies = <_Trophy>[];
     try {
@@ -6919,7 +7336,7 @@ class _TopButton extends StatelessWidget {
 // 10 = Chat pixel · 11 = Fusée
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const _heroCount = 12;
+const _heroCount = 16;
 const _dark = Color(0xFF0D0F14);
 const _heroRed = Color(0xFFE02020);
 
@@ -6974,6 +7391,18 @@ void _drawHero(Canvas c, int id, bool right, double time) {
       break;
     case 11:
       _drawRocket(c, right, time);
+      break;
+    case 12:
+      _drawPad(c, right, time);
+      break;
+    case 13:
+      _drawHandheld(c, right, time);
+      break;
+    case 14:
+      _drawGhostHero(c, right, time);
+      break;
+    case 15:
+      _drawHeadset(c, right, time);
       break;
     default:
       _drawRobot(c, right);
@@ -7362,7 +7791,741 @@ void _drawRocket(Canvas c, bool right, double time) {
   _rr(c, -9, -11, 18, 3, 1, const Color(0xFFB0BEC5));
 }
 
+/// Manette : corps gris arrondi, croix directionnelle, boutons, fil qui ondule.
+void _drawPad(Canvas c, bool right, double time) {
+  final s = right ? -1.0 : 1.0;
+  c.drawPath(
+    Path()
+      ..moveTo(0, -30)
+      ..cubicTo(s * 3, -40, s * 12, -40, s * 11 + sin(time * 6) * 2, -48),
+    Paint()
+      ..color = const Color(0xFF455A64)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2,
+  );
+  // Poignées + corps
+  _circle(c, -14, -12, 9, const Color(0xFF9EA7B0));
+  _circle(c, 14, -12, 9, const Color(0xFF9EA7B0));
+  _rr(c, -21, -31, 42, 22, 9, const Color(0xFFB8C0C8));
+  _rr(c, -21, -31, 42, 4, 2, Colors.white.withOpacity(0.35));
+  // Croix directionnelle
+  _rr(c, -17, -22, 10, 3.4, 1, const Color(0xFF263238));
+  _rr(c, -13.7, -25.3, 3.4, 10, 1, const Color(0xFF263238));
+  // Boutons A / B
+  _circle(c, 11, -19, 2.8, _heroRed);
+  _circle(c, 16.5, -22.5, 2.8, _heroRed);
+  // Yeux au centre
+  _eyes(c, -3, 3.5, -24, 2.6, right);
+  _rr(c, -4, -15, 8, 1.8, 1, const Color(0xFF546E7A));
+}
+
+/// Console portable : boîtier clair, écran vert où se trouve le visage.
+void _drawHandheld(Canvas c, bool right, double time) {
+  _legs(c, const Color(0xFF616161));
+  _rr(c, -15, -47, 30, 44, 5, const Color(0xFFCFCFC8));
+  _rr(c, -15, -47, 30, 3, 2, Colors.white.withOpacity(0.5));
+  _rr(c, -12, -43, 24, 19, 3, const Color(0xFF545A63));
+  _rr(c, -10, -41, 20, 15, 1.5, const Color(0xFF9BBC0F));
+  // Visage pixelisé sur l'écran
+  final px = Paint()..color = const Color(0xFF0F380F);
+  final lx = right ? 1.0 : -1.0;
+  final blink = (time % 3.1) < 0.13;
+  c.drawRect(Rect.fromLTWH(-6 + lx, blink ? -36 : -37.5, 3, blink ? 1 : 3), px);
+  c.drawRect(Rect.fromLTWH(3 + lx, blink ? -36 : -37.5, 3, blink ? 1 : 3), px);
+  c.drawRect(const Rect.fromLTWH(-4, -31, 8, 1.6), px);
+  c.drawRect(const Rect.fromLTWH(-5.4, -32.4, 1.6, 1.6), px);
+  c.drawRect(const Rect.fromLTWH(3.8, -32.4, 1.6, 1.6), px);
+  // Croix + boutons + haut-parleur
+  _rr(c, -11, -18, 9, 3, 1, const Color(0xFF263238));
+  _rr(c, -8, -21, 3, 9, 1, const Color(0xFF263238));
+  _circle(c, 6, -15, 2.6, const Color(0xFF9C2463));
+  _circle(c, 11, -18, 2.6, const Color(0xFF9C2463));
+  for (int i = 0; i < 3; i++) {
+    c.drawLine(Offset(5 + i * 3.0, -8), Offset(8 + i * 3.0, -11), Paint()
+      ..color = const Color(0xFF8D8D86)
+      ..strokeWidth = 1.2);
+  }
+}
+
+/// Fantôme : drap arrondi, bas ondulé, flotte doucement.
+void _drawGhostHero(Canvas c, bool right, double time) {
+  final bob = sin(time * 3) * 1.5;
+  final wave = time * 6;
+  final p = Path()
+    ..moveTo(-16, -6 + bob)
+    ..lineTo(-16, -26 + bob)
+    ..arcToPoint(Offset(16, -26 + bob), radius: const Radius.circular(16))
+    ..lineTo(16, -6 + bob);
+  for (int i = 0; i < 4; i++) {
+    final x0 = 16 - i * 8.0;
+    p.quadraticBezierTo(x0 - 4, -6 + bob + (i.isEven ? 5 : -1) + sin(wave + i) * 1.5, x0 - 8, -6 + bob);
+  }
+  p.close();
+  c.drawPath(p, Paint()..color = const Color(0xFFF3EEFF).withOpacity(0.95));
+  c.drawPath(p, Paint()
+    ..color = const Color(0xFFB39DDB)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.4);
+  _eyes(c, -5.5, 5.5, -27 + bob, 3.6, right);
+  _circle(c, -10, -20 + bob, 2.4, const Color(0xFFFF8FB1).withOpacity(0.6));
+  _circle(c, 10, -20 + bob, 2.4, const Color(0xFFFF8FB1).withOpacity(0.6));
+  c.drawOval(Rect.fromCenter(center: Offset(0, -18.5 + bob), width: 5, height: 4), Paint()..color = const Color(0xFF4A3A6B));
+}
+
+/// Casque audio : tête ronde, arceau et écouteurs rouges, notes de musique.
+void _drawHeadset(Canvas c, bool right, double time) {
+  _legs(c, const Color(0xFF37474F));
+  _circle(c, 0, -22, 17, const Color(0xFF29323C));
+  _circle(c, -5, -28, 6, Colors.white.withOpacity(0.06));
+  c.drawArc(const Rect.fromLTWH(-20, -46, 40, 40), pi * 1.05, pi * 0.9, false, Paint()
+    ..color = const Color(0xFF1A1A1A)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 4.5);
+  _rr(c, -23, -31, 8, 17, 3.5, _heroRed);
+  _rr(c, 15, -31, 8, 17, 3.5, _heroRed);
+  _rr(c, -22, -30, 3, 15, 1.5, Colors.white.withOpacity(0.3));
+  _eyes(c, -5, 5, -23, 3.4, right);
+  c.drawArc(const Rect.fromLTWH(-5, -19, 10, 7), 0.2, pi - 0.4, false, Paint()
+    ..color = Colors.white
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.6
+    ..strokeCap = StrokeCap.round);
+  // Note de musique qui s'élève
+  final t = (time * 0.8) % 1;
+  final np = Offset((right ? 20 : -20) + sin(time * 4) * 2, -38 - t * 16);
+  final nc = const Color(0xFFFFD740).withOpacity(1 - t);
+  c.drawCircle(np, 2.4, Paint()..color = nc);
+  c.drawLine(np.translate(2.2, 0), np.translate(2.2, -8), Paint()
+    ..color = nc
+    ..strokeWidth = 1.4);
+}
+
 /// Aperçu d'un héros (sélecteur, écran de résultats).
+// ─── Avatars façon Mii ────────────────────────────────────────────────────────
+// Code de 8 caractères (base 36) : peau, visage, coiffure, couleur des cheveux,
+// yeux, bouche, accessoire, fond. Quelques octets côté serveur.
+const _avCounts = [12, 6, 20, 16, 12, 12, 14, 16];
+const _avSkin = [0xFFFFE0C4, 0xFFF5C9A0, 0xFFE0A878, 0xFFC68A5A, 0xFF8D5A3B, 0xFF5C3A24,
+    0xFFFDEDE2, 0xFFD9A066, 0xFFB07A4F, 0xFF6E4630, 0xFF9CCC65, 0xFF81D4FA];
+const _avHair = [0xFF1E1A18, 0xFF5A3825, 0xFF8B5A2B, 0xFFE5C26B, 0xFFB5462A, 0xFFB8B8C0, 0xFF3F7CFF, 0xFFFF6FB5,
+    0xFFF5F5F5, 0xFFF0E2B6, 0xFF3B2416, 0xFF7B2E1E, 0xFF43A047, 0xFF8E44D9, 0xFF00BFA5, 0xFFFF8F00];
+const _avBg = [0xFF3949AB, 0xFF00897B, 0xFFE53935, 0xFFFB8C00, 0xFF8E24AA, 0xFF43A047, 0xFF546E7A, 0xFFFFB300,
+    0xFFEC407A, 0xFF00ACC1, 0xFF6D4C41, 0xFF1A237E, 0xFF7CB342, 0xFF37474F, 0xFF5E35B1, 0xFFF4511E];
+
+List<int>? _avParse(String? c) {
+  if (c == null || c.length != 8) return null;
+  final out = <int>[];
+  for (int i = 0; i < 8; i++) {
+    final v = int.tryParse(c[i], radix: 36);
+    if (v == null) return null;
+    out.add(v % _avCounts[i]);
+  }
+  return out;
+}
+
+String _avCode(List<int> a) => a.map((v) => v.toRadixString(36)).join();
+List<int> _avRandom(Random r) => [for (final n in _avCounts) r.nextInt(n)];
+
+/// Avatar du joueur, ou son héros s'il n'en a pas créé.
+class _Avatar extends StatelessWidget {
+  final String? code;
+  final int hero;
+  final double size;
+  const _Avatar({this.code, this.hero = 0, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = _avParse(code);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: a == null
+          ? Padding(
+              padding: EdgeInsets.all(size * 0.06),
+              child: CustomPaint(painter: _HeroPreviewPainter(min(max(hero, 0), _heroCount - 1))))
+          : CustomPaint(painter: _MiiPainter(a)),
+    );
+  }
+}
+
+class _MiiPainter extends CustomPainter {
+  final List<int> a;
+  const _MiiPainter(this.a);
+
+  static Path _heart(Offset c, double r) => Path()
+    ..moveTo(c.dx, c.dy + r * 0.9)
+    ..cubicTo(c.dx - r * 1.6, c.dy - r * 0.2, c.dx - r * 0.6, c.dy - r * 1.3, c.dx, c.dy - r * 0.4)
+    ..cubicTo(c.dx + r * 0.6, c.dy - r * 1.3, c.dx + r * 1.6, c.dy - r * 0.2, c.dx, c.dy + r * 0.9)
+    ..close();
+
+  static Path _star(Offset c, double r) {
+    final p = Path();
+    for (int i = 0; i < 10; i++) {
+      final rr = i.isEven ? r : r * 0.45;
+      final an = -pi / 2 + i * pi / 5;
+      final pt = c + Offset(cos(an) * rr, sin(an) * rr);
+      if (i == 0) {
+        p.moveTo(pt.dx, pt.dy);
+      } else {
+        p.lineTo(pt.dx, pt.dy);
+      }
+    }
+    return p..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    canvas.save();
+    canvas.translate((size.width - s) / 2, (size.height - s) / 2);
+    final skin = Color(_avSkin[a[0]]);
+    final skinD = Color.lerp(skin, Colors.black, 0.18)!;
+    final hairC = Color(_avHair[a[3]]);
+    final bg = Color(_avBg[a[7]]);
+    const dark = Color(0xFF1B1B24);
+    final accent = (a[7] == 2 || a[7] == 15 || a[7] == 8) ? const Color(0xFF1E88E5) : const Color(0xFFE53935);
+    final box = RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, s, s), Radius.circular(s * 0.28));
+    canvas.clipRRect(box);
+    canvas.drawRRect(box, Paint()
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, s),
+          [Color.lerp(bg, Colors.white, 0.18)!, Color.lerp(bg, Colors.black, 0.22)!]));
+
+    final c = Offset(s * 0.5, s * 0.5);
+    final face = a[1];
+    final hw = s * const [0.52, 0.46, 0.52, 0.52, 0.58, 0.44][face];
+    final hh = s * const [0.54, 0.58, 0.54, 0.55, 0.50, 0.60][face];
+    final head = Rect.fromCenter(center: c, width: hw, height: hh);
+    final Path headPath;
+    switch (face) {
+      case 2:
+        headPath = Path()..addRRect(RRect.fromRectAndRadius(head, Radius.circular(s * 0.11)));
+        break;
+      case 5:
+        headPath = Path()..addRRect(RRect.fromRectAndRadius(head, Radius.circular(s * 0.16)));
+        break;
+      case 3: // en cœur
+        headPath = Path()
+          ..moveTo(c.dx, head.bottom)
+          ..cubicTo(head.left + hw * 0.15, head.bottom - hh * 0.1, head.left, c.dy + hh * 0.1, head.left, c.dy - hh * 0.05)
+          ..cubicTo(head.left, head.top - hh * 0.02, head.right, head.top - hh * 0.02, head.right, c.dy - hh * 0.05)
+          ..cubicTo(head.right, c.dy + hh * 0.1, head.right - hw * 0.15, head.bottom - hh * 0.1, c.dx, head.bottom)
+          ..close();
+        break;
+      default:
+        headPath = Path()..addOval(head);
+    }
+    final hairP = Paint()..color = hairC;
+    final style = a[2], extra = a[6];
+
+    // Épaules + cou
+    canvas.drawOval(Rect.fromLTRB(s * 0.12, s * 0.8, s * 0.88, s * 1.25), Paint()..color = Color.lerp(bg, Colors.black, 0.45)!);
+    canvas.drawRect(Rect.fromCenter(center: Offset(c.dx, head.bottom + s * 0.03), width: s * 0.14, height: s * 0.1),
+        Paint()..color = skinD);
+
+    void longBack(double bottom) => canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTRB(head.left - s * 0.04, head.top - s * 0.02, head.right + s * 0.04, bottom),
+        Radius.circular(s * 0.14)), hairP);
+
+    // Cheveux (arrière)
+    switch (style) {
+      case 4: // longs
+      case 19: // longs + frange
+        longBack(c.dy + hh * 0.62);
+        break;
+      case 13: // longs ondulés
+        longBack(c.dy + hh * 0.55);
+        for (int k = 0; k < 3; k++) {
+          canvas.drawCircle(Offset(head.left - s * 0.02 + k * s * 0.03, c.dy + hh * 0.58 + (k % 2) * s * 0.02), s * 0.045, hairP);
+          canvas.drawCircle(Offset(head.right + s * 0.02 - k * s * 0.03, c.dy + hh * 0.58 + (k % 2) * s * 0.02), s * 0.045, hairP);
+        }
+        break;
+      case 5: // carré
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            Rect.fromLTRB(head.left - s * 0.035, head.top - s * 0.02, head.right + s * 0.035, c.dy + hh * 0.28),
+            Radius.circular(s * 0.1)), hairP);
+        break;
+      case 6: // queue de cheval
+        canvas.drawOval(Rect.fromCenter(center: Offset(head.right + s * 0.05, c.dy + hh * 0.05), width: s * 0.13, height: s * 0.3), hairP);
+        break;
+      case 7: // afro
+        canvas.drawCircle(Offset(c.dx, c.dy - hh * 0.12), hw * 0.78, hairP);
+        break;
+      case 9: // chignons
+        canvas.drawCircle(Offset(head.left + hw * 0.1, head.top + s * 0.02), s * 0.08, hairP);
+        canvas.drawCircle(Offset(head.right - hw * 0.1, head.top + s * 0.02), s * 0.08, hairP);
+        break;
+      case 12: // couettes
+        for (final sx in const [-1.0, 1.0]) {
+          final x = sx < 0 ? head.left - s * 0.04 : head.right + s * 0.04;
+          canvas.drawOval(Rect.fromCenter(center: Offset(x, c.dy + hh * 0.18), width: s * 0.1, height: s * 0.24), hairP);
+          canvas.drawCircle(Offset(x - sx * s * 0.01, c.dy - hh * 0.06), s * 0.022, Paint()..color = accent);
+        }
+        break;
+      case 16: // tresse
+        for (int k = 0; k < 5; k++) {
+          canvas.drawOval(Rect.fromCenter(center: Offset(head.right - s * 0.01 + (k.isEven ? 0 : s * 0.01), c.dy + k * s * 0.065),
+              width: s * 0.075, height: s * 0.085), hairP);
+        }
+        break;
+      case 18: // chignon haut
+        canvas.drawCircle(Offset(c.dx, head.top - s * 0.04), s * 0.065, hairP);
+        break;
+    }
+
+    // Oreilles + tête
+    for (final sx in const [-1.0, 1.0]) {
+      canvas.drawCircle(Offset(c.dx + sx * hw / 2, c.dy + s * 0.02), s * 0.045, Paint()..color = skinD);
+    }
+    final headP = Paint()..color = skin;
+    canvas.drawPath(headPath, headP);
+
+    final eyeY = c.dy - hh * 0.02, ex = hw * 0.2;
+    final noseY = c.dy + hh * 0.12, mouthY = c.dy + hh * 0.28;
+
+    // Barbe (sous la bouche)
+    if (extra == 4) {
+      canvas.save();
+      canvas.clipRect(Rect.fromLTRB(0, noseY + s * 0.01, s, s));
+      canvas.drawPath(headPath, hairP);
+      canvas.restore();
+      canvas.drawOval(Rect.fromCenter(center: Offset(c.dx, mouthY), width: s * 0.17, height: s * 0.07), headP);
+    }
+
+    // Joues, taches de rousseur, nez
+    final blush = Paint()..color = const Color(0x55FF6F7F);
+    canvas.drawCircle(Offset(c.dx - ex * 1.3, noseY + s * 0.01), s * 0.035, blush);
+    canvas.drawCircle(Offset(c.dx + ex * 1.3, noseY + s * 0.01), s * 0.035, blush);
+    if (extra == 10) {
+      final fr = Paint()..color = Color.lerp(skin, const Color(0xFF6D3B1E), 0.55)!;
+      for (final sx in const [-1.0, 1.0]) {
+        for (final o in const [Offset(-0.02, -0.01), Offset(0.015, -0.015), Offset(0, 0.012), Offset(0.03, 0.008)]) {
+          canvas.drawCircle(Offset(c.dx + sx * (ex * 1.25 + o.dx * s), noseY + o.dy * s), s * 0.007, fr);
+        }
+      }
+    }
+    canvas.drawPath(Path()
+      ..moveTo(c.dx - s * 0.02, noseY)
+      ..quadraticBezierTo(c.dx, noseY + s * 0.025, c.dx + s * 0.02, noseY), Paint()
+      ..color = skinD
+      ..strokeWidth = s * 0.014
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke);
+
+    // Yeux
+    final line = Paint()
+      ..color = dark
+      ..strokeWidth = s * 0.022
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    void roundEye(Offset e, [double r = 0.045]) {
+      canvas.drawCircle(e, s * r, Paint()..color = Colors.white);
+      canvas.drawCircle(e.translate(0, s * 0.006), s * r * 0.58, Paint()..color = dark);
+      canvas.drawCircle(e.translate(-s * 0.009, -s * 0.006), s * 0.008, Paint()..color = Colors.white);
+    }
+    void happyEye(Offset e) => canvas.drawPath(Path()
+      ..moveTo(e.dx - s * 0.035, e.dy + s * 0.01)
+      ..quadraticBezierTo(e.dx, e.dy - s * 0.04, e.dx + s * 0.035, e.dy + s * 0.01), line);
+    for (final sx in const [-1.0, 1.0]) {
+      final e = Offset(c.dx + sx * ex, eyeY);
+      if (extra == 11 && sx > 0) continue; // cache-œil
+      switch (a[4]) {
+        case 0:
+          canvas.drawCircle(e, s * 0.028, Paint()..color = dark);
+          canvas.drawCircle(e.translate(-s * 0.008, -s * 0.008), s * 0.007, Paint()..color = Colors.white);
+          break;
+        case 1:
+          roundEye(e);
+          break;
+        case 2:
+          happyEye(e);
+          break;
+        case 3: // endormis
+          canvas.drawArc(Rect.fromCircle(center: e, radius: s * 0.03), 0, pi, true, Paint()..color = dark);
+          canvas.drawLine(e.translate(-s * 0.04, 0), e.translate(s * 0.04, 0), line);
+          break;
+        case 4: // clin d'œil
+          if (sx < 0) {
+            roundEye(e);
+          } else {
+            happyEye(e);
+          }
+          break;
+        case 5: // manga
+          canvas.drawOval(Rect.fromCenter(center: e, width: s * 0.055, height: s * 0.08), Paint()..color = dark);
+          canvas.drawCircle(e.translate(-s * 0.01, -s * 0.016), s * 0.013, Paint()..color = Colors.white);
+          canvas.drawCircle(e.translate(s * 0.01, s * 0.016), s * 0.006, Paint()..color = Colors.white);
+          break;
+        case 6: // étoiles
+          final st = _star(e, s * 0.045);
+          canvas.drawPath(st, Paint()..color = const Color(0xFFFFD54F));
+          canvas.drawPath(st, Paint()
+            ..color = dark
+            ..strokeWidth = s * 0.008
+            ..style = PaintingStyle.stroke);
+          break;
+        case 7: // fermés
+          canvas.drawPath(Path()
+            ..moveTo(e.dx - s * 0.035, e.dy - s * 0.008)
+            ..quadraticBezierTo(e.dx, e.dy + s * 0.03, e.dx + s * 0.035, e.dy - s * 0.008), line);
+          break;
+        case 8: // fâché
+          canvas.drawCircle(e.translate(0, s * 0.006), s * 0.026, Paint()..color = dark);
+          canvas.drawLine(e.translate(sx * s * 0.045, -s * 0.03), e.translate(-sx * s * 0.035, -s * 0.004), line);
+          break;
+        case 9: // cœurs
+          canvas.drawPath(_heart(e, s * 0.038), Paint()..color = const Color(0xFFE91E63));
+          break;
+        case 10: // pétillants
+          roundEye(e, 0.053);
+          canvas.drawCircle(e.translate(s * 0.012, s * 0.016), s * 0.006, Paint()..color = Colors.white);
+          break;
+        default: // cils
+          roundEye(e);
+          final lash = Paint()
+            ..color = dark
+            ..strokeWidth = s * 0.012
+            ..strokeCap = StrokeCap.round;
+          for (int k = 0; k < 3; k++) {
+            final an = -pi / 2 + sx * (0.5 + k * 0.35);
+            final p0 = e + Offset(cos(an) * s * 0.045, sin(an) * s * 0.045);
+            canvas.drawLine(p0, e + Offset(cos(an) * s * 0.07, sin(an) * s * 0.07), lash);
+          }
+      }
+    }
+
+    // Bouche
+    const lip = Color(0xFF8E2B2B);
+    final mw = s * 0.07;
+    final m = Offset(c.dx, mouthY);
+    final ml = Paint()
+      ..color = lip
+      ..strokeWidth = s * 0.02
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    switch (a[5]) {
+      case 0:
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw, m.dy)
+          ..quadraticBezierTo(m.dx, m.dy + s * 0.05, m.dx + mw, m.dy), ml);
+        break;
+      case 1:
+      case 4:
+      case 6:
+        final w2 = a[5] == 6 ? mw * 1.15 : mw;
+        final k = a[5] == 1 ? 0.11 : a[5] == 6 ? 0.14 : 0.08;
+        final mp = Path()
+          ..moveTo(m.dx - w2, m.dy)
+          ..quadraticBezierTo(m.dx, m.dy + s * k, m.dx + w2, m.dy)
+          ..close();
+        canvas.drawPath(mp, Paint()..color = const Color(0xFF7A1F2B));
+        canvas.save();
+        canvas.clipPath(mp);
+        if (a[5] != 4) {
+          canvas.drawRect(Rect.fromLTWH(m.dx - w2, m.dy, w2 * 2, s * 0.018), Paint()..color = Colors.white);
+        }
+        if (a[5] == 6) {
+          canvas.drawOval(Rect.fromCenter(center: m.translate(0, s * 0.07), width: s * 0.08, height: s * 0.05),
+              Paint()..color = const Color(0xFFFF7A9A));
+        }
+        canvas.restore();
+        if (a[5] == 4) {
+          canvas.drawOval(Rect.fromCenter(center: m.translate(0, s * 0.04), width: s * 0.05, height: s * 0.05),
+              Paint()..color = const Color(0xFFFF7A9A));
+        }
+        break;
+      case 2:
+        canvas.drawLine(m.translate(-mw * 0.7, s * 0.01), m.translate(mw * 0.7, s * 0.01), ml);
+        break;
+      case 3:
+        canvas.drawOval(Rect.fromCenter(center: m.translate(0, s * 0.01), width: s * 0.045, height: s * 0.055),
+            Paint()..color = const Color(0xFF7A1F2B));
+        break;
+      case 5:
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw * 0.8, m.dy + s * 0.012)
+          ..quadraticBezierTo(m.dx, m.dy + s * 0.028, m.dx + mw, m.dy - s * 0.02), ml);
+        break;
+      case 7: // grimace
+        final r = RRect.fromRectAndRadius(Rect.fromCenter(center: m.translate(0, s * 0.01), width: mw * 2.1, height: s * 0.045),
+            Radius.circular(s * 0.012));
+        canvas.drawRRect(r, Paint()..color = Colors.white);
+        for (int k = -2; k <= 2; k++) {
+          canvas.drawLine(Offset(m.dx + k * mw * 0.35, r.top), Offset(m.dx + k * mw * 0.35, r.bottom), Paint()
+            ..color = const Color(0x55000000)
+            ..strokeWidth = s * 0.006);
+        }
+        canvas.drawLine(Offset(r.left, m.dy + s * 0.01), Offset(r.right, m.dy + s * 0.01), Paint()
+          ..color = const Color(0x55000000)
+          ..strokeWidth = s * 0.006);
+        canvas.drawRRect(r, Paint()
+          ..color = lip
+          ..strokeWidth = s * 0.012
+          ..style = PaintingStyle.stroke);
+        break;
+      case 8: // triste
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw * 0.9, m.dy + s * 0.03)
+          ..quadraticBezierTo(m.dx, m.dy - s * 0.02, m.dx + mw * 0.9, m.dy + s * 0.03), ml);
+        break;
+      case 9: // :3
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw * 0.8, m.dy)
+          ..quadraticBezierTo(m.dx - mw * 0.4, m.dy + s * 0.035, m.dx, m.dy)
+          ..quadraticBezierTo(m.dx + mw * 0.4, m.dy + s * 0.035, m.dx + mw * 0.8, m.dy), ml);
+        break;
+      case 10: // sifflote
+        canvas.drawOval(Rect.fromCenter(center: m.translate(mw * 0.45, s * 0.008), width: s * 0.03, height: s * 0.036),
+            Paint()..color = const Color(0xFF7A1F2B));
+        break;
+      default: // rouge à lèvres
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw, m.dy)
+          ..quadraticBezierTo(m.dx - mw * 0.5, m.dy - s * 0.03, m.dx, m.dy - s * 0.008)
+          ..quadraticBezierTo(m.dx + mw * 0.5, m.dy - s * 0.03, m.dx + mw, m.dy)
+          ..quadraticBezierTo(m.dx, m.dy + s * 0.05, m.dx - mw, m.dy)
+          ..close(), Paint()..color = const Color(0xFFD81B60));
+        canvas.drawLine(m.translate(-mw * 0.8, 0), m.translate(mw * 0.8, 0), Paint()
+          ..color = const Color(0xFF880E4F)
+          ..strokeWidth = s * 0.008);
+    }
+
+    // Moustache
+    if (extra == 3) {
+      final y = (noseY + mouthY) / 2;
+      for (final sx in const [-1.0, 1.0]) {
+        canvas.drawPath(Path()
+          ..moveTo(c.dx, y - s * 0.01)
+          ..quadraticBezierTo(c.dx + sx * s * 0.06, y - s * 0.035, c.dx + sx * s * 0.095, y + s * 0.015)
+          ..quadraticBezierTo(c.dx + sx * s * 0.045, y + s * 0.008, c.dx, y + s * 0.014)
+          ..close(), hairP);
+      }
+    }
+
+    // Cheveux (avant)
+    void cap(double depth, [Paint? p]) {
+      canvas.save();
+      canvas.clipRect(Rect.fromLTRB(0, 0, s, head.top + hh * depth));
+      canvas.drawOval(head.inflate(s * 0.025), p ?? hairP);
+      canvas.restore();
+    }
+    switch (style) {
+      case 1:
+        cap(0.28);
+        break;
+      case 2: // en pics
+        cap(0.26);
+        for (int k = -2; k <= 2; k++) {
+          final x = c.dx + k * hw * 0.18;
+          canvas.drawPath(Path()
+            ..moveTo(x - hw * 0.11, head.top + s * 0.05)
+            ..lineTo(x + k * s * 0.012, head.top - s * 0.08)
+            ..lineTo(x + hw * 0.11, head.top + s * 0.05)
+            ..close(), hairP);
+        }
+        break;
+      case 3: // raie sur le côté
+        cap(0.24);
+        canvas.drawPath(Path()
+          ..moveTo(head.right + s * 0.015, head.top + hh * 0.12)
+          ..quadraticBezierTo(c.dx + hw * 0.1, head.top + hh * 0.2, head.left - s * 0.015, head.top + hh * 0.4)
+          ..lineTo(head.left, head.top + hh * 0.1)
+          ..close(), hairP);
+        break;
+      case 4:
+      case 9:
+      case 13:
+        cap(0.3);
+        break;
+      case 5:
+        cap(0.33);
+        break;
+      case 6:
+      case 17:
+        cap(0.27);
+        if (style == 17) { // en bataille
+          for (int k = 0; k < 7; k++) {
+            final an = pi * (1.1 + k * 0.13);
+            final b = Offset(c.dx + cos(an) * hw * 0.5, c.dy - hh * 0.05 + sin(an) * hh * 0.5);
+            final t = b + Offset(cos(an + (k.isEven ? 0.4 : -0.4)) * s * 0.07, sin(an + (k.isEven ? 0.4 : -0.4)) * s * 0.07);
+            canvas.drawPath(Path()
+              ..moveTo(b.dx - s * 0.03, b.dy + s * 0.01)
+              ..lineTo(t.dx, t.dy)
+              ..lineTo(b.dx + s * 0.03, b.dy + s * 0.01)
+              ..close(), hairP);
+          }
+        }
+        break;
+      case 7:
+        cap(0.22);
+        break;
+      case 8: // crête
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            Rect.fromLTRB(c.dx - s * 0.05, head.top - s * 0.1, c.dx + s * 0.05, head.top + hh * 0.2),
+            Radius.circular(s * 0.04)), hairP);
+        break;
+      case 10: // bouclés
+        cap(0.26);
+        for (int k = 0; k <= 8; k++) {
+          final an = pi * (1.0 + k / 8);
+          canvas.drawCircle(Offset(c.dx + cos(an) * hw * 0.52, c.dy - hh * 0.04 + sin(an) * hh * 0.52), s * 0.045, hairP);
+        }
+        break;
+      case 11: // rasés
+        cap(0.2, Paint()..color = hairC.withOpacity(0.7));
+        break;
+      case 12:
+        cap(0.3);
+        break;
+      case 14: // banane
+        cap(0.24);
+        canvas.drawOval(Rect.fromCenter(center: Offset(c.dx + hw * 0.08, head.top + s * 0.005), width: hw * 0.8, height: s * 0.15), hairP);
+        break;
+      case 15: // undercut
+        cap(0.17, Paint()..color = hairC.withOpacity(0.55));
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(c.dx - hw * 0.2, 0, s, head.top + hh * 0.32));
+        canvas.drawOval(head.inflate(s * 0.03), hairP);
+        canvas.restore();
+        break;
+      case 16:
+      case 18:
+        cap(0.27);
+        break;
+      case 19:
+        cap(0.4);
+        break;
+    }
+
+    // Sourcils
+    final brow = Paint()
+      ..color = style == 0 && hairC.computeLuminance() > 0.5 ? skinD : hairC
+      ..strokeWidth = s * 0.018
+      ..strokeCap = StrokeCap.round;
+    final by = eyeY - s * 0.075;
+    final ang = a[4] == 8 ? s * 0.012 : 0.0; // fâché : sourcils froncés
+    canvas.drawLine(Offset(c.dx - ex - s * 0.04, by + s * 0.006 - ang), Offset(c.dx - ex + s * 0.035, by - s * 0.004 + ang * 1.5), brow);
+    canvas.drawLine(Offset(c.dx + ex - s * 0.035, by - s * 0.004 + ang * 1.5), Offset(c.dx + ex + s * 0.04, by + s * 0.006 - ang), brow);
+
+    // Accessoires
+    switch (extra) {
+      case 1: // lunettes
+        final gp = Paint()
+          ..color = const Color(0xFF2A2A35)
+          ..strokeWidth = s * 0.016
+          ..style = PaintingStyle.stroke;
+        canvas.drawCircle(Offset(c.dx - ex, eyeY), s * 0.06, gp);
+        canvas.drawCircle(Offset(c.dx + ex, eyeY), s * 0.06, gp);
+        canvas.drawLine(Offset(c.dx - ex + s * 0.06, eyeY), Offset(c.dx + ex - s * 0.06, eyeY), gp);
+        break;
+      case 2: // lunettes de soleil
+        final sp = Paint()..color = const Color(0xFF111118);
+        for (final sx in const [-1.0, 1.0]) {
+          final r = Rect.fromCenter(center: Offset(c.dx + sx * ex, eyeY), width: s * 0.13, height: s * 0.09);
+          canvas.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(s * 0.03)), sp);
+          canvas.drawLine(r.topLeft.translate(s * 0.03, s * 0.02), r.topLeft.translate(s * 0.06, s * 0.05), Paint()
+            ..color = Colors.white.withOpacity(0.35)
+            ..strokeWidth = s * 0.01);
+        }
+        canvas.drawLine(Offset(c.dx - ex + s * 0.06, eyeY - s * 0.01), Offset(c.dx + ex - s * 0.06, eyeY - s * 0.01), Paint()
+          ..color = const Color(0xFF111118)
+          ..strokeWidth = s * 0.016);
+        break;
+      case 5: // casquette
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(0, 0, s, head.top + hh * 0.3));
+        canvas.drawOval(head.inflate(s * 0.035), Paint()..color = accent);
+        canvas.restore();
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            Rect.fromLTRB(c.dx - hw * 0.1, head.top + hh * 0.24, head.right + s * 0.1, head.top + hh * 0.33),
+            Radius.circular(s * 0.03)), Paint()..color = Color.lerp(accent, Colors.black, 0.25)!);
+        canvas.drawCircle(Offset(c.dx, head.top - s * 0.025), s * 0.018, Paint()..color = Color.lerp(accent, Colors.white, 0.3)!);
+        break;
+      case 6: // casque audio
+        canvas.drawArc(head.inflate(s * 0.05), pi * 1.05, pi * 0.9, false, Paint()
+          ..color = const Color(0xFF263238)
+          ..strokeWidth = s * 0.035
+          ..style = PaintingStyle.stroke);
+        for (final sx in const [-1.0, 1.0]) {
+          final r = Rect.fromCenter(center: Offset(c.dx + sx * (hw / 2 + s * 0.01), c.dy), width: s * 0.08, height: s * 0.14);
+          canvas.drawRRect(RRect.fromRectAndRadius(r, Radius.circular(s * 0.03)), Paint()..color = const Color(0xFF263238));
+          canvas.drawRRect(RRect.fromRectAndRadius(r.deflate(s * 0.015), Radius.circular(s * 0.02)),
+              Paint()..color = const Color(0xFF00E5FF));
+        }
+        break;
+      case 7: // bandeau
+        canvas.save();
+        canvas.clipPath(Path()..addOval(head.inflate(s * 0.03)));
+        canvas.drawRect(Rect.fromLTRB(0, head.top + hh * 0.2, s, head.top + hh * 0.2 + s * 0.05), Paint()..color = accent);
+        canvas.restore();
+        canvas.drawPath(Path()
+          ..moveTo(head.right, head.top + hh * 0.24)
+          ..lineTo(head.right + s * 0.07, head.top + hh * 0.18)
+          ..lineTo(head.right + s * 0.06, head.top + hh * 0.36)
+          ..close(), Paint()..color = accent);
+        break;
+      case 8: // couronne
+        final gold = Paint()..color = const Color(0xFFFFC107);
+        final cb = head.top + s * 0.03, cw = hw * 0.62;
+        canvas.drawPath(Path()
+          ..moveTo(c.dx - cw / 2, cb)
+          ..lineTo(c.dx - cw / 2, cb - s * 0.1)
+          ..lineTo(c.dx - cw / 4, cb - s * 0.05)
+          ..lineTo(c.dx, cb - s * 0.12)
+          ..lineTo(c.dx + cw / 4, cb - s * 0.05)
+          ..lineTo(c.dx + cw / 2, cb - s * 0.1)
+          ..lineTo(c.dx + cw / 2, cb)
+          ..close(), gold);
+        canvas.drawCircle(Offset(c.dx, cb - s * 0.03), s * 0.018, Paint()..color = const Color(0xFFE53935));
+        canvas.drawCircle(Offset(c.dx - cw / 3, cb - s * 0.02), s * 0.012, Paint()..color = const Color(0xFF1E88E5));
+        canvas.drawCircle(Offset(c.dx + cw / 3, cb - s * 0.02), s * 0.012, Paint()..color = const Color(0xFF43A047));
+        break;
+      case 9: // bonnet
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(0, 0, s, head.top + hh * 0.32));
+        canvas.drawOval(head.inflate(s * 0.04).translate(0, -s * 0.03), Paint()..color = accent);
+        canvas.restore();
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            Rect.fromLTRB(head.left - s * 0.03, head.top + hh * 0.22, head.right + s * 0.03, head.top + hh * 0.34),
+            Radius.circular(s * 0.03)), Paint()..color = Color.lerp(accent, Colors.black, 0.2)!);
+        canvas.drawCircle(Offset(c.dx, head.top - s * 0.07), s * 0.04, Paint()..color = Colors.white);
+        break;
+      case 11: // cache-œil
+        final ep = Paint()..color = const Color(0xFF111118);
+        canvas.drawLine(Offset(head.left - s * 0.01, head.top + hh * 0.3), Offset(head.right + s * 0.01, eyeY - s * 0.02), ep..strokeWidth = s * 0.014);
+        canvas.drawOval(Rect.fromCenter(center: Offset(c.dx + ex, eyeY), width: s * 0.1, height: s * 0.085), Paint()..color = const Color(0xFF111118));
+        break;
+      case 12: // nœud
+        final bp = Paint()..color = const Color(0xFFFF4FA3);
+        final bc = Offset(head.right - hw * 0.12, head.top + s * 0.03);
+        canvas.drawPath(Path()
+          ..moveTo(bc.dx, bc.dy)
+          ..lineTo(bc.dx - s * 0.07, bc.dy - s * 0.045)
+          ..lineTo(bc.dx - s * 0.07, bc.dy + s * 0.045)
+          ..close(), bp);
+        canvas.drawPath(Path()
+          ..moveTo(bc.dx, bc.dy)
+          ..lineTo(bc.dx + s * 0.07, bc.dy - s * 0.045)
+          ..lineTo(bc.dx + s * 0.07, bc.dy + s * 0.045)
+          ..close(), bp);
+        canvas.drawCircle(bc, s * 0.022, Paint()..color = const Color(0xFFC2185B));
+        break;
+      case 13: // chapeau haut de forme
+        final hp = Paint()..color = const Color(0xFF16161E);
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            Rect.fromLTRB(head.left - s * 0.06, head.top + hh * 0.1, head.right + s * 0.06, head.top + hh * 0.1 + s * 0.04),
+            Radius.circular(s * 0.02)), hp);
+        canvas.drawRect(Rect.fromLTRB(c.dx - hw * 0.34, head.top - s * 0.16, c.dx + hw * 0.34, head.top + hh * 0.11), hp);
+        canvas.drawRect(Rect.fromLTRB(c.dx - hw * 0.34, head.top + hh * 0.02, c.dx + hw * 0.34, head.top + hh * 0.08),
+            Paint()..color = accent);
+        break;
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiiPainter old) => _avCode(old.a) != _avCode(a);
+}
+
 class _HeroPreviewPainter extends CustomPainter {
   final int hero;
   final double time; // > 0 : héros animé qui sautille (accueil)
@@ -7486,6 +8649,8 @@ class _JumpPainter extends CustomPainter {
       _paintRealSky(canvas, size);
     } else if (_castle) {
       _paintCastle(canvas, size);
+    } else if (_scene) {
+      _paintSceneSky(canvas, size);
     } else {
       _paintBackground(canvas, size);
     }
@@ -7501,6 +8666,8 @@ class _JumpPainter extends CustomPainter {
         _paintRealPlat(canvas, p, Offset(p.x, sy));
       } else if (_castle) {
         _paintCastlePlat(canvas, p, Offset(p.x, sy));
+      } else if (_scene) {
+        _paintScenePlat(canvas, p, Offset(p.x, sy));
       } else {
         _paintCartridge(canvas, p, Offset(p.x, sy));
       }
@@ -7544,6 +8711,7 @@ class _JumpPainter extends CustomPainter {
     _paintHero(canvas, Offset(heroX, heroY - camY));
     if (_real || _night) _paintVignette(canvas, size);
     if (_castle) _paintSnowfall(canvas, size);
+    if (_scene) _paintSceneFront(canvas, size);
     _paintWeather(canvas, size);
     if (crt) _paintCrt(canvas, size);
     if (disco) _paintDiscoPulse(canvas, size);
@@ -7785,6 +8953,799 @@ class _JumpPainter extends CustomPainter {
   // ── Thèmes Nuit / Matrix / Réaliste ─────────────────────────────────────────
   bool get _night => theme == 7;
   bool get _mx => theme == 9;
+  // ── Thèmes réalistes « scène » : 12 Jungle, 13 Plage, 14 Ville la nuit, 15 Canyon ──
+  bool get _scene => theme >= 12 && theme <= 15;
+  int get _sk => theme - 12;
+
+  static const _sceneSky = <List<Color>>[
+    [Color(0xFF2E6B5A), Color(0xFF8FC29A), Color(0xFFDDEFD0)], // jungle : brume verte
+    [Color(0xFF35245E), Color(0xFFD9577A), Color(0xFFFFB46A)], // plage : coucher de soleil
+    [Color(0xFF04050D), Color(0xFF111735), Color(0xFF34295A)], // ville : nuit
+    [Color(0xFF2C6BB3), Color(0xFF97C4E6), Color(0xFFF5D79C)], // canyon : ciel brûlant
+  ];
+
+  /// Altitude (m) au centre de l'écran et passage progressif vers l'espace.
+  double _sceneAlt(Size size) => max(0.0, (startY - camY - size.height / 2) / 10);
+  double _sceneSpace(Size size) => ((_sceneAlt(size) - 4000) / 2500).clamp(0.0, 1.0);
+
+  /// Position d'écran d'un décor qui se répète tous les [gap] px (défilement avec parallaxe [par]).
+  double _rep(int k, double gap, double par, Size size) =>
+      ((k * gap - camY * par) % (size.height + gap) + size.height + gap) % (size.height + gap) - gap;
+
+  /// Silhouette de relief accrochée au sol de départ (disparaît en montant).
+  Path? _ridge(Size size, double par, double Function(double x) hf) {
+    final base = startY + 24 - camY * par;
+    if (base - 260 > size.height) return null;
+    final path = Path()..moveTo(0, size.height + 600);
+    for (double x = 0; x <= size.width + 6; x += 6) {
+      path.lineTo(x, base - hf(x));
+    }
+    return path
+      ..lineTo(size.width, size.height + 600)
+      ..close();
+  }
+
+  void _fillRidge(Canvas canvas, Path? p, Color top, Color bottom, double y0, double y1) {
+    if (p == null) return;
+    canvas.drawPath(p, Paint()..shader = ui.Gradient.linear(Offset(0, y0), Offset(0, y1), [top, bottom]));
+  }
+
+  void _paintSceneSky(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final space = _sceneSpace(size);
+    final k = _sceneSky[_sk];
+    Color sp(Color c) => Color.lerp(c, const Color(0xFF02030A), space)!;
+    canvas.drawRect(Offset.zero & size, Paint()
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, h), [sp(k[0]), sp(k[1]), sp(k[2])], [0, 0.55, 1]));
+    // Étoiles : toujours en ville, en altitude ailleurs
+    final st = _sk == 2 ? max(0.7, space) : space;
+    if (st > 0) {
+      final p = Paint();
+      for (int i = 0; i < 80; i++) {
+        final sx = ((i * 7919) % 1000) / 1000 * w;
+        final sy = (((i * 104729) % 1000) / 1000 * h - camY * 0.04) % h;
+        p.color = Colors.white.withOpacity(st * (0.3 + 0.55 * (0.5 + 0.5 * sin(time * 2 + i))));
+        canvas.drawCircle(Offset(sx, sy), i % 9 == 0 ? 1.4 : 0.8, p);
+      }
+    }
+    switch (_sk) {
+      case 0:
+        _paintJungle(canvas, size, space);
+        _paintJungleLife(canvas, size, space);
+        break;
+      case 1:
+        _paintBeach(canvas, size, space);
+        break;
+      case 2:
+        _paintCitySky(canvas, size);
+        _paintCity(canvas, size);
+        break;
+      default:
+        _paintCanyon(canvas, size, space);
+    }
+  }
+
+  // Jungle : brume, collines, canopée, rayons de lumière, sol de fougères
+  void _paintJungle(Canvas canvas, Size size, double space) {
+    final w = size.width;
+    final glow = Offset(w * 0.25, size.height * 0.1);
+    canvas.drawCircle(glow, 220, Paint()
+      ..shader = ui.Gradient.radial(glow, 220, [const Color(0xFFFFF6C8).withOpacity(0.45 * (1 - space)), Colors.transparent]));
+    // Rayons obliques à travers la brume
+    final ray = Paint()..color = const Color(0xFFFFF8D0).withOpacity(0.07 * (1 - space));
+    for (int i = 0; i < 5; i++) {
+      final x0 = w * (0.05 + i * 0.22) + sin(time * 0.3 + i) * 10;
+      canvas.drawPath(Path()
+        ..moveTo(x0, 0)
+        ..lineTo(x0 + 26, 0)
+        ..lineTo(x0 + 140, size.height)
+        ..lineTo(x0 + 80, size.height)
+        ..close(), ray);
+    }
+    final base = startY + 24;
+    _fillRidge(canvas, _ridge(size, 0.15, (x) => 120 + 40 * sin(x * 0.012 + 0.7) + 22 * sin(x * 0.031)),
+        const Color(0xFF5E8F75), const Color(0xFF3D6B55), base - camY * 0.15 - 180, base - camY * 0.15);
+    // Canopée : couronnes d'arbres arrondies
+    _fillRidge(canvas, _ridge(size, 0.32, (x) => 95 + 26 * sin(x * 0.045).abs() + 18 * sin(x * 0.11 + 1.3).abs() + 10 * sin(x * 0.27).abs()),
+        const Color(0xFF2F6A45), const Color(0xFF1C4730), base - camY * 0.32 - 150, base - camY * 0.32);
+    // Sol : terre sombre + fougères
+    final gy = startY + 18 - camY;
+    if (gy < size.height + 10) {
+      canvas.drawRect(Rect.fromLTWH(0, gy, w, size.height - gy + 400), Paint()
+        ..shader = ui.Gradient.linear(Offset(0, gy), Offset(0, gy + 110),
+            const [Color(0xFF3F6B2E), Color(0xFF2A4A22), Color(0xFF2B2016)], [0, 0.2, 1]));
+      final fern = Paint()
+        ..color = const Color(0xFF5E9B3C)
+        ..strokeWidth = 1.6
+        ..style = PaintingStyle.stroke;
+      for (double x = 6; x < w; x += 22) {
+        for (int j = -2; j <= 2; j++) {
+          canvas.drawLine(Offset(x, gy + 3), Offset(x + j * 5 + sin(time * 1.5 + x) * 1.5, gy - 10 + j.abs() * 3), fern);
+        }
+      }
+    }
+  }
+
+  // Plage : soleil couchant sur la mer, nuages roses, sable
+  void _paintBeach(Canvas canvas, Size size, double space) {
+    final w = size.width;
+    final hz = startY - 140 - camY * 0.2; // ligne d'horizon
+    // Nuages en traînées roses
+    final cl = Paint()..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    for (int i = 0; i < 6; i++) {
+      final y = _rep(i, 150, 0.12, size);
+      final x = (((i * 7919) % 1000) / 1000 * (w + 200) + time * (5 + i)) % (w + 200) - 100;
+      cl.color = const Color(0xFFFFC2B0).withOpacity(0.5 * (1 - space));
+      canvas.drawOval(Rect.fromCenter(center: Offset(x, y), width: 150, height: 16), cl);
+    }
+    // Soleil posé sur l'horizon
+    if (hz > -80 && hz < size.height + 120) {
+      final sun = Offset(w * 0.5, hz - 8);
+      canvas.drawCircle(sun, 200, Paint()
+        ..shader = ui.Gradient.radial(sun, 200, [const Color(0xFFFFD27A).withOpacity(0.55), Colors.transparent]));
+      canvas.save();
+      canvas.clipRect(Rect.fromLTWH(0, -1000, w, hz + 1000));
+      canvas.drawCircle(sun, 48, Paint()
+        ..shader = ui.Gradient.linear(sun.translate(0, -48), sun.translate(0, 48), const [Color(0xFFFFF1A8), Color(0xFFFF7A3D)]));
+      canvas.restore();
+      // Mer + reflet du soleil
+      canvas.drawRect(Rect.fromLTWH(0, hz, w, size.height - hz + 600), Paint()
+        ..shader = ui.Gradient.linear(Offset(0, hz), Offset(0, hz + 220), const [Color(0xFF5A4C8E), Color(0xFF1F2E5E)]));
+      final refl = Paint()..color = const Color(0xFFFFC46B).withOpacity(0.7);
+      for (int i = 0; i < 14; i++) {
+        final y = hz + 6 + i * 9.0;
+        final half = (40 - i * 2.2) * (0.7 + 0.3 * sin(time * 3 + i));
+        if (half > 2) canvas.drawRect(Rect.fromLTWH(w * 0.5 - half, y, half * 2, 2), refl);
+      }
+    }
+    // Sable + écume
+    final gy = startY + 18 - camY;
+    if (gy < size.height + 10) {
+      canvas.drawRect(Rect.fromLTWH(0, gy, w, size.height - gy + 400), Paint()
+        ..shader = ui.Gradient.linear(Offset(0, gy), Offset(0, gy + 90), const [Color(0xFFF3D39A), Color(0xFFD6A764)]));
+      final foam = Paint()
+        ..color = Colors.white.withOpacity(0.75)
+        ..strokeWidth = 2.2
+        ..style = PaintingStyle.stroke;
+      final path = Path()..moveTo(0, gy + 2);
+      for (double x = 0; x <= w; x += 8) {
+        path.lineTo(x, gy + 2 + sin(x * 0.08 + time * 2) * 1.6);
+      }
+      canvas.drawPath(path, foam);
+    }
+    // Palmiers en ombre chinoise sur les côtés (plantés dans le sable)
+    final py = startY + 22 - camY;
+    if (py - 230 < size.height) {
+      _paintPalm(canvas, Offset(8, py), true, space);
+      _paintPalm(canvas, Offset(w - 8, py + 14), false, space);
+    }
+    // Mouettes
+    final gull = Paint()
+      ..color = const Color(0xFF2A1F3D).withOpacity(0.8 * (1 - space))
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 3; i++) {
+      final x = (time * (22 + i * 7) + i * 140) % (w + 60) - 30;
+      final y = size.height * (0.18 + i * 0.09) + sin(time * 1.3 + i) * 8;
+      final f = 3 + sin(time * 8 + i) * 2;
+      canvas.drawPath(Path()
+        ..moveTo(x - 7, y - f)
+        ..quadraticBezierTo(x - 3, y - 1, x, y)
+        ..quadraticBezierTo(x + 3, y - 1, x + 7, y - f), gull);
+    }
+  }
+
+  void _paintPalm(Canvas canvas, Offset foot, bool left, double space) {
+    final c = const Color(0xFF241634).withOpacity(0.9 * (1 - space * 0.5));
+    final s = left ? 1.0 : -1.0;
+    final top = foot.translate(s * 26, -190);
+    canvas.drawPath(Path()
+      ..moveTo(foot.dx - 4, foot.dy)
+      ..quadraticBezierTo(foot.dx + s * 2, foot.dy - 100, top.dx, top.dy)
+      ..lineTo(top.dx + 3, top.dy + 2)
+      ..quadraticBezierTo(foot.dx + s * 8, foot.dy - 100, foot.dx + 5, foot.dy)
+      ..close(), Paint()..color = c);
+    final leaf = Paint()
+      ..color = c
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 6; i++) {
+      final a = -pi / 2 + (i - 2.5) * 0.55 + sin(time * 1.2 + i) * 0.05;
+      final end = top + Offset(cos(a) * 58, sin(a) * 30 + 26);
+      canvas.drawPath(Path()
+        ..moveTo(top.dx, top.dy)
+        ..quadraticBezierTo(top.dx + cos(a) * 30, top.dy + sin(a) * 30 - 6, end.dx, end.dy), leaf);
+    }
+  }
+
+  // Ville la nuit : lune, gratte-ciels éclairés, enseignes, rue mouillée
+  void _paintCity(Canvas canvas, Size size) {
+    final w = size.width;
+    final moon = Offset(w * 0.8, size.height * 0.13);
+    canvas.drawCircle(moon, 70, Paint()
+      ..shader = ui.Gradient.radial(moon, 70, [const Color(0xFFE8ECFF).withOpacity(0.3), Colors.transparent]));
+    canvas.drawCircle(moon, 20, Paint()..color = const Color(0xFFE9ECF5));
+    // Faisceaux de projecteurs
+    for (int i = 0; i < 2; i++) {
+      final a = -pi / 2 + sin(time * 0.4 + i * 2) * 0.5;
+      final o = Offset(w * (0.3 + i * 0.4), size.height + 40);
+      canvas.drawPath(Path()
+        ..moveTo(o.dx, o.dy)
+        ..lineTo(o.dx + cos(a - 0.05) * 900, o.dy + sin(a - 0.05) * 900)
+        ..lineTo(o.dx + cos(a + 0.05) * 900, o.dy + sin(a + 0.05) * 900)
+        ..close(), Paint()..color = const Color(0xFFB0C4FF).withOpacity(0.05));
+    }
+    for (final (par, col, hmax, gap, seed) in const [
+      (0.12, Color(0xFF1B2147), 170.0, 26.0, 3),
+      (0.3, Color(0xFF0C1027), 230.0, 38.0, 7),
+    ]) {
+      final base = startY + 24 - camY * par;
+      if (base - hmax - 40 > size.height) continue;
+      for (double x = -10, k = 0; x < w + 10; x += gap, k++) {
+        final r = ((k.toInt() * 7919 + seed * 131) % 1000) / 1000;
+        final bw = gap - 3, bh = hmax * (0.45 + 0.55 * r);
+        final rect = Rect.fromLTWH(x, base - bh, bw, bh + 600);
+        canvas.drawRect(rect, Paint()..color = col);
+        // Fenêtres éclairées (certaines clignotent)
+        final win = Paint();
+        for (double wy = base - bh + 8; wy < base - 6; wy += 9) {
+          for (double wx = x + 4; wx < x + bw - 4; wx += 6) {
+            final hsh = ((wx * 13 + wy * 7 + seed).toInt() * 2654435761) & 0xFFFF;
+            if (hsh % 100 > 38) continue;
+            final on = hsh % 7 != 0 || sin(time * 0.7 + hsh) > -0.6;
+            if (!on) continue;
+            win.color = (hsh % 3 == 0 ? const Color(0xFF9FD4FF) : const Color(0xFFFFD27A)).withOpacity(par > 0.2 ? 0.85 : 0.5);
+            canvas.drawRect(Rect.fromLTWH(wx, wy, 2.6, 3.6), win);
+          }
+        }
+        // Enseigne néon / feu rouge d'antenne
+        if (par > 0.2 && r > 0.72) {
+          final nc = r > 0.86 ? const Color(0xFFFF4FA3) : const Color(0xFF3FF1FF);
+          final nr = Rect.fromLTWH(x + 3, base - bh * 0.6, bw - 6, 7);
+          canvas.drawRect(nr.inflate(3), Paint()
+            ..color = nc.withOpacity(0.35 + 0.15 * sin(time * 4 + r * 9))
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+          canvas.drawRect(nr, Paint()..color = nc);
+        }
+        if (bh > hmax * 0.85) {
+          canvas.drawLine(Offset(x + bw / 2, base - bh), Offset(x + bw / 2, base - bh - 14), Paint()
+            ..color = col
+            ..strokeWidth = 2);
+          if (sin(time * 3 + k) > 0) canvas.drawCircle(Offset(x + bw / 2, base - bh - 15), 2, Paint()..color = const Color(0xFFFF3B3B));
+        }
+      }
+    }
+    // Rue mouillée + reflets
+    final gy = startY + 18 - camY;
+    if (gy < size.height + 10) {
+      canvas.drawRect(Rect.fromLTWH(0, gy, w, size.height - gy + 400), Paint()
+        ..shader = ui.Gradient.linear(Offset(0, gy), Offset(0, gy + 80), const [Color(0xFF262B3F), Color(0xFF0E1018)]));
+      final dash = Paint()..color = const Color(0xFFFFD54F).withOpacity(0.8);
+      for (double x = 10; x < w; x += 46) {
+        canvas.drawRect(Rect.fromLTWH(x, gy + 26, 22, 3), dash);
+      }
+      for (int i = 0; i < 8; i++) {
+        final x = ((i * 7919) % 1000) / 1000 * w;
+        canvas.drawRect(Rect.fromLTWH(x, gy + 6, 3, 18), Paint()
+          ..color = (i.isEven ? const Color(0xFFFFD27A) : const Color(0xFFFF4FA3)).withOpacity(0.25));
+      }
+    }
+  }
+
+  // Canyon : mesas en strates, soleil blanc, cactus, sable ocre
+  void _paintCanyon(Canvas canvas, Size size, double space) {
+    final w = size.width;
+    final sun = Offset(w * 0.22, size.height * 0.12);
+    canvas.drawCircle(sun, 190, Paint()
+      ..shader = ui.Gradient.radial(sun, 190, [const Color(0xFFFFF6D8).withOpacity(0.6 * (1 - space)), Colors.transparent]));
+    canvas.drawCircle(sun, 24, Paint()..color = Color.lerp(const Color(0xFFFFFBEA), const Color(0xFFFFE9A8), space)!);
+    // Mesas : plateaux à bords abrupts
+    double mesa(double x, double s, double hh) => 30 + hh * ((sin(x * 0.011 + s) - 0.05) * 4).clamp(0.0, 1.0) + 8 * sin(x * 0.05 + s);
+    final base = startY + 24;
+    final far = _ridge(size, 0.14, (x) => mesa(x, 0.4, 120));
+    _fillRidge(canvas, far, const Color(0xFFD9A07A), const Color(0xFFC08060), base - camY * 0.14 - 160, base - camY * 0.14);
+    final mid = _ridge(size, 0.3, (x) => mesa(x, 2.1, 150));
+    _fillRidge(canvas, mid, const Color(0xFFB4562F), const Color(0xFF7A3418), base - camY * 0.3 - 190, base - camY * 0.3);
+    if (mid != null) {
+      // Strates horizontales sur les falaises
+      canvas.save();
+      canvas.clipPath(mid);
+      final b = base - camY * 0.3;
+      final strata = Paint()..color = const Color(0xFF5E2610).withOpacity(0.35);
+      for (int i = 1; i < 9; i++) {
+        canvas.drawRect(Rect.fromLTWH(0, b - i * 19.0, w, 3), strata);
+      }
+      canvas.restore();
+    }
+    // Sol ocre + cactus
+    final gy = startY + 18 - camY;
+    if (gy < size.height + 10) {
+      canvas.drawRect(Rect.fromLTWH(0, gy, w, size.height - gy + 400), Paint()
+        ..shader = ui.Gradient.linear(Offset(0, gy), Offset(0, gy + 90), const [Color(0xFFE2A866), Color(0xFFB4743E)]));
+      final cactus = Paint()..color = const Color(0xFF3F6B34);
+      for (final cx in [w * 0.12, w * 0.83]) {
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(cx - 5, gy - 46, 10, 48), const Radius.circular(5)), cactus);
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(cx - 17, gy - 34, 7, 18), const Radius.circular(4)), cactus);
+        canvas.drawRect(Rect.fromLTWH(cx - 14, gy - 20, 10, 5), cactus);
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(cx + 10, gy - 40, 7, 16), const Radius.circular(4)), cactus);
+        canvas.drawRect(Rect.fromLTWH(cx + 4, gy - 28, 10, 5), cactus);
+      }
+      // Virevoltant qui roule
+      final tx = (time * 40) % (w + 60) - 30;
+      final tc = Offset(tx, gy - 7 - (sin(time * 6).abs() * 6));
+      canvas.drawCircle(tc, 7, Paint()
+        ..color = const Color(0xFF8A6A3E)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4);
+      canvas.drawLine(tc.translate(-6, 0), tc.translate(6, 0), Paint()..color = const Color(0xFF8A6A3E));
+    }
+  }
+
+  // ── Jungle : lianes d'arrière-plan + singes qui se balancent de liane en liane ──
+  void _paintJungleLife(Canvas canvas, Size size, double space) {
+    final w = size.width, h = size.height;
+    final fade = 1 - space;
+    if (fade <= 0) return;
+    // Guirlandes de lianes tendues d'un bord à l'autre (parallaxe lente)
+    final garland = Paint()
+      ..color = const Color(0xFF1F4A2B).withOpacity(0.75 * fade)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    final gLeaf = Paint()..color = const Color(0xFF2F6A3C).withOpacity(0.8 * fade);
+    for (int j = 0; j < 3; j++) {
+      final y = _rep(j, 340, 0.45, size);
+      final sag = 50.0 + (j % 2) * 30 + sin(time * 0.6 + j) * 4;
+      final x0 = j.isEven ? -20.0 : w * 0.25, x1 = j.isEven ? w * 0.75 : w + 20;
+      final ctrl = Offset((x0 + x1) / 2, y + sag * 2);
+      canvas.drawPath(Path()
+        ..moveTo(x0, y)
+        ..quadraticBezierTo(ctrl.dx, ctrl.dy, x1, y), garland);
+      for (double t = 0.08; t < 0.95; t += 0.09) {
+        final mt = 1 - t;
+        final p = Offset(mt * mt * x0 + 2 * mt * t * ctrl.dx + t * t * x1, mt * mt * y + 2 * mt * t * ctrl.dy + t * t * y);
+        canvas.save();
+        canvas.translate(p.dx, p.dy);
+        canvas.rotate(((t * 100).toInt()).isEven ? 0.9 : -0.9);
+        canvas.drawOval(Rect.fromCenter(center: const Offset(0, 6), width: 6, height: 13), gLeaf);
+        canvas.restore();
+      }
+    }
+    // Lianes pendantes depuis la canopée (haut de l'écran)
+    final hang = Paint()
+      ..color = const Color(0xFF24502F).withOpacity(0.7 * fade)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 9; i++) {
+      final x0 = w * (i + 0.5) / 9 + ((i * 37) % 13) - 6;
+      final len = 70.0 + ((i * 53) % 5) * 38;
+      final path = Path()..moveTo(x0, -10);
+      for (double d = 0; d <= len; d += 8) {
+        path.lineTo(x0 + sin(d * 0.04 + time * 0.8 + i) * (d / len) * 6, d - 10);
+      }
+      canvas.drawPath(path, hang);
+      for (double d = 20; d <= len; d += 26) {
+        final p = Offset(x0 + sin(d * 0.04 + time * 0.8 + i) * (d / len) * 6, d - 10);
+        canvas.save();
+        canvas.translate(p.dx, p.dy);
+        canvas.rotate((d ~/ 26).isEven ? 0.8 : -0.8);
+        canvas.drawOval(Rect.fromCenter(center: const Offset(5, 0), width: 10, height: 4), gLeaf);
+        canvas.restore();
+      }
+    }
+    // Singes : un au loin (petit, sombre), un plus proche
+    for (final (i, scale, col, lenF, speed, cycle) in const [
+      (0, 0.8, Color(0xFF243A26), 0.22, 70.0, 13.0),
+      (1, 1.15, Color(0xFF3A2614), 0.36, 95.0, 17.0),
+    ]) {
+      final len = h * lenF;
+      final span = 2 * len * sin(0.9); // écart entre deux lianes
+      final tt = (time + i * 6) % cycle;
+      final pos = tt * speed;
+      if (pos > w + 2 * span) continue; // pause entre deux passages
+      final dir = ((time + i * 6) / cycle).floor().isEven ? 1.0 : -1.0;
+      final n = (pos / span).floor();
+      final u = pos / span - n;
+      final a = -0.9 + 1.8 * u;
+      final ax = -span / 2 + n * span;
+      var anchor = Offset(ax, -10);
+      var hand = anchor + Offset(sin(a) * len, cos(a) * len);
+      var ang = a;
+      if (dir < 0) {
+        anchor = Offset(w - anchor.dx, anchor.dy);
+        hand = Offset(w - hand.dx, hand.dy);
+        ang = -a;
+      }
+      canvas.drawLine(anchor, hand, Paint()
+        ..color = const Color(0xFF2B5A30).withOpacity(0.9 * fade)
+        ..strokeWidth = 2.2);
+      _drawMonkey(canvas, hand, ang, scale, col.withOpacity(fade), dir);
+    }
+  }
+
+  /// Singe suspendu par une main au point [hand], le long d'une liane inclinée de [a].
+  void _drawMonkey(Canvas canvas, Offset hand, double a, double s, Color c, double dir) {
+    canvas.save();
+    canvas.translate(hand.dx, hand.dy);
+    canvas.rotate(-a * 0.6);
+    canvas.scale(dir * s, s);
+    final body = Paint()..color = c;
+    final limb = Paint()
+      ..color = c
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final light = Color.lerp(c, const Color(0xFFD9B48A), 0.45)!;
+    // Bras accroché à la liane
+    canvas.drawLine(Offset.zero, const Offset(1, 12), limb);
+    // Queue enroulée
+    canvas.drawPath(Path()
+      ..moveTo(-4, 30)
+      ..cubicTo(-16, 34, -20, 20, -13, 17)
+      ..cubicTo(-9, 15, -8, 21, -11, 22), limb..strokeWidth = 2.2);
+    limb.strokeWidth = 3.2;
+    // Corps et jambes (balancées)
+    final sw = sin(time * 5) * 2;
+    canvas.drawOval(Rect.fromCenter(center: const Offset(0, 24), width: 13, height: 18), body);
+    canvas.drawLine(const Offset(-3, 31), Offset(-6 + sw, 41), limb);
+    canvas.drawLine(const Offset(3, 31), Offset(7 + sw, 39), limb);
+    // Bras libre tendu vers l'avant
+    canvas.drawLine(const Offset(4, 18), Offset(13, 12 + sw), limb);
+    // Tête, oreilles, museau
+    canvas.drawCircle(const Offset(3, 12), 6, body);
+    canvas.drawCircle(const Offset(-2.5, 10), 2.4, body);
+    canvas.drawCircle(const Offset(8.5, 10), 2.4, body);
+    canvas.drawOval(Rect.fromCenter(center: const Offset(5, 14), width: 7, height: 5), Paint()..color = light);
+    canvas.drawCircle(const Offset(5.5, 11), 0.9, Paint()..color = const Color(0xFF111111).withOpacity(c.opacity));
+    canvas.restore();
+  }
+
+  // ── Ville la nuit : avion, montgolfières, hélicoptère, dirigeable ─────────
+  void _paintCitySky(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final fade = 1 - _sceneSpace(size) * 0.8;
+    // Défilement horizontal en boucle (sens alterné à chaque passage)
+    (double, double) lane(double speed, double offset, double margin) {
+      final period = (w + 2 * margin) / speed;
+      final t = time + offset;
+      final x = (t % period) * speed - margin;
+      final dir = (t / period).floor().isEven ? 1.0 : -1.0;
+      return (dir > 0 ? x : w - x, dir);
+    }
+
+    // Dirigeable avec bandeau lumineux
+    {
+      final (x, dir) = lane(14, 30, 90);
+      final c = Offset(x, h * 0.42 + sin(time * 0.5) * 6);
+      final hull = Rect.fromCenter(center: c, width: 120, height: 36);
+      canvas.drawOval(hull, Paint()
+        ..shader = ui.Gradient.linear(hull.topCenter, hull.bottomCenter,
+            [const Color(0xFF6B7392).withOpacity(fade), const Color(0xFF2A2F45).withOpacity(fade)]));
+      // Ailerons
+      final tx = c.dx - dir * 58;
+      canvas.drawPath(Path()
+        ..moveTo(tx, c.dy)
+        ..lineTo(tx - dir * 14, c.dy - 18)
+        ..lineTo(tx - dir * 4, c.dy)
+        ..lineTo(tx - dir * 14, c.dy + 18)
+        ..close(), Paint()..color = const Color(0xFF3A4060).withOpacity(fade));
+      // Nacelle
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: c.translate(0, 22), width: 24, height: 7),
+          const Radius.circular(3)), Paint()..color = const Color(0xFF1C2033).withOpacity(fade));
+      // Bandeau LED qui défile
+      final band = Rect.fromCenter(center: c, width: 70, height: 9);
+      canvas.save();
+      canvas.clipRect(band);
+      canvas.drawRect(band, Paint()..color = const Color(0xFF0B0E1A).withOpacity(fade));
+      for (int k = 0; k < 16; k++) {
+        final bx = band.left + ((k * 9 + time * 30 * dir) % 80 + 80) % 80 - 5;
+        final col = [const Color(0xFFFF4FA3), const Color(0xFF3FF1FF), const Color(0xFFFFD54F)][k % 3];
+        canvas.drawRect(Rect.fromLTWH(bx, band.top + 2, 5, 5), Paint()..color = col.withOpacity(0.9 * fade));
+      }
+      canvas.restore();
+    }
+
+    // Montgolfières (2), brûleur qui s'allume par moments
+    for (final (i, speed, yf, scale, c1, c2) in const [
+      (0, 9.0, 0.30, 1.0, Color(0xFFE53935), Color(0xFFFFCA28)),
+      (1, 12.0, 0.55, 0.7, Color(0xFF1E88E5), Color(0xFFFFFFFF)),
+    ]) {
+      final (x, _) = lane(speed, i * 41.0, 60);
+      final top = Offset(x, h * yf + sin(time * 0.7 + i) * 10);
+      final burn = (sin(time * 1.3 + i * 2) > 0.35) ? 1.0 : 0.0;
+      canvas.save();
+      canvas.translate(top.dx, top.dy);
+      canvas.scale(scale);
+      final env = Path()
+        ..moveTo(0, 0)
+        ..cubicTo(-34, 0, -38, 34, -12, 58)
+        ..lineTo(12, 58)
+        ..cubicTo(38, 34, 34, 0, 0, 0)
+        ..close();
+      canvas.save();
+      canvas.clipPath(env);
+      final dark = 0.45 - 0.25 * burn; // assombri la nuit, éclairé par le brûleur
+      for (int k = -4; k <= 4; k++) {
+        final col = Color.lerp(k.isEven ? c1 : c2, Colors.black, dark)!;
+        canvas.drawPath(Path()
+          ..moveTo(0, -2)
+          ..quadraticBezierTo(k * 9.0, 30, k * 3.0, 60)
+          ..lineTo((k + 1) * 3.0, 60)
+          ..quadraticBezierTo((k + 1) * 9.0, 30, 0, -2)
+          ..close(), Paint()..color = col.withOpacity(fade));
+      }
+      canvas.drawRect(const Rect.fromLTWH(-40, 0, 80, 62), Paint()
+        ..shader = ui.Gradient.radial(const Offset(0, 58), 50,
+            [const Color(0xFFFFB74D).withOpacity(0.55 * burn * fade), Colors.transparent]));
+      canvas.restore();
+      // Cordes, nacelle, flamme
+      final rope = Paint()
+        ..color = const Color(0xFF8D6E63).withOpacity(fade)
+        ..strokeWidth = 1;
+      canvas.drawLine(const Offset(-11, 58), const Offset(-6, 70), rope);
+      canvas.drawLine(const Offset(11, 58), const Offset(6, 70), rope);
+      canvas.drawRect(const Rect.fromLTWH(-7, 70, 14, 9), Paint()..color = const Color(0xFF5D4037).withOpacity(fade));
+      if (burn > 0) {
+        canvas.drawOval(Rect.fromCenter(center: Offset(0, 64 + sin(time * 20) * 0.8), width: 5, height: 9),
+            Paint()..color = const Color(0xFFFFE082).withOpacity(fade));
+      }
+      canvas.restore();
+    }
+
+    // Avion de ligne : feux de navigation rouge/vert + flash blanc
+    {
+      final (x, dir) = lane(70, 7, 50);
+      final c = Offset(x, h * 0.16 + sin(time * 0.3) * 4);
+      final sil = Paint()..color = const Color(0xFF2A3050).withOpacity(fade);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: c, width: 34, height: 5), const Radius.circular(3)), sil);
+      canvas.drawPath(Path()
+        ..moveTo(c.dx + dir * 2, c.dy)
+        ..lineTo(c.dx - dir * 6, c.dy + 11)
+        ..lineTo(c.dx - dir * 10, c.dy + 11)
+        ..lineTo(c.dx - dir * 6, c.dy)
+        ..close(), sil);
+      canvas.drawPath(Path()
+        ..moveTo(c.dx - dir * 13, c.dy)
+        ..lineTo(c.dx - dir * 17, c.dy - 9)
+        ..lineTo(c.dx - dir * 19, c.dy - 9)
+        ..lineTo(c.dx - dir * 17, c.dy)
+        ..close(), sil);
+      // Hublots
+      final win = Paint()..color = const Color(0xFFFFE6A0).withOpacity(0.8 * fade);
+      for (int k = -3; k <= 3; k++) {
+        canvas.drawCircle(c.translate(k * 3.5, -0.5), 0.7, win);
+      }
+      canvas.drawCircle(c.translate(-dir * 8, 10), 1.6, Paint()..color = const Color(0xFFFF3B3B).withOpacity(fade));
+      canvas.drawCircle(c.translate(-dir * 17, -9), 1.4, Paint()..color = const Color(0xFF4CFF7A).withOpacity(fade));
+      if (sin(time * 7) > 0.85) {
+        canvas.drawCircle(c.translate(dir * 17, 0), 6, Paint()
+          ..color = Colors.white.withOpacity(0.7 * fade)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      }
+    }
+
+    // Hélicoptère : rotor, feu rouge, projecteur balayant vers le bas
+    {
+      final (x, dir) = lane(45, 19, 60);
+      final c = Offset(x, h * 0.66 + sin(time * 1.1) * 8);
+      final beamA = pi / 2 + sin(time * 0.9) * 0.35;
+      canvas.drawPath(Path()
+        ..moveTo(c.dx, c.dy + 5)
+        ..lineTo(c.dx + cos(beamA - 0.12) * 260, c.dy + sin(beamA - 0.12) * 260)
+        ..lineTo(c.dx + cos(beamA + 0.12) * 260, c.dy + sin(beamA + 0.12) * 260)
+        ..close(), Paint()
+        ..shader = ui.Gradient.linear(c, c + Offset(cos(beamA) * 260, sin(beamA) * 260),
+            [const Color(0xFFFFF6D0).withOpacity(0.22 * fade), Colors.transparent]));
+      final sil = Paint()..color = const Color(0xFF1C2238).withOpacity(fade);
+      canvas.drawOval(Rect.fromCenter(center: c, width: 22, height: 11), sil);
+      canvas.drawRect(Rect.fromLTWH(dir > 0 ? c.dx - 26 : c.dx + 8, c.dy - 2, 18, 3), sil);
+      canvas.drawRect(Rect.fromLTWH(c.dx - 1, c.dy - 9, 2, 4), sil);
+      final rl = 26 * cos(time * 40).abs() + 4;
+      canvas.drawLine(c.translate(-rl, -9), c.translate(rl, -9), Paint()
+        ..color = const Color(0xFF8A93B8).withOpacity(0.7 * fade)
+        ..strokeWidth = 1.4);
+      canvas.drawOval(Rect.fromCenter(center: c.translate(dir * 5, -1), width: 7, height: 5),
+          Paint()..color = const Color(0xFF9FD4FF).withOpacity(0.6 * fade));
+      if (sin(time * 5) > 0) {
+        canvas.drawCircle(c.translate(-dir * 24, -2), 1.8, Paint()..color = const Color(0xFFFF3B3B).withOpacity(fade));
+      }
+    }
+  }
+
+  /// Premier plan : lianes et feuilles (jungle), poussière (canyon), bruine (ville).
+  void _paintSceneFront(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    switch (_sk) {
+      case 0:
+        final vine = Paint()
+          ..color = const Color(0xFF2E5A2A)
+          ..strokeWidth = 2.4
+          ..style = PaintingStyle.stroke;
+        final leaf = Paint()..color = const Color(0xFF4F8A3A);
+        for (int i = 0; i < 7; i++) {
+          final y0 = _rep(i, 190, 1.0, size);
+          final len = 110.0 + (i % 3) * 60;
+          final x0 = i.isEven ? 10.0 + i * 3 : w - 12.0 - i * 3;
+          final path = Path()..moveTo(x0, y0);
+          for (double d = 0; d <= len; d += 10) {
+            path.lineTo(x0 + sin(d * 0.06 + time * 1.2 + i) * 5, y0 + d);
+          }
+          canvas.drawPath(path, vine);
+          for (double d = 15; d <= len - 5; d += 22) {
+            final p = Offset(x0 + sin(d * 0.06 + time * 1.2 + i) * 5, y0 + d);
+            canvas.save();
+            canvas.translate(p.dx, p.dy);
+            canvas.rotate((d ~/ 22).isEven ? 0.7 : -0.7);
+            canvas.drawOval(Rect.fromCenter(center: const Offset(6, 0), width: 12, height: 5), leaf);
+            canvas.restore();
+          }
+        }
+        // Feuilles qui tombent
+        for (int j = 0; j < 7; j++) {
+          final x = (j * 97 + time * 18 * (1 + j % 3) + sin(time + j) * 20) % w;
+          final y = (j * 173 + time * (30 + j * 6)) % h;
+          canvas.save();
+          canvas.translate(x, y);
+          canvas.rotate(time * 2 + j);
+          canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: 8, height: 4), Paint()..color = const Color(0xFF7FB348).withOpacity(0.8));
+          canvas.restore();
+        }
+        break;
+      case 2:
+        final rain = Paint()
+          ..color = const Color(0xFF9FB4FF).withOpacity(0.18)
+          ..strokeWidth = 1;
+        for (int j = 0; j < 40; j++) {
+          final x = (j * 61.0 + time * 40) % w;
+          final y = (j * 97.0 + time * 520) % (h + 20) - 20;
+          canvas.drawLine(Offset(x, y), Offset(x - 3, y + 12), rain);
+        }
+        _paintVignette(canvas, size);
+        break;
+      case 3:
+        final dust = Paint()..color = const Color(0xFFFFE2B0).withOpacity(0.35);
+        for (int j = 0; j < 18; j++) {
+          final x = (j * 83 + time * 25 * (1 + j % 2)) % w;
+          final y = (j * 151 + sin(time * 0.8 + j) * 30) % h;
+          canvas.drawCircle(Offset(x, y), 1.2 + (j % 3) * 0.5, dust);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  /// Plateformes des thèmes « scène »
+  void _paintScenePlat(Canvas canvas, _Plat p, Offset o) {
+    final op = p.broken ? 0.5 : 1.0;
+    canvas.save();
+    if (p.broken) {
+      canvas.translate(o.dx + _platW / 2, o.dy + _platH / 2);
+      canvas.rotate(0.25);
+      canvas.translate(-(o.dx + _platW / 2), -(o.dy + _platH / 2));
+    }
+    final r = Rect.fromLTWH(o.dx, o.dy, _platW, _platH);
+    canvas.drawRRect(RRect.fromRectAndRadius(r.shift(const Offset(-4, 7)), const Radius.circular(4)), Paint()
+      ..color = Colors.black.withOpacity(0.3 * op)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+    final type = p.type;
+    final seed = (p.x * 7).toInt() + (p.y * 3).toInt();
+    // Couleurs (haut, milieu, bas) selon le thème et le type
+    final List<Color> cols = switch ((_sk, type)) {
+      (0, _PlatType.moving) => const [Color(0xFFB8DB72), Color(0xFF7FAF3E), Color(0xFF4E7A22)],      // bambou
+      (0, _PlatType.breakable) => const [Color(0xFF7A5A3A), Color(0xFF55391F), Color(0xFF2F1E10)],   // tronc pourri
+      (0, _) => const [Color(0xFFA6AC98), Color(0xFF747B66), Color(0xFF444A3A)],                       // pierre moussue
+      (1, _PlatType.moving) => const [Color(0xFFFFFFFF), Color(0xFFE9F7FF), Color(0xFFBFDDEA)],      // planche de surf
+      (1, _PlatType.breakable) => const [Color(0xFFC9C1B5), Color(0xFF9A9184), Color(0xFF6B6357)],   // bois flotté
+      (1, _) => const [Color(0xFFF0CC90), Color(0xFFC99A5A), Color(0xFF8A6232)],                       // planches claires
+      (2, _PlatType.moving) => const [Color(0xFFBFD3E0), Color(0xFF7F97A8), Color(0xFF4B5D6B)],      // plateforme d'élévateur
+      (2, _PlatType.breakable) => const [Color(0xFF8A6A50), Color(0xFF5E4330), Color(0xFF3A271A)],   // grille rouillée
+      (2, _) => const [Color(0xFFD9573A), Color(0xFFA83A22), Color(0xFF6B2112)],                       // poutrelle d'acier
+      (_, _PlatType.moving) => const [Color(0xFFD8AE74), Color(0xFFAD8048), Color(0xFF6E4D25)],      // planche + cordes
+      (_, _PlatType.breakable) => const [Color(0xFFA88C76), Color(0xFF7C624F), Color(0xFF4F3D30)],   // roche fendue
+      (_, _) => const [Color(0xFFE8A86E), Color(0xFFBF6E3E), Color(0xFF7E3F1E)],                       // grès
+    };
+    final surf = _sk == 1 && type == _PlatType.moving;
+    final rr = RRect.fromRectAndRadius(r, Radius.circular(surf ? _platH / 2 : 3));
+    canvas.drawRRect(rr, Paint()
+      ..shader = ui.Gradient.linear(r.topLeft, r.bottomLeft, [for (final c in cols) c.withOpacity(op)], [0, 0.45, 1]));
+    canvas.save();
+    canvas.clipRRect(rr);
+    switch ((_sk, type)) {
+      case (0, _PlatType.moving):
+        for (double x = o.dx + 12; x < o.dx + _platW; x += 16) {
+          canvas.drawRect(Rect.fromLTWH(x, o.dy, 2, _platH), Paint()..color = const Color(0xFF3E6418).withOpacity(0.7 * op));
+        }
+        break;
+      case (0, _PlatType.normal) || (0, _PlatType.spring):
+        final moss = Paint()..color = const Color(0xFF5F9A36).withOpacity(op);
+        canvas.drawRect(Rect.fromLTWH(o.dx, o.dy, _platW, 3.5), moss);
+        for (double x = o.dx + 3; x < o.dx + _platW; x += 7) {
+          canvas.drawCircle(Offset(x, o.dy + 3.5), 2 + ((x + seed).toInt() % 3) * 0.6, moss);
+        }
+        break;
+      case (1, _PlatType.moving):
+        canvas.drawRect(Rect.fromLTWH(o.dx, o.dy + _platH / 2 - 2, _platW, 4), Paint()..color = const Color(0xFFFF6E5A).withOpacity(op));
+        canvas.drawRect(Rect.fromLTWH(o.dx + _platW / 2 - 1, o.dy, 2, _platH), Paint()..color = const Color(0xFF29B6F6).withOpacity(op));
+        break;
+      case (1, _) || (3, _PlatType.moving):
+        for (double x = o.dx + 15 + seed.abs() % 8; x < o.dx + _platW; x += 17) {
+          canvas.drawLine(Offset(x, o.dy), Offset(x, o.dy + _platH), Paint()
+            ..color = Colors.black.withOpacity(0.25 * op)
+            ..strokeWidth = 1);
+        }
+        break;
+      case (2, _PlatType.moving):
+        final hz = Paint()..color = const Color(0xFFFFC107).withOpacity(op);
+        for (double x = o.dx - 6; x < o.dx + _platW; x += 10) {
+          canvas.drawPath(Path()
+            ..moveTo(x, o.dy + _platH)
+            ..lineTo(x + 5, o.dy + _platH)
+            ..lineTo(x + 9, o.dy + _platH - 4)
+            ..lineTo(x + 4, o.dy + _platH - 4)
+            ..close(), hz);
+        }
+        break;
+      case (2, _):
+        // Âme de la poutrelle + rivets
+        canvas.drawRect(Rect.fromLTWH(o.dx, o.dy + 4, _platW, _platH - 8), Paint()..color = Colors.black.withOpacity(0.18 * op));
+        for (double x = o.dx + 6; x < o.dx + _platW; x += 12) {
+          canvas.drawCircle(Offset(x, o.dy + 2.4), 1.2, Paint()..color = Colors.white.withOpacity(0.5 * op));
+          canvas.drawCircle(Offset(x, o.dy + _platH - 2.4), 1.2, Paint()..color = Colors.white.withOpacity(0.5 * op));
+        }
+        break;
+      case (3, _):
+        final strata = Paint()..color = const Color(0xFF6E2E12).withOpacity(0.3 * op);
+        canvas.drawRect(Rect.fromLTWH(o.dx, o.dy + 5, _platW, 1.6), strata);
+        canvas.drawRect(Rect.fromLTWH(o.dx, o.dy + 10, _platW, 1.2), strata);
+        break;
+      default:
+        break;
+    }
+    canvas.drawRect(Rect.fromLTWH(o.dx, o.dy, _platW, 1.4), Paint()..color = Colors.white.withOpacity(0.35 * op));
+    canvas.restore();
+    // Cordes (canyon, plateforme mobile)
+    if (_sk == 3 && type == _PlatType.moving) {
+      final rope = Paint()
+        ..color = const Color(0xFF8D6E4A)
+        ..strokeWidth = 1.4;
+      canvas.drawLine(Offset(o.dx + 6, o.dy), Offset(o.dx + 6, o.dy - 30), rope);
+      canvas.drawLine(Offset(o.dx + _platW - 6, o.dy), Offset(o.dx + _platW - 6, o.dy - 30), rope);
+    }
+    if (type == _PlatType.breakable) {
+      canvas.drawPath(Path()
+        ..moveTo(o.dx + 22, o.dy)
+        ..lineTo(o.dx + 28, o.dy + 6)
+        ..lineTo(o.dx + 24, o.dy + 10)
+        ..lineTo(o.dx + 31, o.dy + _platH)
+        ..moveTo(o.dx + 46, o.dy)
+        ..lineTo(o.dx + 41, o.dy + 7)
+        ..lineTo(o.dx + 47, o.dy + _platH), Paint()
+        ..color = Colors.black.withOpacity(0.7 * op)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke);
+    }
+    if (type == _PlatType.spring) {
+      final cx = o.dx + _platW / 2;
+      final path = Path()..moveTo(cx - 6, o.dy);
+      for (int i = 0; i < 4; i++) {
+        path.lineTo(i.isEven ? cx + 6 : cx - 6, o.dy - 3 - i * 3);
+      }
+      canvas.drawPath(path, Paint()
+        ..color = const Color(0xFF6E7B86)
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke);
+      canvas.drawPath(path, Paint()
+        ..color = Colors.white.withOpacity(0.8)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke);
+      final top = Rect.fromLTWH(cx - 10, o.dy - 17, 20, 5);
+      canvas.drawRRect(RRect.fromRectAndRadius(top, const Radius.circular(2)), Paint()
+        ..shader = ui.Gradient.linear(top.topLeft, top.bottomLeft, const [Color(0xFFF2F5F8), Color(0xFF7D8A96)]));
+    }
+    canvas.restore();
+  }
+
   bool get _real => theme == 10;
 
   /// Nuit : fond assombri, étoiles qui scintillent, lune, étoile filante
@@ -8555,7 +10516,7 @@ class _JumpPainter extends CustomPainter {
     canvas.save();
     canvas.translate(c.dx, c.dy);
     canvas.scale(sx, 1);
-    if (_real || _castle) {
+    if (_real || _castle || _scene) {
       // Pièce d'or : dégradé métallique + reflet
       canvas.drawCircle(Offset.zero, _coinR, Paint()
         ..shader = ui.Gradient.radial(const Offset(-2.5, -2.5), _coinR * 1.6,

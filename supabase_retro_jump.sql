@@ -2,7 +2,9 @@
 -- Rétro Jump — classement en ligne (Supabase)
 -- À coller dans Supabase → SQL Editor → New query → Run.
 -- Relançable sans risque : met à jour une installation existante sans perdre
--- les scores (v2 : pseudos uniques ; v6 : chat ; v7 : fiche joueur ; v8 : niveaux ; v9 : trophées).
+-- les scores (v2 : pseudos uniques ; v6 : chat ; v7 : fiche joueur ; v8 : niveaux ; v9 : trophées ; v10 : dernière partie ;
+-- v11 : « record battu », joueurs prévenus quand on les dépasse au classement général ;
+-- v12 : avatars façon Mii).
 -- ═══════════════════════════════════════════════════════════════════════════
 
 create extension if not exists pgcrypto with schema extensions;
@@ -92,6 +94,18 @@ begin
 end $$;
 
 -- ── Envoi d'un score (garde le meilleur) ────────────────────────────────────
+-- v11 : « record battu » — une ligne par (joueur dépassé, joueur qui l'a dépassé)
+create table if not exists public.jump_overtakes (
+  device     text        not null,                 -- joueur dépassé
+  by_device  text        not null,                 -- joueur qui l'a dépassé
+  by_name    text        not null,
+  score      int         not null,
+  created_at timestamptz not null default now(),
+  primary key (device, by_device)
+);
+alter table public.jump_overtakes enable row level security;
+revoke all on public.jump_overtakes from anon, authenticated;
+
 drop function if exists public.submit_jump_score(text, text, text, text, int, int, int, text);
 create function public.submit_jump_score(
   p_device text, p_name text, p_mode text, p_day text,
@@ -105,6 +119,7 @@ declare
   v_max  int;
   v_name text;
   v_cur  text;
+  v_old  int;
 begin
   if p_sig is distinct from encode(extensions.digest(
        v_salt || '|' || p_device || '|' || p_mode || '|' || p_day || '|' ||
@@ -138,6 +153,12 @@ begin
     v_name := v_cur;
   end if;
 
+  -- v11 : ancien record général, pour prévenir les joueurs dépassés
+  if p_mode = 'all' then
+    select s.score into v_old from public.jump_scores s
+     where s.device = p_device and s.mode = 'all' and s.day = date '2000-01-01';
+  end if;
+
   insert into public.jump_scores as s (device, pid, mode, day, name, score, hero)
   values (p_device, left(encode(extensions.digest(p_device, 'sha256'), 'hex'), 16),
           p_mode, v_day, v_name, p_score, p_hero)
@@ -158,12 +179,25 @@ begin
           updated_at = case when excluded.score > s.score then now() else s.updated_at end,
           score      = greatest(s.score, excluded.score);
   end if;
+  -- v11 : « record battu » pour les joueurs doublés (30 au plus, les mieux classés)
+  if p_mode = 'all' and p_score > coalesce(v_old, 0) then
+    insert into public.jump_overtakes as o (device, by_device, by_name, score)
+    select s.device, p_device, v_name, p_score from public.jump_scores s
+     where s.mode = 'all' and s.day = date '2000-01-01' and s.device <> p_device
+       and s.score < p_score and s.score >= coalesce(v_old, 0)
+     order by s.score desc limit 30
+    on conflict (device, by_device) do update
+      set by_name = excluded.by_name, score = excluded.score, created_at = now();
+  end if;
   -- Pièces et avancement connus du joueur recopiés sur ses lignes
-  update public.jump_scores sc set coins = p.coins, progress = p.progress, level = p.level
+  update public.jump_scores sc set coins = p.coins, progress = p.progress, level = p.level, avatar = p.avatar
     from public.jump_players p
    where p.device = p_device and sc.device = p_device
      and (sc.coins is distinct from p.coins or sc.progress is distinct from p.progress
-          or sc.level is distinct from p.level);
+          or sc.level is distinct from p.level or sc.avatar is distinct from p.avatar);
+  -- v10 : heure de la dernière partie (affichée dans le classement et la fiche)
+  update public.jump_players p set last_played = now() where p.device = p_device;
+  update public.jump_scores s set last_played = now() where s.device = p_device;
 
   return query select r.rank, r.score, r.total, v_name from public.jump_rank(p_device, p_mode, p_day) r;
 end $$;
@@ -443,10 +477,11 @@ begin
               and c.created_at > now() - interval '10 seconds') then return 'wait'; end if;
   v_msg := left(public.jump_chat_filter(left(coalesce(p_msg, ''), 200)), 120);
   if v_msg = '' then return 'empty'; end if;
-  insert into public.jump_chat (device, pid, name, hero, msg, level)
+  insert into public.jump_chat (device, pid, name, hero, msg, level, avatar)
   values (p_device, left(encode(extensions.digest(p_device, 'sha256'), 'hex'), 16), v_name,
           least(greatest(coalesce(p_hero, 0), 0), 99), v_msg,
-          (select p.level from public.jump_players p where p.device = p_device));
+          (select p.level from public.jump_players p where p.device = p_device),
+          (select p.avatar from public.jump_players p where p.device = p_device));
   -- Ménage : seuls les 200 derniers messages sont gardés
   delete from public.jump_chat c where c.id <= (select c2.id from public.jump_chat c2 order by c2.id desc offset 200 limit 1);
   return 'ok';
@@ -545,6 +580,7 @@ begin
     'since',     p.created_at,
     'coins',     p.coins,
     'progress',  p.progress,
+    'avatar',    p.avatar,
     'stats',     coalesce(p.stats, '{}'::jsonb),
     'hero',      (select s.hero from public.jump_scores s where s.device = v_dev order by (s.mode = 'all') desc, s.score desc limit 1),
     'best',      v_all,
@@ -564,7 +600,8 @@ begin
                      and not exists (select 1 from public.jump_scores o where o.mode = 'daily'
                                       and o.day = s.day and o.score > s.score)),
     'chat',      (select count(*) from public.jump_chat c where c.device = v_dev and not c.hidden),
-    'level',     p.level
+    'level',     p.level,
+    'last_played', p.last_played
   );
 end $$;
 
@@ -579,6 +616,72 @@ alter table public.jump_scores  add column if not exists level int;
 alter table public.jump_chat    add column if not exists level int;
 grant select (pid, name, score, hero, mode, day, updated_at, coins, progress, level) on public.jump_scores to anon;
 grant select (id, pid, name, hero, msg, created_at, level) on public.jump_chat to anon;
+
+-- ── v10 : heure de la dernière partie du joueur ────────────────────────────
+alter table public.jump_players add column if not exists last_played timestamptz;
+alter table public.jump_scores  add column if not exists last_played timestamptz;
+-- Initialisation : dernière amélioration connue
+update public.jump_scores s set last_played = s.updated_at where s.last_played is null;
+update public.jump_players p set last_played = (select max(s.updated_at) from public.jump_scores s where s.device = p.device)
+ where p.last_played is null;
+grant select (pid, name, score, hero, mode, day, updated_at, coins, progress, level, last_played) on public.jump_scores to anon;
+
+-- ── v11 : « record battu » ─────────────────────────────────────────────────
+-- Renvoie (et efface) les joueurs qui m'ont dépassé et sont toujours devant moi.
+create or replace function public.jump_overtakes_get(p_device text, p_sig text)
+returns table(by_name text, score int, created_at timestamptz)
+language plpgsql security definer set search_path = public, extensions as $$
+#variable_conflict use_column
+declare
+  v_salt constant text := 'rj-lb#9d2e-foc';
+  v_me   int;
+begin
+  if p_sig is distinct from encode(extensions.digest(v_salt || '|' || p_device || '|overtakes', 'sha256'), 'hex') then
+    raise exception 'signature invalide';
+  end if;
+  delete from public.jump_overtakes o where o.created_at < now() - interval '14 days';
+  select s.score into v_me from public.jump_scores s
+   where s.device = p_device and s.mode = 'all' and s.day = date '2000-01-01';
+  return query
+    with d as (delete from public.jump_overtakes o where o.device = p_device
+               returning o.by_device, o.by_name, o.created_at)
+    select coalesce(p.name, d.by_name), s.score, d.created_at
+      from d
+      join public.jump_scores s on s.device = d.by_device and s.mode = 'all' and s.day = date '2000-01-01'
+      left join public.jump_players p on p.device = d.by_device
+     where s.score > coalesce(v_me, 0)
+     order by s.score desc
+     limit 20;
+end $$;
+revoke all on function public.jump_overtakes_get(text, text) from public, authenticated;
+grant execute on function public.jump_overtakes_get(text, text) to anon;
+
+-- ── v12 : avatars façon Mii (8 caractères : peau, visage, coiffure, couleur, yeux, bouche, accessoire, fond) ──
+alter table public.jump_players add column if not exists avatar text;
+alter table public.jump_scores  add column if not exists avatar text;
+alter table public.jump_chat    add column if not exists avatar text;
+grant select (pid, name, score, hero, mode, day, updated_at, coins, progress, level, last_played, avatar) on public.jump_scores to anon;
+grant select (id, pid, name, hero, msg, created_at, level, avatar) on public.jump_chat to anon;
+
+create or replace function public.set_jump_avatar(p_device text, p_avatar text, p_sig text)
+returns void
+language plpgsql security definer set search_path = public, extensions as $$
+#variable_conflict use_column
+declare
+  v_salt constant text := 'rj-lb#9d2e-foc';
+  v_av   text := nullif(p_avatar, '');
+begin
+  if p_sig is distinct from encode(extensions.digest(v_salt || '|' || p_device || '|' || coalesce(p_avatar, ''), 'sha256'), 'hex') then
+    raise exception 'signature invalide';
+  end if;
+  if length(p_device) <> 32 then raise exception 'appareil invalide'; end if;
+  if v_av is not null and v_av !~ '^[0-9a-z]{8}$' then raise exception 'avatar invalide'; end if;
+  update public.jump_players set avatar = v_av where device = p_device;
+  update public.jump_scores  set avatar = v_av where device = p_device and avatar is distinct from v_av;
+  update public.jump_chat    set avatar = v_av where device = p_device and avatar is distinct from v_av;
+end $$;
+revoke all on function public.set_jump_avatar(text, text, text) from public, authenticated;
+grant execute on function public.set_jump_avatar(text, text, text) to anon;
 
 -- Note « Security Advisor » : les avertissements « Public Can Execute SECURITY
 -- DEFINER Function » sont VOULUS — l'appli (rôle anon) doit pouvoir appeler ces

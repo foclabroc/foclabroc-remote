@@ -48,7 +48,9 @@ class LbEntry {
   final int? coins;
   final int? progress; // progress in %
   final int? level; // player level (1 to 99)
-  const LbEntry(this.pid, this.name, this.score, this.hero, [this.coins, this.progress, this.level]);
+  final String? avatar; // Mii-style avatar (8 characters)
+  final DateTime? lastPlayed; // time of the last game
+  const LbEntry(this.pid, this.name, this.score, this.hero, [this.coins, this.progress, this.level, this.lastPlayed, this.avatar]);
 }
 
 class LbRank {
@@ -75,7 +77,16 @@ class LbChatMsg {
   final String msg;
   final DateTime at;
   final int? level;
-  const LbChatMsg(this.id, this.pid, this.name, this.hero, this.msg, this.at, [this.level]);
+  final String? avatar;
+  const LbChatMsg(this.id, this.pid, this.name, this.hero, this.msg, this.at, [this.level, this.avatar]);
+}
+
+/// « Record battu » : un joueur qui m'a dépassé au classement général.
+class LbOvertake {
+  final String name;
+  final int score;
+  final DateTime? at;
+  const LbOvertake(this.name, this.score, this.at);
 }
 
 class LbBoard {
@@ -278,7 +289,7 @@ class Leaderboard {
       await flushPending();
       final dev = await deviceId();
       final rows = await _call('GET',
-          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level&mode=eq.$mode&day=eq.$day'
+          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level,last_played,avatar&mode=eq.$mode&day=eq.$day'
           '&order=score.desc,updated_at.asc&limit=50');
       final me = await _rpc('jump_rank', {'p_device': dev, 'p_mode': mode, 'p_day': day});
       return LbBoard([
@@ -286,7 +297,8 @@ class Leaderboard {
           LbEntry(r['pid'] as String? ?? '', r['name'] as String? ?? '?',
               (r['score'] as num?)?.toInt() ?? 0, ((r['hero'] as num?)?.toInt() ?? 0),
               (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(),
-              (r['level'] as num?)?.toInt()),
+              (r['level'] as num?)?.toInt(), DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(),
+              r['avatar'] as String?),
       ], _rankFrom(me));
     } catch (_) {
       return null;
@@ -351,7 +363,7 @@ class Leaderboard {
     if (!configured) return null;
     try {
       final rows = await _call('GET',
-          '/rest/v1/jump_chat?select=id,pid,name,hero,msg,created_at,level'
+          '/rest/v1/jump_chat?select=id,pid,name,hero,msg,created_at,level,avatar'
           '${afterId > 0 ? '&id=gt.$afterId' : ''}&order=id.desc&limit=60');
       final prefs = await SharedPreferences.getInstance();
       final hidden = (prefs.getStringList(_kChatHiddenKey) ?? const []).toSet();
@@ -361,7 +373,7 @@ class Leaderboard {
             LbChatMsg((r['id'] as num).toInt(), r['pid'] as String? ?? '', r['name'] as String? ?? '?',
                 (r['hero'] as num?)?.toInt() ?? 0, r['msg'] as String? ?? '',
                 DateTime.tryParse(r['created_at'] as String? ?? '')?.toLocal() ?? DateTime.now(),
-                (r['level'] as num?)?.toInt()),
+                (r['level'] as num?)?.toInt(), r['avatar'] as String?),
       ];
     } catch (_) {
       return null;
@@ -429,6 +441,17 @@ class Leaderboard {
     await prefs.setInt(_kChatSeenKey, id);
   }
 
+  /// Mii-style avatar ('' = removed), sent only when it changed.
+  static String? _lastAvatar;
+  static Future<void> setAvatar(String code) async {
+    if (!configured || code == _lastAvatar) return;
+    try {
+      final dev = await deviceId();
+      await _rpc('set_jump_avatar', {'p_device': dev, 'p_avatar': code, 'p_sig': _sig([dev, code])});
+      _lastAvatar = code;
+    } catch (_) {}
+  }
+
   /// Player's public stats (sent only when they changed).
   static String? _lastStats;
   static Future<void> setStats(Map<String, int> stats) async {
@@ -441,6 +464,23 @@ class Leaderboard {
       await _rpc('set_jump_stats', {'p_device': dev, 'p_stats': data, 'p_sig': _sig([dev, h])});
       _lastStats = data;
     } catch (_) {}
+  }
+
+  /// Joueurs qui m'ont dépassé au classement général depuis la dernière visite
+  /// (vidé côté serveur une fois lu) ; liste vide si hors ligne.
+  static Future<List<LbOvertake>> overtakes() async {
+    if (!configured) return const [];
+    try {
+      final dev = await deviceId();
+      final rows = await _rpc('jump_overtakes_get', {'p_device': dev, 'p_sig': _sig([dev, 'overtakes'])});
+      return [
+        for (final r in (rows as List? ?? const []))
+          LbOvertake(r['by_name'] as String? ?? '?', (r['score'] as num?)?.toInt() ?? 0,
+              DateTime.tryParse(r['created_at'] as String? ?? '')?.toLocal()),
+      ];
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// A player's public card (stats, ranks); null when offline.
@@ -460,7 +500,7 @@ class Leaderboard {
     try {
       final q = Uri.encodeComponent('@$name');
       final rows = await _call('GET',
-          '/rest/v1/jump_chat?select=id,pid,name,hero,msg,created_at,level'
+          '/rest/v1/jump_chat?select=id,pid,name,hero,msg,created_at,level,avatar'
           '&id=gt.$afterId&msg=ilike.*$q*&order=id.desc&limit=20');
       return [
         for (final r in (rows as List))
@@ -468,7 +508,7 @@ class Leaderboard {
             LbChatMsg((r['id'] as num).toInt(), r['pid'] as String? ?? '', r['name'] as String? ?? '?',
                 (r['hero'] as num?)?.toInt() ?? 0, r['msg'] as String? ?? '',
                 DateTime.tryParse(r['created_at'] as String? ?? '')?.toLocal() ?? DateTime.now(),
-                (r['level'] as num?)?.toInt()),
+                (r['level'] as num?)?.toInt(), r['avatar'] as String?),
       ];
     } catch (_) {
       return null;
@@ -485,6 +525,26 @@ class Leaderboard {
   static Future<void> setMentionSeen(int id) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kMentionSeenKey, id);
+  }
+
+  /// Next leaderboard page (offset = rows already shown); null when offline.
+  static Future<List<LbEntry>?> fetchPage(String mode, String day, int offset, [int limit = 50]) async {
+    if (!configured) return null;
+    try {
+      final rows = await _call('GET',
+          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level,last_played,avatar&mode=eq.$mode&day=eq.$day'
+          '&order=score.desc,updated_at.asc&limit=$limit&offset=$offset');
+      return [
+        for (final r in (rows as List))
+          LbEntry(r['pid'] as String? ?? '', r['name'] as String? ?? '?',
+              (r['score'] as num?)?.toInt() ?? 0, ((r['hero'] as num?)?.toInt() ?? 0),
+              (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(),
+              (r['level'] as num?)?.toInt(), DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(),
+              r['avatar'] as String?),
+      ];
+    } catch (_) {
+      return null;
+    }
   }
 
   static const renameOk = 0;      // saved
