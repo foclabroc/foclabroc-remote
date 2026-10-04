@@ -38,6 +38,9 @@ const _kChallengeLvlKey = 'jump_challenge_level';
 const _kNeonKey       = 'jump_neon';
 const _kHapticsKey    = 'jump_haptics';
 const _kTiltKey       = 'jump_tilt';
+const _kGhostKey      = 'jump_ghost';      // fantôme du n°1 affiché (partie du jour)
+const _kSensTouchKey  = 'jump_sens_touch'; // sensibilité tactile (0,7 à 1,3)
+const _kSensTiltKey   = 'jump_sens_tilt';  // sensibilité inclinaison (0,5 à 2)
 const _kThemeKey       = 'jump_theme';
 const _kThemeUnlockKey = 'jump_theme_unlocked';
 const _kThemeV2Key     = 'jump_theme_v2'; // theme numbers after removing "Red"
@@ -717,6 +720,14 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   bool _freeContinue = false; // « rejouer » offert par la roue (prochaine partie)
   bool _haptics = true;
   bool _tilt = false;
+  bool _ghostOn = true;
+  double _sensTouch = 1.0, _sensTilt = 1.0;
+  bool _msgOpen = false;  // feuille Messages (chat) ouverte
+  int _questTab = 0;      // Quêtes : 0 défis, 1 trophées, 2 collection
+  Set<String> _trHave = {};
+  Map<String, int> _trSnap = {};
+  bool _splashOn = true, _splashGone = false, _wheelAtStart = false;
+  List<LbEntry> _podium = const []; // 3 meilleurs scores (écran de démarrage)
   int _musicTrack = 0;
   Set<int> _musicUnlocked = {0};
   List<int> _collection = List<int>.filled(_logoAssets.length, 0);
@@ -737,7 +748,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     super.initState();
     // Suggestions @pseudo mises à jour pendant la saisie
     _chatCtrl.addListener(() {
-      if (mounted && _sheetCtx != null && _lbTab == 3) setState(() {});
+      if (mounted && _sheetCtx != null && _msgOpen) setState(() {});
     });
     // Musique dès l'ouverture du jeu (accueil compris), une fois le morceau choisi connu
     _load().then((_) => QuizAudio.loadPrefs()).then((_) {
@@ -745,12 +756,33 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       setState(() {});
       QuizAudio.musicStart(_musicTrack);
       _chatCheckNew();
-      // Free daily spin not used yet: the wheel opens by itself (once, on opening)
-      if (_wheelReady) {
-        Future.delayed(const Duration(milliseconds: 450), () {
-          if (mounted && _wheelReady && ModalRoute.of(context)?.isCurrent == true) _openWheel();
-        });
-      }
+      // Tour gratuit du jour pas encore joué : la roue s'ouvrira après l'écran de démarrage
+      _wheelAtStart = _wheelReady;
+      if (!_splashOn) _wheelAfterSplash();
+    });
+    // Écran de démarrage : reste affiché jusqu'à ce que le joueur touche l'écran
+    _loadPodium();
+  }
+
+  /// Podium de l'écran de démarrage : 3 meilleurs scores de tous les temps.
+  Future<void> _loadPodium() async {
+    if (!Leaderboard.configured) return;
+    final b = await Leaderboard.fetch('all', lbAllDay);
+    if (b == null || !mounted || !_splashOn) return;
+    setState(() => _podium = b.top.where((e) => e.score > 0).take(3).toList());
+  }
+
+  void _endSplash() {
+    if (!mounted || !_splashOn || _loading) return; // pas avant la fin du chargement
+    setState(() => _splashOn = false);
+    _wheelAfterSplash();
+  }
+
+  void _wheelAfterSplash() {
+    if (!_wheelAtStart) return;
+    _wheelAtStart = false;
+    Future.delayed(const Duration(milliseconds: 650), () {
+      if (mounted && _wheelReady && ModalRoute.of(context)?.isCurrent == true) _openWheel();
     });
   }
 
@@ -819,6 +851,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       if (!_trailUnlocked.contains(_trail)) _trail = 0;
       _haptics   = prefs.getBool(_kHapticsKey) ?? true;
       _tilt      = prefs.getBool(_kTiltKey) ?? false;
+      _ghostOn   = prefs.getBool(_kGhostKey) ?? true;
+      _sensTouch = (prefs.getDouble(_kSensTouchKey) ?? 1.0).clamp(0.7, 1.3).toDouble();
+      _sensTilt  = (prefs.getDouble(_kSensTiltKey) ?? 1.0).clamp(0.5, 2.0).toDouble();
       _wheelReady = prefs.getString(_kWheelDayKey) != _todayKey();
       _freeContinue = prefs.getBool(_kFreeContKey) ?? false;
       try {
@@ -1824,6 +1859,37 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     await prefs.setBool(_kTiltKey, v);
   }
 
+  Future<void> _setGhost(bool v) async {
+    setState(() => _ghostOn = v);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kGhostKey, v);
+  }
+
+  Future<void> _saveSens() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_kSensTouchKey, _sensTouch);
+    await prefs.setDouble(_kSensTiltKey, _sensTilt);
+  }
+
+  Widget _sensSlider(IconData icon, Color color, String label, double value, double lo, double hi,
+      ValueChanged<double> onChanged) {
+    return Row(children: [
+      Icon(icon, color: color, size: 20),
+      const SizedBox(width: 8),
+      SizedBox(width: 84, child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13))),
+      Expanded(child: Slider(
+        value: value.clamp(lo, hi).toDouble(),
+        min: lo,
+        max: hi,
+        divisions: ((hi - lo) * 20).round(),
+        onChanged: onChanged,
+        onChangeEnd: (_) => _saveSens(),
+      )),
+      SizedBox(width: 46, child: Text('${(value * 100).round()} %', textAlign: TextAlign.right,
+          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w800))),
+    ]);
+  }
+
   Future<void> _startGame({bool daily = false}) async {
     // Bonus : payés maintenant, appliqués à cette partie seulement
     // (partie du jour : ni bonus ni continue, ils restent pour la prochaine partie normale)
@@ -1864,6 +1930,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         trail: _trail,
         haptics: _haptics,
         tilt: _tilt,
+        ghost: _ghostOn,
+        touchSens: _sensTouch,
+        tiltSens: _sensTilt,
         completed: Set<String>.of(_completed),
         challengeLevel: _challengeLevel,
         startPts: (bonus.contains(0) ? 500 : 0) + (bonus.contains(1) ? 1000 : 0),
@@ -1886,7 +1955,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final doneCount = challenges.where((c) => _completed.contains(c.id)).length;
     final logoCount = _collection.where((n) => n >= _logoGoal).length;
     return Scaffold(
-      body: SafeArea(
+      body: Stack(children: [
+       SafeArea(
         child: Column(children: [
           // En-tête : titre (5 appuis = code secret), pièces, son
           Padding(
@@ -1896,11 +1966,17 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               Expanded(
                 child: GestureDetector(
                   onTap: _onTitleTap,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text('Retro Jump', style: Theme.of(context).textTheme.headlineMedium),
-                  ),
+                  // Titre remonté + signature
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('Retro Jump', style: Theme.of(context).textTheme.headlineMedium?.copyWith(height: 1.0)),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text('by foclabroc',
+                        style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                  ]),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1922,7 +1998,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               const SizedBox(width: 8),
               // Trophées (avec le nombre débloqué)
               _hdrItem('Trophies', GestureDetector(
-                onTap: _openTrophies,
+                onTap: () => _openQuests(1),
                 child: Container(
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -2008,6 +2084,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                             title: 'Daily challenge',
                             badge: _dailyBest == 0,
                             trailing: Icons.play_arrow_rounded,
+                            subW: const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Ends in '),
                             onTap: _openDaily,
                           )),
                           const SizedBox(width: 8),
@@ -2015,7 +2092,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                             icon: Icons.leaderboard_rounded,
                             color: Colors.amberAccent,
                             title: 'Leaderboard',
-                            badge: _chatNew || _chatMention,
                             onTap: _openLeaderboard,
                           )),
                         ]),
@@ -2147,16 +2223,36 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             child: Row(children: [
               _navButton(Icons.storefront_rounded, 'Shop', Colors.pinkAccent,
                   '${_unlocked.length + _themeUnlocked.length + _musicUnlocked.length}', _openShop),
-              _navButton(Icons.military_tech_rounded, 'Challenges', Colors.amberAccent,
-                  '$doneCount/${challenges.length}', _openChallenges),
-              _navButton(Icons.collections_bookmark_rounded, 'Collection', Colors.lightBlueAccent,
-                  '$logoCount/${_logoAssets.length}', _openCollection),
+              _navButton(Icons.military_tech_rounded, 'Quests', Colors.amberAccent,
+                  '$doneCount/${challenges.length}', _openQuests),
+              _navButton(Icons.chat_bubble_rounded, 'Messages', Colors.lightGreenAccent,
+                  _chatMention ? '@' : (_chatNew ? 'NEW' : null), _openMessages),
               _navButton(Icons.casino_rounded, 'Wheel', Colors.purpleAccent, _wheelReady ? '1' : null, _openWheel),
               _navButton(Icons.settings_rounded, 'Settings', Colors.cyanAccent, null, _openSettings),
             ]),
           ),
         ]),
       ),
+       // Écran de démarrage (fondu à la fin du chargement)
+       if (!_splashGone)
+         Positioned.fill(
+           child: IgnorePointer(
+             ignoring: !_splashOn,
+             child: AnimatedOpacity(
+               opacity: _splashOn ? 1 : 0,
+               duration: const Duration(milliseconds: 450),
+               onEnd: () {
+                 if (!_splashOn && mounted) setState(() => _splashGone = true);
+               },
+               child: GestureDetector(
+                 onTap: _endSplash,
+                 child: _SplashView(hero: _hero, loading: _loading, podium: _podium, podiumTitle: 'TOP SCORES',
+                     title1: 'RETRO', title2: 'JUMP', loadingText: 'Loading…', tapText: 'Tap to start'),
+               ),
+             ),
+           ),
+         ),
+      ]),
     );
   }
 
@@ -2289,8 +2385,11 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       ),
     ).whenComplete(() {
       // Une autre feuille a pu s'ouvrir entre-temps : on ne l'oublie pas
-      if (_sheetCtx == mine) _sheetCtx = null;
-      _chatStop(); // plus de rafraîchissement du chat une fois la feuille fermée
+      if (_sheetCtx == mine) {
+        _sheetCtx = null;
+        _msgOpen = false;
+        _chatStop(); // plus de rafraîchissement du chat une fois la feuille fermée
+      }
     });
   }
 
@@ -2326,6 +2425,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     required Color color,
     required String title,
     String? sub,
+    Widget? subW,
     required VoidCallback onTap,
     IconData trailing = Icons.chevron_right_rounded,
     bool badge = false,
@@ -2375,6 +2475,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 maxLines: 1,
                 style: TextStyle(color: color.withOpacity(0.9), fontSize: 13, fontWeight: FontWeight.w700)),
           ),
+          if (subW != null) ...[
+            const SizedBox(height: 5),
+            subW,
+          ],
         ]),
       ),
     );
@@ -2604,7 +2708,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _openLeaderboard() {
     _lbBoard = null;
     if (Leaderboard.configured) {
-      _lbTab == 3 ? _chatOpen() : _lbLoad();
+      _lbLoad();
     } else {
       Leaderboard.name().then((n) {
         if (mounted) setState(() => _lbMyName = n);
@@ -2622,12 +2726,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Week', accent)),
         const SizedBox(width: 6),
         Expanded(child: _lbTabBtn(1, Icons.public_rounded, 'Overall', accent)),
-        const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(3, Icons.chat_bubble_rounded, 'Chat', accent, badge: _chatNew || _chatMention)),
       ]);
-      if (_lbTab == 3) {
-        return Column(children: [tabs, const SizedBox(height: 10), _chatView(accent)]);
-      }
       return Column(children: [
         tabs,
         const SizedBox(height: 10),
@@ -2720,12 +2819,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           _lbTab = i;
           _lbBoard = null;
         });
-        if (i == 3) {
-          _chatOpen();
-        } else {
-          _chatStop();
-          _lbLoad();
-        }
+        _lbLoad();
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -2798,7 +2892,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     await _chatLoad();
     // Rafraîchi toutes les 8 s tant que l'onglet est affiché
     _chatTimer = Timer.periodic(const Duration(seconds: 8), (_) {
-      if (!mounted || _sheetCtx == null || _lbTab != 3) {
+      if (!mounted || _sheetCtx == null || !_msgOpen) {
         _chatStop();
         return;
       }
@@ -3573,14 +3667,25 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         _grid(_trailNames.length, (i) => _trailTile(i, accent)), // Mute + tracks, 4 per row
       ]));
 
-  Future<void> _openTrophies() async {
+  /// Trophées débloqués + progression (pour l'onglet Trophées des Quêtes)
+  Future<void> _loadTrophyView() async {
     final prefs = await SharedPreferences.getInstance();
     final have = (prefs.getStringList(_kTrophyKey) ?? const <String>[]).toSet();
     final snap = await _trophySnapshot(prefs);
     snap['best'] = max(snap['best'] ?? 0, _bestScore);
-    if (!mounted) return;
+    if (mounted) {
+      setState(() {
+        _trHave = have;
+        _trSnap = snap;
+      });
+    }
+  }
+
+  Widget _trophiesBody(Color accent) {
+    final have = _trHave;
+    final snap = _trSnap;
     final got = _trophies.where((x) => have.contains(x.id)).length;
-    _openSheet('Trophies', Icons.emoji_events_rounded, const Color(0xFFFFD54F), (accent) => Column(children: [
+    return Column(children: [
           Row(children: [
             Text('$got / ${_trophies.length}',
                 style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
@@ -3614,7 +3719,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 12),
           const Text('Each trophy unlocked gives coins: bronze 25, silver 75, gold 200. They also count in your progress %.', style: TextStyle(color: Colors.white38, fontSize: 12, height: 1.4)),
-        ]));
+        ]);
   }
 
   Widget _trophyTile(_Trophy x, bool got, int value) {
@@ -3664,9 +3769,75 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     );
   }
 
-  void _openChallenges() {
+  // ── Quêtes : Défis / Trophées / Collection ────────────────────────────────
+  void _openQuests([int tab = 0]) {
+    _questTab = tab;
+    _loadTrophyView();
+    _openSheet('Quests', Icons.military_tech_rounded, Colors.amberAccent, (accent) {
+      final ch = _challengesFor(_challengeLevel);
+      return Column(children: [
+        Row(children: [
+          Expanded(child: _questTabBtn(0, Icons.flag_rounded, 'Challenges',
+              '${ch.where((c) => _completed.contains(c.id)).length}/${ch.length}', Colors.amberAccent)),
+          const SizedBox(width: 6),
+          Expanded(child: _questTabBtn(1, Icons.emoji_events_rounded, 'Trophies',
+              '$_trophyCount/${_trophies.length}', const Color(0xFFFFD54F))),
+          const SizedBox(width: 6),
+          Expanded(child: _questTabBtn(2, Icons.collections_bookmark_rounded, 'Collection',
+              '${_collection.where((n) => n >= _logoGoal).length}/${_logoAssets.length}', Colors.lightBlueAccent)),
+        ]),
+        const SizedBox(height: 14),
+        if (_questTab == 0)
+          _challengesBody(accent)
+        else if (_questTab == 1)
+          _trophiesBody(accent)
+        else
+          _collectionBody(accent),
+      ]);
+    });
+  }
+
+  Widget _questTabBtn(int i, IconData icon, String label, String count, Color color) {
+    final sel = _questTab == i;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        if (_questTab == i) return;
+        setState(() => _questTab = i);
+        if (i == 1) _loadTrophyView();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: sel ? color.withOpacity(0.16) : const Color(0xFF1C2230),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: sel ? color : Colors.white.withOpacity(0.06)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 19, color: sel ? color : Colors.white54),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, maxLines: 1,
+                style: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+          Text(count, style: TextStyle(color: sel ? color : Colors.white38, fontSize: 10.5, fontWeight: FontWeight.w800)),
+        ]),
+      ),
+    );
+  }
+
+  // ── Messages (chat), ouverts depuis la barre du bas ──────────────────────
+  void _openMessages() {
+    if (!Leaderboard.configured) return;
+    _msgOpen = true;
+    _chatOpen();
+    _openSheet('Messages', Icons.chat_bubble_rounded, Colors.lightGreenAccent, (accent) => _chatView(accent));
+  }
+
+  Widget _challengesBody(Color accent) {
     final challenges = _challengesFor(_challengeLevel);
-    _openSheet('Challenges', Icons.military_tech_rounded, Colors.amberAccent, (accent) => Column(children: [
+    return Column(children: [
           Row(children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -3684,11 +3855,10 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           const SizedBox(height: 8),
           for (final c in challenges)
             _ChallengeRow(challenge: c, done: _completed.contains(c.id)),
-        ]));
+        ]);
   }
 
-  void _openCollection() => _openSheet('Collection', Icons.collections_bookmark_rounded, Colors.lightBlueAccent,
-      (accent) => Column(children: [
+  Widget _collectionBody(Color accent) => Column(children: [
             Row(children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -3738,7 +3908,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             Text('Catch each logo $_logoGoal times along the way to complete its slot.',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.white38, fontSize: 12)),
-          ]));
+          ]);
 
   void _openSettings() => _openSheet('Settings', Icons.settings_rounded, Colors.cyanAccent, (accent) => Column(children: [
         _section('Options'),
@@ -3747,12 +3917,20 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               label: 'Vibration', value: _haptics, accent: accent, onTap: () => _setHaptics(!_haptics))),
           Expanded(child: _OptionTile(icon: Icons.screen_rotation_rounded, color: Colors.lightGreenAccent,
               label: 'Tilt', value: _tilt, accent: accent, onTap: () => _setTilt(!_tilt))),
+          Expanded(child: _OptionTile(icon: Icons.blur_on_rounded, color: Colors.white70,
+              label: 'Ghost', value: _ghostOn, accent: accent, onTap: () => _setGhost(!_ghostOn))),
           Expanded(child: _OptionTile(
               icon: QuizAudio.enabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
               color: Colors.amberAccent,
               label: 'Sound', value: QuizAudio.enabled, accent: accent,
               onTap: () => setState(() => QuizAudio.enabled = !QuizAudio.enabled))),
         ]),
+        _section('Sensitivity'),
+        _sensSlider(Icons.touch_app_rounded, Colors.cyanAccent, 'Touch', _sensTouch, 0.7, 1.3,
+            (v) => setState(() => _sensTouch = v)),
+        _sensSlider(Icons.screen_rotation_rounded, Colors.lightGreenAccent, 'Tilt', _sensTilt, 0.5, 2.0,
+            (v) => setState(() => _sensTilt = v)),
+        Text('Touch: movement speed and responsiveness · Tilt: the higher, the less you need to tilt', style: const TextStyle(color: Colors.white38, fontSize: 11)),
         _section('Save'),
         Row(children: [
           Expanded(child: _saveButton(Icons.save_rounded, 'Save', Colors.greenAccent, _saveProgress)),
@@ -3814,7 +3992,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         text: 'New scenery every 400 pts: castle, dungeon, temple, ice, volcano, cyber, space…'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.shield_rounded, color: Colors.cyanAccent,
-                        text: 'Shield 🛡️ → protects you from one bug hit'),
+                        text: 'Shield 🛡️ → protects you from one bug hit. A 2nd one goes in reserve: tap the bubble at the bottom to use it'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.replay_rounded, color: Colors.amberAccent,
                         text: 'Game over? Continue for 20 coins (once per game)'),
@@ -3920,6 +4098,268 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
 }
 
 // ─── Small widgets ───────────────────────────────────────────────────────────
+
+/// Temps restant avant le prochain défi du jour (minuit, heure du téléphone).
+class _DailyCountdown extends StatefulWidget {
+  final Color color;
+  final String prefix;
+  const _DailyCountdown({required this.color, required this.prefix});
+
+  @override
+  State<_DailyCountdown> createState() => _DailyCountdownState();
+}
+
+class _DailyCountdownState extends State<_DailyCountdown> {
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final left = DateTime(now.year, now.month, now.day + 1).difference(now);
+    String two(int v) => v.toString().padLeft(2, '0');
+    final txt = '${two(left.inHours)}:${two(left.inMinutes % 60)}:${two(left.inSeconds % 60)}';
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text('${widget.prefix}$txt',
+          maxLines: 1,
+          style: TextStyle(
+            color: widget.color.withOpacity(0.9),
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          )),
+    );
+  }
+}
+
+/// Écran de démarrage : ciel de nuit, titre, héros qui rebondit sur une cartouche.
+class _SplashView extends StatefulWidget {
+  final int hero;
+  final bool loading;
+  final List<LbEntry> podium;   // 3 meilleurs scores (vide tant que non chargés)
+  final String podiumTitle;
+  final String title1, title2, loadingText, tapText;
+  const _SplashView({required this.hero, required this.loading, required this.title1, required this.title2,
+      required this.loadingText, required this.tapText, this.podium = const [], this.podiumTitle = ''});
+
+  @override
+  State<_SplashView> createState() => _SplashViewState();
+}
+
+class _SplashViewState extends State<_SplashView> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  /// Podium : 2ᵉ à gauche, 1ᵉʳ au centre (plus haut), 3ᵉ à droite.
+  Widget _podiumView() {
+    const colors = [Color(0xFFFFD54F), Color(0xFFCFD8DC), Color(0xFFCD7F32)];
+    const heights = [78.0, 56.0, 40.0];
+    Widget place(int i) {
+      if (i >= widget.podium.length) return const SizedBox(width: 104);
+      final e = widget.podium[i];
+      final c = colors[i];
+      return SizedBox(
+        width: 104,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (i == 0) const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD54F), size: 22),
+          SizedBox(width: 40, height: 34,
+              child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1)))),
+          const SizedBox(height: 4),
+          Text(e.name,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: c, fontSize: 13, fontWeight: FontWeight.w800)),
+          Text(_fmtNum(e.score),
+              style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Container(
+            width: 96,
+            height: heights[i],
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [c.withOpacity(0.85), c.withOpacity(0.35)],
+              ),
+              boxShadow: [BoxShadow(color: c.withOpacity(0.35), blurRadius: 14)],
+            ),
+            child: Text('${i + 1}',
+                style: const TextStyle(color: Color(0xFF0D0F14), fontSize: 26, fontWeight: FontWeight.w900)),
+          ),
+        ]),
+      );
+    }
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(widget.podiumTitle,
+          style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2)),
+      const SizedBox(height: 8),
+      Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+        place(1),
+        const SizedBox(width: 4),
+        place(0),
+        const SizedBox(width: 4),
+        place(2),
+      ]),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF0D1B3E), Color(0xFF1A2A5E), Color(0xFF0D0F14)],
+          stops: [0, 0.6, 1],
+        ),
+      ),
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) {
+          final t = _c.value;
+          final jump = sin(t * pi);                // 0 → 1 → 0 : un saut par cycle
+          final squash = t < 0.12 || t > 0.88 ? 1.0 - jump : 0.0;
+          return CustomPaint(
+            painter: _SplashSkyPainter(_c.lastElapsedDuration?.inMilliseconds ?? 0),
+            child: SafeArea(
+              child: Column(children: [
+                const Spacer(flex: 3),
+                // Titre
+                ShaderMask(
+                  shaderCallback: (r) => const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFFFFDE7), Color(0xFFFFD54F)],
+                  ).createShader(r),
+                  child: Column(children: [
+                    Text(widget.title1,
+                        style: const TextStyle(color: Colors.white, fontSize: 60, fontWeight: FontWeight.w900, height: 1.0,
+                            letterSpacing: 2, shadows: [Shadow(color: Color(0xFF0D0F14), blurRadius: 0, offset: Offset(0, 5))])),
+                    Text(widget.title2,
+                        style: const TextStyle(color: Colors.white, fontSize: 72, fontWeight: FontWeight.w900, height: 1.0,
+                            letterSpacing: 4, shadows: [Shadow(color: Color(0xFF0D0F14), blurRadius: 0, offset: Offset(0, 6))])),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+                const Text('by foclabroc',
+                    style: TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+                const Spacer(flex: 1),
+                // Héros qui rebondit + cartouche (réduit si l'écran est petit)
+                Expanded(flex: 4, child: FittedBox(child: SizedBox(
+                  width: 160,
+                  height: 190,
+                  child: Stack(alignment: Alignment.bottomCenter, children: [
+                    Positioned(
+                      bottom: 22 + jump * 110,
+                      child: Transform.scale(
+                        scaleX: 1 + squash * 0.15,
+                        scaleY: 1 - squash * 0.15,
+                        alignment: Alignment.bottomCenter,
+                        child: SizedBox(width: 84, height: 72,
+                            child: CustomPaint(painter: _HeroPreviewPainter(widget.hero))),
+                      ),
+                    ),
+                    Container(
+                      width: 130, height: 18,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEC407A),
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: [BoxShadow(color: const Color(0xFFEC407A).withOpacity(0.5), blurRadius: 18)],
+                      ),
+                    ),
+                  ]),
+                ))),
+                const SizedBox(height: 14),
+                // Podium des 3 meilleurs scores (apparaît dès qu'il est chargé)
+                AnimatedOpacity(
+                  opacity: widget.podium.isEmpty ? 0 : 1,
+                  duration: const Duration(milliseconds: 500),
+                  child: SizedBox(
+                    height: 190,
+                    child: FittedBox(child: _podiumView()),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                // Chargement
+                SizedBox(
+                  width: 160,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: widget.loading
+                        ? const LinearProgressIndicator(minHeight: 4, backgroundColor: Colors.white10, color: Color(0xFFFFD54F))
+                        : const LinearProgressIndicator(value: 1, minHeight: 4, backgroundColor: Colors.white10, color: Color(0xFFFFD54F)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Opacity(
+                  opacity: widget.loading ? 0.6 : 0.45 + 0.55 * (0.5 + 0.5 * sin(t * 2 * pi)),
+                  child: Text(widget.loading ? widget.loadingText : widget.tapText,
+                      style: TextStyle(
+                        color: widget.loading ? Colors.white38 : const Color(0xFFFFD54F),
+                        fontSize: widget.loading ? 12 : 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                      )),
+                ),
+                const SizedBox(height: 28),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Étoiles qui scintillent + lune (écran de démarrage).
+class _SplashSkyPainter extends CustomPainter {
+  final int ms;
+  _SplashSkyPainter(this.ms);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = Random(7);
+    final tw = ms / 1000.0;
+    for (int i = 0; i < 70; i++) {
+      final x = r.nextDouble() * size.width, y = r.nextDouble() * size.height * 0.85;
+      final a = 0.25 + 0.6 * (0.5 + 0.5 * sin(tw * (1 + r.nextDouble() * 2) + i));
+      canvas.drawCircle(Offset(x, y), 0.6 + r.nextDouble() * 1.6, Paint()..color = Colors.white.withOpacity(a.clamp(0.0, 1.0)));
+    }
+    final moon = Offset(size.width * 0.82, size.height * 0.12);
+    canvas.drawCircle(moon, 60, Paint()
+      ..shader = RadialGradient(colors: [const Color(0xFFFFF59D).withOpacity(0.35), const Color(0x00FFF59D)])
+          .createShader(Rect.fromCircle(center: moon, radius: 60)));
+    canvas.drawCircle(moon, 26, Paint()..color = const Color(0xFFF5F5DC));
+    canvas.drawCircle(moon + const Offset(-8, -5), 5, Paint()..color = Colors.black.withOpacity(0.12));
+    canvas.drawCircle(moon + const Offset(9, 8), 6.5, Paint()..color = Colors.black.withOpacity(0.12));
+  }
+
+  @override
+  bool shouldRepaint(covariant _SplashSkyPainter old) => old.ms != ms;
+}
 
 /// Pastille de niveau (couleur du rang).
 class _LevelBadge extends StatelessWidget {
@@ -4429,6 +4869,9 @@ class _JumpGame extends StatefulWidget {
   final int trail; // chosen jump trail
   final bool haptics;
   final bool tilt;
+  final bool ghost;        // fantôme du n°1 (partie du jour)
+  final double touchSens;  // sensibilité tactile
+  final double tiltSens;   // sensibilité inclinaison
   final Set<String> completed;
   final int challengeLevel;
   final int startPts;      // bonus : départ propulsé jusqu'à cette hauteur
@@ -4444,6 +4887,9 @@ class _JumpGame extends StatefulWidget {
     this.trail = 0,
     required this.haptics,
     required this.tilt,
+    this.ghost = true,
+    this.touchSens = 1.0,
+    this.tiltSens = 1.0,
     required this.completed,
     required this.challengeLevel,
     this.startPts = 0,
@@ -4545,6 +4991,8 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
   double _startY = 0, _maxHeight = 0;
   double _turbo = 0;
   bool _shield = false;
+  bool _shieldReserve = false; // 2ᵉ bouclier ramassé : en réserve (bulle en bas, touche pour l'activer)
+  Rect _reserveRect = Rect.zero;
   double _invuln = 0;
   double _squash = 0;
   double _time = 0; // horloge d'animation
@@ -4588,9 +5036,11 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             // Filtre passe-bas pour lisser les tremblements
             _tiltX = _tiltX * 0.6 + e.x * 0.4;
             final v = -_tiltX; // téléphone penché à droite → x négatif
+            // Sensibilité : plus elle est haute, moins il faut pencher pour la vitesse max
+            final full = max(_tiltDead + 0.3, _tiltFull / widget.tiltSens);
             _tiltDir = v.abs() < _tiltDead
                 ? 0.0
-                : ((v.abs() - _tiltDead) / (_tiltFull - _tiltDead)).clamp(0.0, 1.0).toDouble() * v.sign;
+                : ((v.abs() - _tiltDead) / (full - _tiltDead)).clamp(0.0, 1.0).toDouble() * v.sign;
           },
           onError: (_) {},
           cancelOnError: true,
@@ -4612,7 +5062,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         if (b.top[i].pid != me && b.top[i].score > 0) (b.top[i].score, b.top[i].name, i + 1),
     ];
     if (mounted) setState(() => _rivals = list.take(20).toList());
-    if (day != null) {
+    if (day != null && widget.ghost) {
       final g = await Leaderboard.topGhost(day);
       if (g == null || !mounted || g.data.length < 12) return;
       final n = g.data.length ~/ 6;
@@ -4782,6 +5232,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     _bannerT = 0;
     _turbo = 0;
     _shield = false;
+    _shieldReserve = false;
     _invuln = 0;
     _squash = 0;
     _vx = 0;
@@ -4930,12 +5381,14 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
 
     // Horizontal (accélération douce + passage d'un bord à l'autre)
     // Le tactile reste prioritaire ; sinon l'inclinaison (si activée)
-    final dir = _pointers.isNotEmpty || !widget.tilt ? _dir.toDouble() : _tiltDir;
-    final target = dir * _moveSpeed * (widget.hero == 1 ? 1.12 : 1.0); // Joystick
+    final touch = _pointers.isNotEmpty || !widget.tilt;
+    final dir = touch ? _dir.toDouble() : _tiltDir;
+    final ts = touch ? widget.touchSens : 1.0; // sensibilité tactile : vitesse + réactivité
+    final target = dir * _moveSpeed * ts * (widget.hero == 1 ? 1.12 : 1.0); // Joystick
     if (_vx < target) {
-      _vx = min(target, _vx + _moveAccel * _grip * dt);
+      _vx = min(target, _vx + _moveAccel * ts * _grip * dt);
     } else if (_vx > target) {
-      _vx = max(target, _vx - _moveAccel * _grip * dt);
+      _vx = max(target, _vx - _moveAccel * ts * _grip * dt);
     }
     _x += _vx * dt;
     if (_weather == 0) _x += _windDir * (80 + 45 * sin(_time * 1.7)) * dt; // wind
@@ -4960,6 +5413,8 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     }
     if (_turbo > 0) {
       _turbo -= dt;
+      // Fin du turbo : 2 s de bouclier (bulle clignotante) pour ne pas retomber sur un bug
+      if (_turbo <= 0 && _launchTo <= 0) _invuln = max(_invuln, 2.0);
       _vy = _launchTo > 0 ? _turboV * 2.5 : _turboV;
       if (_rng.nextDouble() < 0.8) {
         _particles.add(_Particle(
@@ -5106,7 +5561,13 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       final c = Offset(p.x + _platW / 2, p.y - 24);
       if ((c - Offset(_x, _y - _heroH / 2)).distance < 30) {
         p.hasShield = false;
-        _shield = true;
+        if (_shield) {
+          // Déjà protégé : le bouclier part en réserve (1 au maximum)
+          if (!_shieldReserve) _showBanner('🛡️ SHIELD IN RESERVE');
+          _shieldReserve = true;
+        } else {
+          _shield = true;
+        }
         _burst(c, Colors.cyanAccent, 12);
         QuizAudio.sfx('shield');
         _haptic(2);
@@ -5644,6 +6105,11 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
 
   void _onPointerDown(PointerDownEvent e) {
     if (e.localPosition.dy < _topBarH) return; // zone des boutons
+    // Bulle du bouclier en réserve : l'activer (ne compte pas comme un déplacement)
+    if (_shieldReserve && !_paused && _reserveRect.inflate(10).contains(e.localPosition)) {
+      _useReserve();
+      return;
+    }
     if (!_started && !_paused) {
       setState(() => _started = true);
       _vy = _jumpV; // premier saut
@@ -5666,6 +6132,17 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     _pointers.remove(e.pointer);
     _pointers[e.pointer] = e.localPosition.dx;
     _updateDir();
+  }
+
+  void _useReserve() {
+    if (_shield) return; // déjà protégé : la réserve attend
+    setState(() {
+      _shield = true;
+      _shieldReserve = false;
+    });
+    _burst(Offset(_x, _y - _heroH / 2), Colors.cyanAccent, 16);
+    QuizAudio.sfx('shield');
+    _haptic(2);
   }
 
   void _onPointerMove(PointerMoveEvent e) {
@@ -5792,6 +6269,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
   }
 
   Widget _buildGame(double w, double h) {
+    _reserveRect = Rect.fromCenter(center: Offset(w / 2, h - 62), width: 64, height: 64);
     return Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: _onPointerDown,
@@ -5838,6 +6316,34 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             ghost: _ghostPos(),
           ),
         )),
+
+        // Bouclier en réserve (bulle en bas au milieu ; grisée tant qu'un bouclier est actif)
+        if (_shieldReserve)
+          Positioned(
+            left: w / 2 - 32,
+            bottom: 30,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: _shield ? 0.45 : 1,
+                child: Transform.scale(
+                  scale: _shield ? 1.0 : 1.0 + 0.07 * sin(_time * 6),
+                  child: Container(
+                    width: 64, height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(colors: [
+                        Colors.cyanAccent.withOpacity(0.55),
+                        const Color(0xFF006064).withOpacity(0.85),
+                      ]),
+                      border: Border.all(color: Colors.white.withOpacity(0.85), width: 2),
+                      boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(_shield ? 0.2 : 0.6), blurRadius: 18)],
+                    ),
+                    child: const Icon(Icons.shield_rounded, color: Colors.white, size: 32),
+                  ),
+                ),
+              ),
+            ),
+          ),
 
         // Score + record
         Positioned(
