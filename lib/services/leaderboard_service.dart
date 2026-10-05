@@ -49,8 +49,14 @@ class LbEntry {
   final int? progress; // avancement en %
   final int? level; // niveau du joueur (1 à 99)
   final String? avatar; // avatar façon Mii (8 caractères)
+  // Palmarès (classement Général) : coupes de la semaine et médailles
+  final int? gold, silver, bronze, medals;
+  final int? cups; // coupes gagnées (défi semaine)
+  final int? stars; // étoiles du score (n°1 de la semaine)
+  final int? mGold, mSilver, mBronze; // médailles du jour
   final DateTime? lastPlayed; // heure de la dernière partie
-  const LbEntry(this.pid, this.name, this.score, this.hero, [this.coins, this.progress, this.level, this.lastPlayed, this.avatar]);
+  const LbEntry(this.pid, this.name, this.score, this.hero, [this.coins, this.progress, this.level, this.lastPlayed, this.avatar,
+      this.gold, this.silver, this.bronze, this.medals, this.mGold, this.mSilver, this.mBronze, this.stars, this.cups]);
 }
 
 class LbRank {
@@ -289,7 +295,7 @@ class Leaderboard {
       await flushPending();
       final dev = await deviceId();
       final rows = await _call('GET',
-          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level,last_played,avatar&mode=eq.$mode&day=eq.$day'
+          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level,last_played,avatar,cups&mode=eq.$mode&day=eq.$day'
           '&order=score.desc,updated_at.asc&limit=50');
       final me = await _rpc('jump_rank', {'p_device': dev, 'p_mode': mode, 'p_day': day});
       return LbBoard([
@@ -298,7 +304,7 @@ class Leaderboard {
               (r['score'] as num?)?.toInt() ?? 0, ((r['hero'] as num?)?.toInt() ?? 0),
               (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(),
               (r['level'] as num?)?.toInt(), DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(),
-              r['avatar'] as String?),
+              r['avatar'] as String?, null, null, null, null, null, null, null, null, (r['cups'] as num?)?.toInt()),
       ], _rankFrom(me));
     } catch (_) {
       return null;
@@ -441,6 +447,18 @@ class Leaderboard {
     await prefs.setInt(_kChatSeenKey, id);
   }
 
+  /// Mon rang et mon meilleur score sur un classement ; null si hors ligne.
+  static Future<LbRank?> myRank(String mode, String day) async {
+    if (!configured) return null;
+    try {
+      await flushPending();
+      final dev = await deviceId();
+      return _rankFrom(await _rpc('jump_rank', {'p_device': dev, 'p_mode': mode, 'p_day': day}));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Avatar façon Mii ('' = retiré), envoyé seulement s'il a changé.
   static String? _lastAvatar;
   static Future<void> setAvatar(String code) async {
@@ -527,12 +545,78 @@ class Leaderboard {
     await prefs.setInt(_kMentionSeenKey, id);
   }
 
+  /// Défi général (de tous les temps) : coupes, médailles du jour, participation ; null si hors ligne.
+  static Future<List<LbEntry>?> fetchGeneralPage(int offset, [int limit = 50]) async {
+    if (!configured) return null;
+    try {
+      final rows = await _rpc('jump_general', {'p_offset': offset, 'p_limit': limit});
+      return [for (final r in (rows as List)) _genEntry(r)];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<LbBoard?> fetchGeneral() async {
+    if (!configured) return null;
+    try {
+      await flushPending();
+      final dev = await deviceId();
+      final rows = await _rpc('jump_general', {'p_offset': 0, 'p_limit': 50});
+      final me = await _rpc('jump_general_rank', {'p_device': dev});
+      return LbBoard([for (final r in (rows as List)) _genEntry(r)], _rankFrom(me));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static LbEntry _genEntry(dynamic r) => LbEntry(
+        r['pid'] as String? ?? '', r['name'] as String? ?? '?',
+        (r['best'] as num?)?.toInt() ?? 0, (r['hero'] as num?)?.toInt() ?? 0,
+        (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(), (r['level'] as num?)?.toInt(),
+        DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(), r['avatar'] as String?,
+        (r['gold'] as num?)?.toInt() ?? 0, (r['silver'] as num?)?.toInt() ?? 0,
+        (r['bronze'] as num?)?.toInt() ?? 0, (r['medals'] as num?)?.toInt() ?? 0,
+        (r['mgold'] as num?)?.toInt() ?? 0, (r['msilver'] as num?)?.toInt() ?? 0, (r['mbronze'] as num?)?.toInt() ?? 0);
+
+  /// Défi semaine : médailles du jour gagnées cette semaine, puis meilleur score du défi ; null si hors ligne.
+  static Future<List<LbEntry>?> fetchWeekMedalsPage(int offset, [int limit = 50]) async {
+    if (!configured) return null;
+    try {
+      final rows = await _rpc('jump_week_medals', {'p_offset': offset, 'p_limit': limit});
+      return [for (final r in (rows as List)) _weekEntry(r)];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<LbBoard?> fetchWeekMedals() async {
+    if (!configured) return null;
+    try {
+      await flushPending();
+      final dev = await deviceId();
+      final rows = await _rpc('jump_week_medals', {'p_offset': 0, 'p_limit': 50});
+      final me = await _rpc('jump_week_medals_rank', {'p_device': dev});
+      return LbBoard([for (final r in (rows as List)) _weekEntry(r)], _rankFrom(me));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static LbEntry _weekEntry(dynamic r) => LbEntry(
+        r['pid'] as String? ?? '', r['name'] as String? ?? '?',
+        (r['best'] as num?)?.toInt() ?? 0, (r['hero'] as num?)?.toInt() ?? 0,
+        (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(), (r['level'] as num?)?.toInt(),
+        DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(), r['avatar'] as String?,
+        null, null, null, null,
+        (r['mgold'] as num?)?.toInt() ?? 0, (r['msilver'] as num?)?.toInt() ?? 0, (r['mbronze'] as num?)?.toInt() ?? 0,
+        null, (r['cups'] as num?)?.toInt());
+
   /// Page suivante du classement (offset = nombre de lignes déjà affichées) ; null si hors ligne.
   static Future<List<LbEntry>?> fetchPage(String mode, String day, int offset, [int limit = 50]) async {
     if (!configured) return null;
     try {
       final rows = await _call('GET',
-          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level,last_played,avatar&mode=eq.$mode&day=eq.$day'
+          '/rest/v1/jump_scores?select=pid,name,score,hero,coins,progress,level,last_played,avatar,cups&mode=eq.$mode&day=eq.$day'
           '&order=score.desc,updated_at.asc&limit=$limit&offset=$offset');
       return [
         for (final r in (rows as List))
@@ -540,7 +624,7 @@ class Leaderboard {
               (r['score'] as num?)?.toInt() ?? 0, ((r['hero'] as num?)?.toInt() ?? 0),
               (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(),
               (r['level'] as num?)?.toInt(), DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(),
-              r['avatar'] as String?),
+              r['avatar'] as String?, null, null, null, null, null, null, null, null, (r['cups'] as num?)?.toInt()),
       ];
     } catch (_) {
       return null;

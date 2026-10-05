@@ -37,6 +37,7 @@ const _kChallengesKey = 'jump_challenges';
 const _kChallengeLvlKey = 'jump_challenge_level';
 const _kNeonKey       = 'jump_neon';
 const _kHapticsKey    = 'jump_haptics';
+const _kRulesV2Key    = 'jump_rules_v2_hide'; // explication des classements masquée
 const _kAvatarKey     = 'jump_avatar';     // avatar façon Mii (8 caractères)
 const _kHapticLvlKey  = 'jump_haptic_lvl'; // intensité des vibrations : 0 faible, 1 normale, 2 forte
 const _kTiltKey       = 'jump_tilt';
@@ -139,21 +140,25 @@ const _saveSalt = 'rj-save#41c7';
 const _kWheelDayKey   = 'jump_wheel_day';
 const _kFreeBonusKey  = 'jump_free_bonus';
 const _kFreeContKey   = 'jump_free_continue';
-const _wheelSpinPrice = 25; // tour supplémentaire payant
+const _wheelSpinPrice = 75; // tour supplémentaire payant
+// Lots revus pour les prix actuels de la boutique (objets jusqu'à 1 500 pièces).
+// bonus : -1 pièces · 0-3 bonus de départ · 4 rejouer offert · 6 objet surprise
 const _wheel = <({int coins, int bonus, int w, Color color})>[
-  (coins: 10,  bonus: -1, w: 24, color: Color(0xFF5C6BC0)),
-  (coins: 0,   bonus: 2,  w: 9,  color: Color(0xFF00ACC1)), // bouclier
-  (coins: 25,  bonus: -1, w: 18, color: Color(0xFFEC407A)),
-  (coins: 0,   bonus: 3,  w: 8,  color: Color(0xFFEF6C00)), // turbo
-  (coins: 15,  bonus: -1, w: 20, color: Color(0xFF7CB342)),
-  (coins: 0,   bonus: 0,  w: 6,  color: Color(0xFF26A69A)), // départ 500
-  (coins: 50,  bonus: -1, w: 11, color: Color(0xFFAB47BC)),
-  (coins: 100, bonus: -1, w: 4,  color: Color(0xFFFFB300)),
-  (coins: 0,   bonus: 4,  w: 7,  color: Color(0xFFE53935)), // rejouer offert
+  (coins: 20,   bonus: -1, w: 22, color: Color(0xFF5C6BC0)),
+  (coins: 0,    bonus: 2,  w: 9,  color: Color(0xFF00ACC1)), // bouclier
+  (coins: 50,   bonus: -1, w: 18, color: Color(0xFFEC407A)),
+  (coins: 0,    bonus: 3,  w: 8,  color: Color(0xFFEF6C00)), // turbo
+  (coins: 100,  bonus: -1, w: 12, color: Color(0xFF7CB342)),
+  (coins: 0,    bonus: 1,  w: 6,  color: Color(0xFF26A69A)), // départ 1000
+  (coins: 250,  bonus: -1, w: 6,  color: Color(0xFFAB47BC)),
+  (coins: 0,    bonus: 4,  w: 7,  color: Color(0xFFE53935)), // rejouer offert
+  (coins: 500,  bonus: -1, w: 3,  color: Color(0xFFFFB300)),
+  (coins: 0,    bonus: 6,  w: 2,  color: Color(0xFF8E24AA)), // objet surprise
+  (coins: 1000, bonus: -1, w: 1,  color: Color(0xFFFFD54F)), // jackpot
 ];
 
 /// Nom d'un lot de la roue (bonus 0-3, ou 4 = rejouer offert).
-String _prizeName(int b) => b == 4 ? 'Continue' : _bonusNames[b];
+String _prizeName(int b) => b == 4 ? 'Continue' : b == 6 ? 'Mystery item' : _bonusNames[b];
 
 String _todayKey() {
   final n = DateTime.now();
@@ -770,6 +775,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   bool _freeContinue = false; // « rejouer » offert par la roue (prochaine partie)
   bool _haptics = true;
   String? _avatar;        // avatar façon Mii (null = héros)
+  bool _lastDaily = false; // dernière partie lancée = défi du jour (hors record Solo)
   int _hapticLvl = 1;     // intensité des vibrations (0 faible, 1 normale, 2 forte)
   Future<List<LbOvertake>>? _overtakesF; // « record battu » : joueurs qui m'ont dépassé
   bool _afterSplashDone = false;
@@ -813,6 +819,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       // Tour gratuit du jour pas encore joué : la roue s'ouvrira après l'écran de démarrage
       _wheelAtStart = _wheelReady;
       if (!_splashOn) _afterSplash();
+      _refreshSolo();
     });
     _overtakesF = Leaderboard.overtakes();
     // Écran de démarrage : reste affiché jusqu'à ce que le joueur touche l'écran
@@ -833,10 +840,75 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     _afterSplash();
   }
 
+  /// Record Solo (parties normales) et rang, tels que connus du serveur.
+  Future<void> _refreshSolo() async {
+    final r = await Leaderboard.myRank('all', lbAllDay);
+    final best = r?.score;
+    if (r == null || best == null || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (best != _bestScore) await prefs.setInt(_kBestScoreKey, best);
+    if (!mounted) return;
+    setState(() {
+      _bestScore = best;
+      if (r.rank != null) _worldRank = '#${r.rank} / ${r.total}';
+    });
+  }
+
+  /// Explication des nouveaux classements (jusqu'à « Ne plus afficher »).
+  Future<void> _maybeShowRules() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_kRulesV2Key) ?? false) return;
+    if (!mounted) return;
+    var hide = false;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) => AlertDialog(
+        backgroundColor: const Color(0xFF1C2230),
+        title: const Row(children: [
+          Icon(Icons.leaderboard_rounded, color: Colors.amberAccent),
+          SizedBox(width: 8),
+          Expanded(child: Text('New leaderboards')),
+        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('🥇 Daily challenge: the top 3 win a gold, silver or bronze medal (given at midnight).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('📅 Weekly challenge: ranked by medals won this week. Every Monday, cups 🏆 for the top 3 and a participation medal for the other players.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('🏆 Overall challenge: all your awards since the start.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('👤 Solo: your best score in normal games (the daily challenge no longer counts).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+            ),
+            const SizedBox(height: 4),
+            InkWell(
+              onTap: () => setD(() => hide = !hide),
+              child: Row(children: [
+                Checkbox(value: hide, onChanged: (v) => setD(() => hide = v ?? false)),
+                Text("Don't show again", style: const TextStyle(color: Colors.white70)),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [ElevatedButton(onPressed: () => Navigator.pop(ctx), child: Text('Got it'))],
+      )),
+    );
+    if (hide) await prefs.setBool(_kRulesV2Key, true);
+  }
+
   /// Après l'écran de démarrage : « record battu » s'il y a lieu, puis la roue.
   Future<void> _afterSplash() async {
     if (_afterSplashDone) return;
     _afterSplashDone = true;
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (mounted && ModalRoute.of(context)?.isCurrent == true) await _maybeShowRules();
     final list = await (_overtakesF ?? Future.value(const <LbOvertake>[]))
         .timeout(const Duration(seconds: 4), onTimeout: () => const <LbOvertake>[]);
     if (list.isNotEmpty && mounted && ModalRoute.of(context)?.isCurrent == true) {
@@ -860,7 +932,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           Expanded(child: Text('Record beaten!')),
         ]),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('They overtook you on the all-time board since your last visit:',
+          const Text('They overtook you on the Solo leaderboard since your last visit:',
               style: TextStyle(color: Colors.white60, fontSize: 13)),
           const SizedBox(height: 10),
           for (final o in shown)
@@ -1139,7 +1211,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     // Pièces et défis ont déjà été enregistrés par la partie : on recharge.
     await _load();
     if (!mounted) return;
-    if (score <= _bestScore) {
+    if (score <= _bestScore || _lastDaily) {
       // No record (so no name entry): ask for the online name once
       await _askPseudoOnce();
       return;
@@ -1795,7 +1867,46 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     } else {
       await prefs.setString(_kWheelDayKey, _todayKey());
     }
-    if (s.bonus == 4) {
+    String? surprise;
+    if (s.bonus == 6) {
+      // Objet surprise : un héros, thème, musique ou traînée encore verrouillé (sinon 1 000 pièces)
+      final rng = Random();
+      final c = <(int, int)>[
+        for (int i = 0; i < _heroCount; i++) if (!_unlocked.contains(i)) (0, i),
+        for (int i = 0; i < _themeNames.length; i++) if (!_themeUnlocked.contains(i)) (1, i),
+        for (int i = 0; i < _musicNames.length; i++) if (!_musicUnlocked.contains(i)) (2, i),
+        for (int i = 0; i < _trailNames.length; i++) if (!_trailUnlocked.contains(i)) (3, i),
+      ];
+      if (c.isEmpty) {
+        _coins += 1000;
+        await prefs.setInt(_kCoinsKey, _coins);
+      } else {
+        final (kind, i) = c[rng.nextInt(c.length)];
+        List<String> ids(Set<int> x) => x.map((e) => '$e').toList();
+        switch (kind) {
+          case 0:
+            _unlocked.add(i);
+            await prefs.setStringList(_kUnlockedKey, ids(_unlocked));
+            surprise = 'Hero ${_heroNames[i]}';
+            break;
+          case 1:
+            _themeUnlocked.add(i);
+            await prefs.setStringList(_kThemeUnlockKey, ids(_themeUnlocked));
+            surprise = 'Theme ${_themeNames[i]}';
+            break;
+          case 2:
+            _musicUnlocked.add(i);
+            await prefs.setStringList(_kMusicUnlockKey, ids(_musicUnlocked));
+            surprise = 'Music ${_musicNames[i]}';
+            break;
+          default:
+            _trailUnlocked.add(i);
+            await prefs.setStringList(_kTrailUnlockKey, ids(_trailUnlocked));
+            surprise = 'Trail ${_trailNames[i]}';
+        }
+        _homeTrophies();
+      }
+    } else if (s.bonus == 4) {
       _freeContinue = true;
       await prefs.setBool(_kFreeContKey, true);
     } else if (s.coins > 0) {
@@ -1811,7 +1922,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _bonusSel.remove(s.bonus);
     });
     QuizAudio.sfx('powerup');
-    _snack(s.coins > 0 ? 'Wheel: +${s.coins} coins!' : 'Wheel: free ${_prizeName(s.bonus)} for your next game!', ok: true);
+    _snack(s.bonus == 6
+        ? (surprise != null ? 'Wheel: 🎁 $surprise unlocked!' : 'Wheel: everything is unlocked already, +1,000 coins!')
+        : s.coins > 0 ? 'Wheel: +${_fmtNum(s.coins)} coins!' : 'Wheel: free ${_prizeName(s.bonus)} for your next game!', ok: true);
   }
 
   Future<void> _selectTrail(int i) async {
@@ -2187,6 +2300,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _startGame({bool daily = false}) async {
+    _lastDaily = daily;
     // Bonus : payés maintenant, appliqués à cette partie seulement
     // (partie du jour : ni bonus ni continue, ils restent pour la prochaine partie normale)
     final bonus = daily ? <int>{} : {..._bonusSel, ..._freeBonus};
@@ -2218,9 +2332,18 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       await prefs.setInt(_kCoinsKey, _coins);
       if (!mounted) return;
     }
+    // Partie du jour : record du jour (relu, le jour a pu changer depuis l'ouverture)
+    var best = _bestScore;
+    if (daily) {
+      final prefs = await SharedPreferences.getInstance();
+      final db = (prefs.getString(_kDailyKey) ?? '').split('|');
+      best = db.length >= 2 && db[0] == Leaderboard.today() ? int.tryParse(db[1]) ?? 0 : 0;
+      if (!mounted) return;
+      if (best != _dailyBest) setState(() => _dailyBest = best);
+    }
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => _JumpGame(
-        bestScore: _bestScore,
+        bestScore: best,
         hero: _hero,
         theme: _theme,
         trail: _trail,
@@ -2360,7 +2483,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                       Row(children: [
                         const Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 20),
                         const SizedBox(width: 8),
-                        const Text('Best ',
+                        const Text('Solo best ',
                             style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600)),
                         Text(_bestScore == 0 ? '— pts' : '$_bestScore pts',
                             style: const TextStyle(color: Colors.amberAccent, fontSize: 18, fontWeight: FontWeight.w900)),
@@ -2986,8 +3109,12 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final daily = tab == 0;
     await _syncProfile(_coins); // Player's coins, shown on the leaderboard
     final b = tab == 2
-        ? await Leaderboard.fetch('week', Leaderboard.weekKey())
-        : await Leaderboard.fetch(daily ? 'daily' : 'all', daily ? Leaderboard.today() : lbAllDay);
+        ? await Leaderboard.fetchWeekMedals() // défi semaine : médailles de la semaine
+        : tab == 3
+            ? await Leaderboard.fetchGeneral() // défi général : toutes les récompenses
+        : tab == 1
+            ? await Leaderboard.fetch('all', lbAllDay) // Solo
+            : await Leaderboard.fetch('daily', Leaderboard.today());
     final n = await Leaderboard.name();
     final pid = await Leaderboard.publicId();
     if (!mounted || tab != _lbTab) return;
@@ -3020,7 +3147,11 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final tab = _lbTab;
     setState(() => _lbMoreLoading = true);
     final (mode, day) = _lbModeDay();
-    final page = await Leaderboard.fetchPage(mode, day, shown, n);
+    final page = tab == 2
+        ? await Leaderboard.fetchWeekMedalsPage(shown, n)
+        : tab == 3
+            ? await Leaderboard.fetchGeneralPage(shown, n)
+            : await Leaderboard.fetchPage(mode, day, shown, n);
     if (!mounted || tab != _lbTab) return false;
     setState(() {
       _lbMoreLoading = false;
@@ -3069,9 +3200,11 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       final tabs = Row(children: [
         Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Daily challenge', accent)),
         const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Week', accent)),
+        Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Weekly challenge', accent)),
         const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(1, Icons.public_rounded, 'Overall', accent)),
+        Expanded(child: _lbTabBtn(3, Icons.emoji_events_rounded, 'Overall challenge', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(1, Icons.person_rounded, 'Solo', accent)),
       ]);
       return Column(children: [
         tabs,
@@ -3106,6 +3239,17 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           _lbInfo(Icons.wifi_off_rounded, 'Offline', 'Leaderboard unavailable right now.',
               retry: _lbLoad)
         else if (b != null) ...[
+          // Fin du défi du jour / de la semaine
+          if (_lbTab == 0 || _lbTab == 2)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _lbTab == 0
+                    ? const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Challenge ends in ')
+                    : const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Week ends in ', weekly: true),
+              ),
+            ),
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(bottom: 10),
@@ -3121,7 +3265,9 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                   : (_lbTab == 0
                       ? 'No score today yet: play the daily run!'
                       : _lbTab == 2
-                          ? 'No score this week yet: play a game!'
+                          ? 'No challenge this week yet: play the daily run!'
+                          : _lbTab == 3
+                          ? 'No award yet: play the daily run!'
                           : 'No score yet: play a game to enter the leaderboard.'),
               style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w700),
             ),
@@ -3171,10 +3317,12 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         const SizedBox(height: 8),
         Text(
           _lbTab == 0
-              ? 'Daily run: same course for everyone, no start bonus, continue or coins. New course every day at midnight. Only your best score counts.'
+              ? 'Daily challenge: same course for everyone, no start bonus, continue or coins. New course every day at midnight. The top 3 win a gold, silver or bronze medal (given at midnight).'
               : _lbTab == 2
-                  ? 'Each player\'s best score of the week. Reset every Monday · ends in ${Leaderboard.weekDaysLeft()} d.'
-                  : 'Best score of each player, all games included.',
+                  ? 'Weekly challenge: medals won this week in the daily challenge (gold, then silver, then bronze; ties broken by best challenge score). Every Monday, gold, silver and bronze cups go to the top 3 and a participation medal to the other players of the week · ends in ${Leaderboard.weekDaysLeft()} d.'
+                  : _lbTab == 3
+                      ? 'Overall challenge: every award won since the start — gold, silver and bronze cups, then daily medals, then participation medals (ties broken by best challenge score).'
+                      : 'Solo: each player\'s best score in normal games (daily challenge not included).',
           style: const TextStyle(color: Colors.white38, fontSize: 12, height: 1.4),
         ),
       ]);
@@ -3724,14 +3872,33 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final lastPlayed = DateTime.tryParse(c['last_played'] as String? ?? '')?.toLocal();
     final chat = n('chat') ?? 0;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      head('RANKINGS'),
+      if ((n('gold') ?? 0) + (n('silver') ?? 0) + (n('bronze') ?? 0) + (n('medals') ?? 0) +
+              (n('mgold') ?? 0) + (n('msilver') ?? 0) + (n('mbronze') ?? 0) > 0) ...[
+        head('AWARDS'),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _Cups(gold: n('gold') ?? 0, silver: n('silver') ?? 0, bronze: n('bronze') ?? 0,
+              medals: n('medals') ?? 0, mGold: n('mgold') ?? 0, mSilver: n('msilver') ?? 0,
+              mBronze: n('mbronze') ?? 0, size: 20),
+        ),
+      ],
+      // Défi du jour : jour, semaine (médailles), général (coupes)
+      head('DAILY CHALLENGE'),
       grid([
-        tile(Icons.emoji_events_rounded, Colors.amberAccent, 'Record${rank(n('rank_all'), n('total_all'))}', fmt(best)),
-        tile(Icons.date_range_rounded, Colors.lightBlueAccent, 'Week${rank(n('rank_week'))}', fmt(n('week'))),
         tile(Icons.today_rounded, Colors.cyanAccent, 'Daily challenge${rank(n('rank_today'))}', fmt(n('today'))),
+        tile(Icons.date_range_rounded, Colors.lightBlueAccent, 'Weekly challenge${rank(n('rank_wch'), n('total_wch'))}',
+            n('rank_wch') == null ? '—' : '🥇${n('wg') ?? 0} 🥈${n('ws') ?? 0} 🥉${n('wb') ?? 0}'),
+        tile(Icons.emoji_events_rounded, Colors.amberAccent, 'Overall challenge${rank(n('rank_gen'), n('total_gen'))}',
+            n('rank_gen') == null ? '—' : '🏆 ${(n('gold') ?? 0) + (n('silver') ?? 0) + (n('bronze') ?? 0)}'),
         tile(Icons.workspace_premium_rounded, Colors.orangeAccent, 'Dailies won', fmt(n('daily_wins'))),
         tile(Icons.event_repeat_rounded, Colors.tealAccent, 'Dailies played', fmt(n('dailies'))),
         tile(Icons.star_rounded, Colors.yellowAccent, 'Best daily', fmt(n('daily_best'))),
+      ]),
+      // Solo : parties normales
+      head('SOLO'),
+      grid([
+        tile(Icons.person_rounded, Colors.amberAccent, 'Solo best${rank(n('rank_all'), n('total_all'))}', fmt(best)),
+        tile(Icons.date_range_rounded, Colors.lightBlueAccent, 'Solo week${rank(n('rank_week'))}', fmt(n('week'))),
       ]),
       head('GAMES'),
       grid([
@@ -3793,7 +3960,13 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               ? Text(medals[i], style: const TextStyle(fontSize: 18))
               : Text('${i + 1}', style: const TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.w800)),
         ),
-        _Avatar(code: e.avatar, hero: e.hero, size: 28),
+        // Avatar + héros utilisé pour ce record en pastille (sans avatar : le héros seul)
+        SizedBox(width: 34, height: 30, child: Stack(clipBehavior: Clip.none, children: [
+          _Avatar(code: e.avatar, hero: e.hero, size: 30),
+          if (_avParse(e.avatar) != null)
+            Positioned(right: -6, bottom: -5, child: SizedBox(width: 17, height: 15,
+                child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1))))),
+        ])),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
@@ -3804,6 +3977,12 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             Flexible(child: Text(e.name,
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: me ? Colors.amberAccent : Colors.white, fontSize: 14, fontWeight: FontWeight.w700))),
+            // Coupes gagnées au défi semaine
+            if ((e.cups ?? 0) > 0) ...[
+              const SizedBox(width: 5),
+              const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD54F), size: 15),
+              Text('${e.cups}', style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 12, fontWeight: FontWeight.w900)),
+            ],
           ]),
           if (e.coins != null || e.progress != null || e.lastPlayed != null)
             Row(children: [
@@ -3832,15 +4011,20 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               ],
             ]),
         ])),
-        const SizedBox(width: 6),
-        // Héros utilisé pour ce record (déjà à gauche si le joueur n'a pas d'avatar)
-        if (_avParse(e.avatar) != null) ...[
-          SizedBox(width: 22, height: 20,
-              child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1)))),
-          const SizedBox(width: 6),
-        ],
-        Text('${_fmtNum(e.score)} pts',
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+        const SizedBox(width: 8),
+        if (e.mGold != null)
+          // Défi semaine / général : récompenses, meilleur score du défi en petit
+          ConstrainedBox(constraints: const BoxConstraints(maxWidth: 120), child:
+          Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+            _Cups(gold: e.gold ?? 0, silver: e.silver ?? 0, bronze: e.bronze ?? 0, medals: e.medals ?? 0,
+                mGold: e.mGold ?? 0, mSilver: e.mSilver ?? 0, mBronze: e.mBronze ?? 0, size: 14),
+            const SizedBox(height: 2),
+            Text('${_fmtNum(e.score)} pts',
+                style: const TextStyle(color: Colors.white38, fontSize: 10.5, fontWeight: FontWeight.w700)),
+          ]))
+        else
+          Text('${_fmtNum(e.score)} pts',
+              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
       ]),
     );
   }
@@ -4395,7 +4579,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         text: 'Combo: chain higher and higher cartridges → coins ×2, ×3… up to ×5'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.casino_rounded, color: Colors.purpleAccent,
-                        text: 'Wheel of fortune: one free spin per day, then $_wheelSpinPrice coins per spin (coins, bonus or free continue)'),
+                        text: 'Wheel of fortune: one free spin per day, then $_wheelSpinPrice coins per spin (up to 1,000 coins, bonus, free continue or mystery item 🎁)'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.landscape_rounded, color: Colors.purpleAccent,
                         text: 'New scenery every 400 pts: castle, dungeon, temple, ice, volcano, cyber, space…'),
@@ -4419,7 +4603,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         text: 'Ghost: in the daily run, today\'s #1 player climbs alongside you'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.leaderboard_rounded, color: Colors.amberAccent,
-                        text: 'Leaderboards: daily challenge, week (reset every Monday) and overall. Tap a player to see their card'),
+                        text: 'Leaderboards: daily challenge (a medal for the top 3 every day), weekly challenge (cups for the 3 players with the most medals every Monday, a participation medal for the others), overall challenge (every award since the start) and Solo (best score in normal games). Tap a player to see their card'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.military_tech_rounded, color: Colors.lightGreenAccent,
                         text: 'Level: 1 XP per 10 pts, +10 per game, +25 per challenge completed, +30 for the daily run. Each level gives 20 × the level in coins'),
@@ -4512,7 +4696,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
 class _DailyCountdown extends StatefulWidget {
   final Color color;
   final String prefix;
-  const _DailyCountdown({required this.color, required this.prefix});
+  final bool weekly; // jusqu'à lundi minuit (défi semaine)
+  const _DailyCountdown({required this.color, required this.prefix, this.weekly = false});
 
   @override
   State<_DailyCountdown> createState() => _DailyCountdownState();
@@ -4538,9 +4723,10 @@ class _DailyCountdownState extends State<_DailyCountdown> {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final left = DateTime(now.year, now.month, now.day + 1).difference(now);
+    final left = DateTime(now.year, now.month, now.day + (widget.weekly ? 8 - now.weekday : 1)).difference(now);
     String two(int v) => v.toString().padLeft(2, '0');
-    final txt = '${two(left.inHours)}:${two(left.inMinutes % 60)}:${two(left.inSeconds % 60)}';
+    final days = left.inDays;
+    final txt = '${days > 0 ? '$days d ' : ''}${two(left.inHours % 24)}:${two(left.inMinutes % 60)}:${two(left.inSeconds % 60)}';
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerLeft,
@@ -4989,7 +5175,7 @@ class _WheelPainter extends CustomPainter {
       // Libellé orienté vers l'extérieur
       canvas.save();
       canvas.rotate(start + sweep / 2 + pi / 2);
-      final label = s.coins > 0 ? '${s.coins}' : const ['500↑', '1000↑', '🛡️', '🚀', '❤️'][s.bonus];
+      final label = s.coins > 0 ? '${s.coins}' : const ['500↑', '1000↑', '🛡️', '🚀', '❤️', '', '🎁'][s.bonus];
       final tp = TextPainter(
         text: TextSpan(
           text: label,
@@ -5871,6 +6057,8 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     if (_vy > 0 && _turbo <= 0) {
       for (final p in _plats) {
         if (p.broken) continue;
+        // Plateforme sous le bas de l'écran (invisible) : pas de rebond
+        if (p.y > _camY + _h - 6) continue;
         final overlap = (_x + _heroW * 0.35) > p.x && (_x - _heroW * 0.35) < p.x + _platW;
         if (!overlap || prevY > p.y || _y < p.y) continue;
         if (p.type == _PlatType.breakable) {
@@ -6403,12 +6591,14 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       name = 'Player-${(await Leaderboard.publicId()).substring(0, 4).toUpperCase()}';
       await Leaderboard.setLocalName(name);
     }
-    final all = Leaderboard.submit(
-        mode: 'all', day: lbAllDay, score: score, hero: widget.hero, time: time, name: name);
+    // Solo : parties normales seulement (le défi du jour a son propre classement)
+    final all = day != null
+        ? null
+        : Leaderboard.submit(mode: 'all', day: lbAllDay, score: score, hero: widget.hero, time: time, name: name);
     final daily = day == null
         ? null
         : Leaderboard.submit(mode: 'daily', day: day, score: score, hero: widget.hero, time: time, name: name);
-    final rAll = await all;
+    final rAll = all == null ? null : await all;
     final rDay = daily == null ? null : await daily;
     if (day != null && rDay != null && newDayBest) await Leaderboard.uploadGhost(day, score, ghostData);
     await _syncProfile(_wallet); // Player's coins, shown on the leaderboard
@@ -7029,8 +7219,10 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     final emoji = record ? '🏆' : _deathByBug ? '🐞' : _score >= 500 ? '🎮' : '💀';
     final msg = record ? 'New record!' : _deathByBug ? 'Fatal bug!' : 'Free fall!';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+    // Boutons Accueil / Rejouer fixés en bas, le reste défile
+    return Column(children: [
+      Expanded(child: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(40, 4, 0, 16), // laisse la place au bouton menu
@@ -7272,43 +7464,46 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        Row(children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.home_rounded),
-              label: const Text('Home'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                foregroundColor: Colors.white54,
-                side: const BorderSide(color: Colors.white12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                // Le record éventuel est enregistré avant de relancer
-                await _reportFinished();
-                if (!mounted) return;
-                _freeCont = false; // le continue offert ne valait que pour la 1re partie
-                setState(() => _initGame(_w, _h));
-              },
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Play again', style: TextStyle(fontWeight: FontWeight.w700)),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
-          ),
-        ]),
       ]),
-    );
+      )),
+      Padding(
+        padding: EdgeInsets.fromLTRB(24, 8, 24, 12 + MediaQuery.of(context).padding.bottom),
+        child: Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.home_rounded),
+                  label: const Text('Home'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    foregroundColor: Colors.white54,
+                    side: const BorderSide(color: Colors.white12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    // Le record éventuel est enregistré avant de relancer
+                    await _reportFinished();
+                    if (!mounted) return;
+                    _freeCont = false; // le continue offert ne valait que pour la 1re partie
+                    setState(() => _initGame(_w, _h));
+                  },
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Play again', style: TextStyle(fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ]),
+      ),
+    ]);
   }
 }
 
@@ -7945,6 +8140,39 @@ class _Avatar extends StatelessWidget {
               child: CustomPaint(painter: _HeroPreviewPainter(min(max(hero, 0), _heroCount - 1))))
           : CustomPaint(painter: _MiiPainter(a)),
     );
+  }
+}
+
+/// Coupes de la semaine, médailles du jour (or, argent, bronze) et de participation ; « — » si rien.
+class _Cups extends StatelessWidget {
+  final int gold, silver, bronze, medals, mGold, mSilver, mBronze, stars;
+  final double size;
+  const _Cups({required this.gold, required this.silver, required this.bronze, required this.medals,
+      this.mGold = 0, this.mSilver = 0, this.mBronze = 0, this.stars = 0, this.size = 14});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (Icons.emoji_events_rounded, const Color(0xFFFFD54F), gold),
+      (Icons.emoji_events_rounded, const Color(0xFFCFD8DC), silver),
+      (Icons.emoji_events_rounded, const Color(0xFFE0904F), bronze),
+      (Icons.star_rounded, const Color(0xFFFFEB3B), stars),
+      (Icons.military_tech_rounded, const Color(0xFFFFD54F), mGold),
+      (Icons.military_tech_rounded, const Color(0xFFCFD8DC), mSilver),
+      (Icons.military_tech_rounded, const Color(0xFFE0904F), mBronze),
+      (Icons.verified_rounded, const Color(0xFF80DEEA), medals),
+    ].where((x) => x.$3 > 0).toList();
+    if (items.isEmpty) {
+      return Text('—', style: TextStyle(color: Colors.white38, fontSize: size, fontWeight: FontWeight.w800));
+    }
+    // Passe à la ligne si le palmarès est trop long
+    return Wrap(alignment: WrapAlignment.end, spacing: size * 0.4, runSpacing: 2, children: [
+      for (final (icon, color, count) in items)
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: color, size: size + 2),
+          Text('$count', style: TextStyle(color: color, fontSize: size, fontWeight: FontWeight.w900)),
+        ]),
+    ]);
   }
 }
 
