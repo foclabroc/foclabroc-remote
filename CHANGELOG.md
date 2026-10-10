@@ -4,6 +4,130 @@ Historique complet des versions depuis la création du projet.
 
 ---
 
+## v3.18.0+48 — Octobre 2026
+
+> Script Supabase **v13 à jour** requis (participation quotidienne) — relancer le script complet si ce n'est pas déjà fait.
+
+### 🎨 Rétro Jump : style des pages
+- 2 styles pour l'interface du jeu : **Futuriste** (étoiles, anneaux HUD, sol quadrillé qui défile, accent cyan) et **Disco** (boule à facettes, faisceaux colorés, piste de danse lumineuse, accent rose)
+- Fond animé sur l'accueil et dans tous les panneaux (Boutique, Classements, Stats, Réglages), cartes et fenêtres aux couleurs du style
+- Nouvelle section **Style des pages** dans la Boutique, **3 000 pièces** chacun (Classique reste gratuit)
+
+### ✨ Rétro Jump : héros dorés
+- Version **en or avec étincelles** de chaque héros, **15 000 pièces** (Boutique, sous la grille des héros)
+- Visible par tous : classements, chat, fiche joueur, fantôme du défi, podium
+- Interrupteur pour activer / désactiver la version dorée ; le pouvoir du héros ne change pas
+
+### 🎡 Rétro Jump : roue de la fortune
+- Roue **redessinée** : couronne dorée, ampoules qui clignotent, icônes des lots, pointeur et moyeu en relief
+- Après **Récupérer**, la roue **reste ouverte** : le lot s'affiche et on peut retenter sa chance (payant) directement
+- Nouveau bouton **Fermer**
+
+### 🕹️ Rétro Jump : jeu
+- **Plateformes verticales** qui montent et descendent
+- **Son** au déclenchement du turbo (nouveau son natif `boost` dans `MainActivity.kt`)
+- Le bouton principal devient **Jouer Solo**
+
+### 🏅 Rétro Jump : classements
+- **Médaille de participation chaque jour** à tous les joueurs du défi hors podium (remise à minuit), comptée dans le **Défi semaine** et cumulée dans le **Défi général**
+- **Onglets, pseudo, compte à rebours et « Ton rang » fixes** en haut, seule la liste défile
+- **Fiche joueur** réorganisée : section *Défi du jour* (jour, semaine 🥇🥈🥉✅, général 🏆, défis gagnés / joués, meilleur défi) et section *Solo* (record et semaine)
+
+### 🧑 Rétro Jump : avatars
+- Beaucoup plus de modèles : peau (16), visage (8), coiffure (28), couleur des cheveux (24), yeux (18), bouche (18), accessoire (22), fond (24)
+- Rendu **en relief** (ombres et reflets)
+
+### 🛠️ Rétro Jump : corrections et confort
+- Le réglage **son / muet** est désormais conservé au relancement
+- La pointe de la fusée de l'écran de démarrage n'est plus coupée
+- Fenêtre **Nouveautés** au lancement (avec « Ne plus afficher ») à la place de l'explication des classements
+
+### 📦 Rétro Jump autonome (v1.0.7 → v1.0.8)
+- Mêmes nouveautés, plus les **notifications Android de classement** (un joueur te dépasse au Solo ou au Défi du jour) propres à l'appli autonome
+
+---
+
+## v3.17.0+47 — Octobre 2026
+
+> ⚠️ Script Supabase **v13** à relancer.
+
+### 🏆 Rétro Jump : classements
+- **4 onglets** :
+  - **Défi du jour** : chaque jour, **médailles** d'or, d'argent et de bronze aux 3 premiers (remises à minuit)
+  - **Défi semaine** : classement aux médailles de la semaine ; chaque lundi à minuit, **coupes** d'or, d'argent et de bronze aux 3 premiers et **médaille de participation** aux autres joueurs
+  - **Défi général** : toutes les récompenses depuis le début (coupes, puis médailles du jour, puis participation)
+  - **Solo** : meilleur score des parties normales — la partie du jour n'y compte plus
+- Coupes affichées à côté du pseudo, palmarès complet sur la fiche joueur
+- **Compte à rebours** de fin du défi du jour et de la semaine dans le classement
+- Accueil : **Record Solo** (synchronisé avec le serveur)
+- Au lancement, **explication des nouveaux classements** (case « Ne plus afficher »)
+- Partie du jour : le record affiché en jeu est ton meilleur score **du jour**
+
+### 🎡 Rétro Jump : roue de la fortune
+- Lots revus : **20 à 500 pièces**, **jackpot 1 000 pièces**, bouclier, turbo, départ 1000, rejouer offert et **objet surprise 🎁** (un héros, thème, musique ou traînée encore verrouillé, ou 1 000 pièces si tout est débloqué)
+- Tour supplémentaire : **75 pièces**
+
+### 🗄️ Serveur (Supabase) — v13
+- Médailles du jour, coupes de la semaine, participation et classement général
+
+### 📦 Rétro Jump autonome (v1.0.4)
+- Mêmes nouveautés
+
+---
+
+## v3.16.0+46 — Octobre 2026
+
+> ⚠️ Script Supabase **v12** à relancer.
+
+### 🧑 Rétro Jump : avatars façon Mii
+- **Créer son avatar** (Réglages → Avatar) : 8 catégories — peau (12), visage (6), coiffure (20), couleur des cheveux (16), yeux (12), bouche (12), accessoire (14), fond (16) — avec miniatures et bouton 🎲 Aléatoire
+- Affiché dans le **classement**, le **chat**, la **fiche joueur** et le **podium** de l'écran de démarrage
+- Le **héros utilisé pour le record** reste visible à côté du score
+
+### 🎨 Rétro Jump : nouveaux contenus
+- **4 thèmes réalistes** : Jungle, Plage, Ville la nuit, Canyon (950 à 1 100 pièces)
+  - Jungle : singes qui se balancent de liane en liane, guirlandes et lianes pendantes
+  - Ville la nuit : avion, montgolfières, hélicoptère avec projecteur, dirigeable à bandeau LED
+- **4 héros avec pouvoir** (600 à 800 pièces) : Manette (bug écrasé = 6 pièces), Portable (logos comptés double), Fantôme (2ᵉ chance gratuite, hors partie du jour), Casque (+25 % d'XP)
+- **4 musiques** : RPG Battle, 8-bit Console, Byte Blast, Game On (1 100 à 1 500 pièces)
+- **16 nouveaux trophées** (68 au total) — l'avancement % tient compte des nouveaux objets
+
+### 🌍 Rétro Jump : classement
+- **Jusqu'à 500 joueurs** (« Voir plus ») et bouton **« Ma position »**
+- **Heure de la dernière partie** de chaque joueur (classement et fiche)
+- **Record battu** : au lancement, liste des joueurs qui t'ont dépassé depuis ta dernière visite
+
+### ⚙️ Rétro Jump : réglages et confort
+- **Intensité des vibrations** : Faible / Normal / Fort
+- Nouveau record : le nom n'est plus demandé si un pseudo est déjà choisi
+- Codes secrets utilisables **3 fois** chacun, résultat affiché dans une fenêtre
+
+### 🗄️ Serveur (Supabase)
+- v10 : heure de la dernière partie · v11 : « record battu » · v12 : avatars
+
+---
+
+## v3.15.0+45 — Octobre 2026
+
+### 🛡️ Rétro Jump : jeu
+- **Bouclier de 2 s en sortie de turbo** (bonus ou propulsion de départ) : bulle qui clignote, insensible aux bugs
+- **Bouclier en réserve** — ramasser un bouclier alors qu'un autre est actif le met en réserve (1 au maximum) : bulle cyan en bas de l'écran, un appui l'active ; conservé en cas de Continue
+- **Option Fantôme** (Réglages → Options) : afficher ou non le fantôme du n°1 dans la partie du jour
+- **Sensibilité réglable** : **tactile** 70 à 130 % et **inclinaison** 50 à 200 % — incluses dans la sauvegarde
+
+### 🎨 Rétro Jump : interface
+- **Écran de démarrage** : ciel de nuit étoilé, titre « RÉTRO JUMP », « by foclabroc », héros qui rebondit sur une cartouche et **podium des 3 meilleurs scores**
+- **Barre du bas** :
+  - **Quêtes** (remplace Défis) : 3 onglets **Défis / Trophées / Collection**
+  - **Messages** (remplace Collection) : le chat, avec pastille **NEW** ou **@** — le Classement revient à 3 onglets
+- **Compte à rebours** sur la tuile Défis du jour jusqu'à minuit
+- Titre de l'accueil remonté avec la signature **« by foclabroc »**
+
+### 📦 Rétro Jump autonome (v1.0.2 / v1.0.3)
+- Mêmes nouveautés, plus la **mise à jour intégrée** (APK téléchargé et installé depuis l'appli)
+
+---
+
 ## v3.14.0+44 — Octobre 2026
 
 ### 🏆 Rétro Jump : progression

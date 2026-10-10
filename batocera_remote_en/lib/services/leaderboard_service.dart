@@ -459,6 +459,20 @@ class Leaderboard {
     }
   }
 
+  /// Rank watch (Solo and daily challenge): my rank, my score and who passed me
+  /// since ranks [soloPrev] / [dailyPrev]; null when offline.
+  static Future<Map<String, dynamic>?> rankWatch(int? soloPrev, int? dailyPrev) async {
+    if (!configured) return null;
+    try {
+      final dev = await deviceId();
+      final r = await _rpc('jump_rank_watch',
+          {'p_device': dev, 'p_day': today(), 'p_solo_prev': soloPrev, 'p_daily_prev': dailyPrev});
+      return r is Map ? Map<String, dynamic>.from(r) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Mii-style avatar ('' = removed), sent only when it changed.
   static String? _lastAvatar;
   static Future<void> setAvatar(String code) async {
@@ -607,7 +621,7 @@ class Leaderboard {
         (r['best'] as num?)?.toInt() ?? 0, (r['hero'] as num?)?.toInt() ?? 0,
         (r['coins'] as num?)?.toInt(), (r['progress'] as num?)?.toInt(), (r['level'] as num?)?.toInt(),
         DateTime.tryParse(r['last_played'] as String? ?? '')?.toLocal(), r['avatar'] as String?,
-        null, null, null, null,
+        null, null, null, (r['mpart'] as num?)?.toInt() ?? 0,
         (r['mgold'] as num?)?.toInt() ?? 0, (r['msilver'] as num?)?.toInt() ?? 0, (r['mbronze'] as num?)?.toInt() ?? 0,
         null, (r['cups'] as num?)?.toInt());
 

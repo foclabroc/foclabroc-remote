@@ -128,6 +128,10 @@ class MainActivity : FlutterActivity() {
         "assets/game/game_music_5.ogg",  // 4 : Mountain
         "assets/game/game_music_6.ogg",  // 5 : Video Game
         "assets/game/game_music_7.ogg",  // 6 : Pixel Fight
+        "assets/game/game_music_8.ogg",  // 7 : RPG Battle
+        "assets/game/game_music_9.ogg",  // 8 : 8-bit Console
+        "assets/game/game_music_10.ogg", // 9 : Byte Blast
+        "assets/game/game_music_11.ogg", // 10 : Game On
     )
 
     /** Lance le morceau [index] en boucle (reprend s'il est déjà chargé). */
@@ -392,6 +396,9 @@ object ChipSynth {
         // Bug écrasé : « splotch » descendant + bruit
         "stomp" to pcm(mix(tone(700.0, 140.0, 130, 0.30, SQUARE, 0.5, decay = 3.0),
                            tone(3000.0, 800.0, 90, 0.18, NOISE, decay = 5.0))),
+        // Boost (turbo) : « vroosh » de fusée qui monte (grondement + souffle)
+        "boost" to pcm(mix(tone(110.0, 880.0, 700, 0.24, SQUARE, 0.25, decay = 1.0),
+                           tone(600.0, 3500.0, 700, 0.12, NOISE, decay = 0.8))),
         // Turbo : arpège très rapide qui monte
         "powerup" to pcm(arp(intArrayOf(60, 64, 67, 72, 76, 79, 84, 88), 45, 0.25, SQUARE)),
         // Bouclier ramassé : scintillement

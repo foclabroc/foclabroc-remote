@@ -37,7 +37,16 @@ const _kChallengesKey = 'jump_challenges';
 const _kChallengeLvlKey = 'jump_challenge_level';
 const _kNeonKey       = 'jump_neon';
 const _kHapticsKey    = 'jump_haptics';
-const _kRulesV2Key    = 'jump_rules_v2_hide'; // explication des classements masquée
+const _kSoundKey      = 'jump_sound';   // son activé (mémorisé)
+const _kNewsKey       = 'jump_news_v108_hide'; // nouveautés de la version masquées (changer à chaque version)
+const _kHeroGoldKey   = 'jump_hero_gold';     // héros dorés achetés
+const _kHeroGoldOffKey = 'jump_hero_gold_off'; // héros dorés désactivés
+const _heroGoldPrice  = 15000;
+/// Code héros : index + 32 pour la version dorée (envoyé au classement).
+int _heroSafe(int h) {
+  final b = max(h, 0);
+  return (b % 32).clamp(0, _heroCount - 1) + (b >= 32 ? 32 : 0);
+}
 const _kAvatarKey     = 'jump_avatar';     // avatar façon Mii (8 caractères)
 const _kHapticLvlKey  = 'jump_haptic_lvl'; // intensité des vibrations : 0 faible, 1 normale, 2 forte
 const _kTiltKey       = 'jump_tilt';
@@ -51,6 +60,29 @@ const _kThemeV2Key     = 'jump_theme_v2'; // numéros de thème après retrait d
 // Thèmes visuels (0 = classique, offert). Néon reste acquis si l'ancienne option était activée.
 const _themeNames  = ['Classique', 'Néon', 'Pocket', 'Sépia', 'CRT', 'Synthwave', 'Disco', 'Nuit', 'Négatif', 'Matrix', 'Réaliste', 'Tour gelée', 'Jungle', 'Plage', 'Ville la nuit', 'Canyon'];
 const _themePrices = [0, 100, 150, 200, 250, 300, 400, 450, 500, 550, 800, 900, 950, 1000, 1050, 1100];
+
+// ── Style des pages (habillage de l'interface, acheté en boutique) ──
+const _kSkinKey = 'jump_ui_skin';
+const _kSkinUnlockKey = 'jump_ui_skin_unlocked';
+
+class _Skin {
+  final String name;
+  final int price;
+  final Color? bg;     // fond de l'accueil (null = thème de l'appli)
+  final Color panel;   // cartes et dialogues
+  final Color dialog;  // panneaux (boutique, classements…)
+  final Color? accent; // couleur d'accent (null = thème de l'appli)
+  const _Skin(this.name, this.price, this.bg, this.panel, this.dialog, this.accent);
+}
+
+const _skins = [
+  _Skin('Classique', 0, null, Color(0xFF1C2230), Color(0xFF151A24), null),
+  _Skin('Futuriste', 3000, Color(0xFF030A16), Color(0xFF0E1D33), Color(0xFF081325), Color(0xFF00E5FF)),
+  _Skin('Disco', 3000, Color(0xFF16051F), Color(0xFF2C1242), Color(0xFF1D0A2C), Color(0xFFFF4FD8)),
+];
+
+int _uiSkin = 0; // style choisi (global : utilisé aussi par les dialogues)
+_Skin get _uiStyle => _skins[_uiSkin];
 // Deux couleurs d'aperçu par thème (tuile du menu)
 const _themeSwatch = [
   [Color(0xFFE02020), Color(0xFF5C6BC0)],
@@ -677,8 +709,11 @@ class _Plat {
   bool hasTurbo;
   bool hasShield;
   final int colorIdx;
+  // Plateforme qui monte et descend : y = baseY + sin(temps × vSpeed + phase) × amp
+  double baseY = 0, amp = 0, vSpeed = 0, phase = 0;
   _Plat(this.x, this.y, this.type,
       {this.vx = 0, this.hasTurbo = false, this.hasShield = false, this.colorIdx = 0});
+  bool get vertical => amp > 0;
 }
 
 class _Enemy {
@@ -762,12 +797,17 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   int _hero = 0;
   int _coins = 0;
   Set<int> _unlocked = {0};
+  Set<int> _goldHeroes = {}; // versions dorées achetées
+  Set<int> _goldOff = {};    // versions dorées désactivées
+  bool get _goldOn => _goldHeroes.contains(_hero) && !_goldOff.contains(_hero);
+  int get _heroCode => _hero + (_goldOn ? 32 : 0);
   Set<String> _completed = {};
   int _challengeLevel = 0;
   int _theme = 0;
   int _trail = 0;
   Set<int> _trailUnlocked = {0};
   Set<int> _themeUnlocked = {0};
+  Set<int> _skinUnlocked = {0}; // styles des pages achetés
   final Set<int> _bonusSel = {};
   Set<int> _freeBonus = {};   // bonus offerts par la roue (prochaine partie)
   bool _wheelReady = false;   // tour de roue disponible aujourd'hui
@@ -854,53 +894,61 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     });
   }
 
-  /// Explication des nouveaux classements (jusqu'à « Ne plus afficher »).
-  Future<void> _maybeShowRules() async {
+  /// Dernières nouveautés (jusqu'à « Ne plus afficher », réapparaît à chaque nouvelle version).
+  Future<void> _maybeShowNews() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_kRulesV2Key) ?? false) return;
+    if (prefs.getBool(_kNewsKey) ?? false) return;
     if (!mounted) return;
     var hide = false;
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(builder: (ctx, setD) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Row(children: [
-          Icon(Icons.leaderboard_rounded, color: Colors.amberAccent),
+          Icon(Icons.new_releases_rounded, color: Colors.lightGreenAccent),
           SizedBox(width: 8),
-          Expanded(child: Text('Nouveaux classements')),
+          Expanded(child: Text('Nouveautés')),
         ]),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('🥇 Défi du jour : les 3 premiers gagnent une médaille d’or, d’argent ou de bronze (remise à minuit).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+              child: Text('🎨 Styles des pages Futuriste et Disco : fonds animés pour l’accueil et les menus (Boutique, 3 000 pièces).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('📅 Défi semaine : classement aux médailles de la semaine. Chaque lundi, coupes 🏆 aux 3 premiers, médaille de participation aux autres joueurs.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+              child: Text('🎡 Roue de la fortune redessinée. Après avoir récupéré ton lot, tu peux retenter ta chance sans fermer la roue.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('🏆 Défi général : toutes tes récompenses depuis le début.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+              child: Text('↕️ Nouvelles plateformes qui montent et descendent.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('👤 Solo : ton meilleur score en parties normales (le défi du jour n’y compte plus).', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+              child: Text('🔊 Un son quand le turbo démarre, et le mode muet est maintenant mémorisé.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('🙂 Avatars : beaucoup plus de modèles dans chaque catégorie, avec un rendu en relief.', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('▶️ Le bouton principal devient « Jouer Solo ».', style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.35)),
             ),
             const SizedBox(height: 4),
             InkWell(
               onTap: () => setD(() => hide = !hide),
               child: Row(children: [
                 Checkbox(value: hide, onChanged: (v) => setD(() => hide = v ?? false)),
-                Text('Ne plus afficher', style: const TextStyle(color: Colors.white70)),
+                const Text('Ne plus afficher', style: TextStyle(color: Colors.white70)),
               ]),
             ),
           ]),
         ),
-        actions: [ElevatedButton(onPressed: () => Navigator.pop(ctx), child: Text("J'ai compris"))],
+        actions: [ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Super !'))],
       )),
     );
-    if (hide) await prefs.setBool(_kRulesV2Key, true);
+    if (hide) await prefs.setBool(_kNewsKey, true);
   }
 
   /// Après l'écran de démarrage : « record battu » s'il y a lieu, puis la roue.
@@ -908,7 +956,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     if (_afterSplashDone) return;
     _afterSplashDone = true;
     await Future.delayed(const Duration(milliseconds: 400));
-    if (mounted && ModalRoute.of(context)?.isCurrent == true) await _maybeShowRules();
+    if (mounted && ModalRoute.of(context)?.isCurrent == true) await _maybeShowNews();
     final list = await (_overtakesF ?? Future.value(const <LbOvertake>[]))
         .timeout(const Duration(seconds: 4), onTimeout: () => const <LbOvertake>[]);
     if (list.isNotEmpty && mounted && ModalRoute.of(context)?.isCurrent == true) {
@@ -925,7 +973,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final see = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Row(children: [
           Icon(Icons.emoji_events_rounded, color: Colors.amberAccent, size: 24),
           SizedBox(width: 8),
@@ -1013,6 +1061,12 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       if (i != null && i >= 0 && i < _heroCount) unlocked.add(i);
     }
     var hero = (prefs.getInt(_kHeroKey) ?? 0).clamp(0, _heroCount - 1);
+    Set<int> ids(String k) => {
+          for (final x in prefs.getStringList(k) ?? const <String>[])
+            if (int.tryParse(x) case final v? when v >= 0 && v < _heroCount) v
+        };
+    _goldHeroes = ids(_kHeroGoldKey);
+    _goldOff = ids(_kHeroGoldOffKey);
     if (!unlocked.contains(hero)) hero = 0;
     setState(() {
       _bestScore = prefs.getInt(_kBestScoreKey) ?? 0;
@@ -1039,7 +1093,15 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       }
       _trail = (prefs.getInt(_kTrailKey) ?? 0).clamp(0, _trailNames.length - 1);
       if (!_trailUnlocked.contains(_trail)) _trail = 0;
+      _skinUnlocked = {0};
+      for (final s in prefs.getStringList(_kSkinUnlockKey) ?? const <String>[]) {
+        final k = int.tryParse(s);
+        if (k != null && k >= 0 && k < _skins.length) _skinUnlocked.add(k);
+      }
+      _uiSkin = (prefs.getInt(_kSkinKey) ?? 0).clamp(0, _skins.length - 1);
+      if (!_skinUnlocked.contains(_uiSkin)) _uiSkin = 0;
       _haptics   = prefs.getBool(_kHapticsKey) ?? true;
+      QuizAudio.enabled = prefs.getBool(_kSoundKey) ?? true;
       _hapticLvl = (prefs.getInt(_kHapticLvlKey) ?? 1).clamp(0, 2);
       _avatar    = _avParse(prefs.getString(_kAvatarKey)) == null ? null : prefs.getString(_kAvatarKey);
       _tilt      = prefs.getBool(_kTiltKey) ?? false;
@@ -1155,7 +1217,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         }
 
         return AlertDialog(
-          backgroundColor: const Color(0xFF1C2230),
+          backgroundColor: _uiStyle.panel,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(children: const [
             Icon(Icons.leaderboard_rounded, color: Colors.amberAccent),
@@ -1242,7 +1304,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         ),
         child: Center(
           child: Material(
-            color: const Color(0xFF1C2230),
+            color: _uiStyle.panel,
             borderRadius: BorderRadius.circular(20),
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -1336,7 +1398,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: Text('Débloquer ${_musicNames[i]} ?'),
         content: Row(children: [
           const SizedBox(width: 56, height: 50,
@@ -1373,7 +1435,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(0.12) : const Color(0xFF1C2230),
+          color: selected ? accent.withOpacity(0.12) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? accent : Colors.white.withOpacity(0.08),
@@ -1415,6 +1477,83 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     );
   }
 
+  // ── Héros dorés ────────────────────────────────────────────────────────
+  Widget _goldHeroCard() {
+    final i = _hero;
+    final owned = _goldHeroes.contains(i);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 10, 4, 0),
+      padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(colors: [const Color(0xFFFFD54F).withOpacity(0.16), _uiStyle.panel]),
+        border: Border.all(color: const Color(0xFFFFD54F).withOpacity(0.5)),
+      ),
+      child: Row(children: [
+        SizedBox(width: 56, height: 50, child: CustomPaint(painter: _HeroPreviewPainter(i + 32, 1.0 + _idle.value * 60))),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('✨ ${_heroNames[i]} doré',
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 14, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(owned ? 'Visible par tous dans les classements et le chat' : 'Version dorée, visible par tous',
+              style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        ])),
+        if (owned)
+          Switch(value: _goldOn, activeColor: const Color(0xFFFFD54F), onChanged: (v) => _setGoldOn(i, v))
+        else
+          ElevatedButton(
+            onPressed: _unlocked.contains(i) ? () => _buyGold(i) : null,
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const _CoinIcon(size: 12),
+              const SizedBox(width: 4),
+              Text(_fmtNum(_heroGoldPrice), style: const TextStyle(fontWeight: FontWeight.w800)),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  Future<void> _setGoldOn(int i, bool on) async {
+    setState(() => on ? _goldOff.remove(i) : _goldOff.add(i));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kHeroGoldOffKey, _goldOff.map((e) => '$e').toList());
+  }
+
+  Future<void> _buyGold(int i) async {
+    final ok = await showDialog<bool>(
+      context: _sheetCtx ?? context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _uiStyle.panel,
+        title: Text('Héros doré : ${_heroNames[i]} ?'),
+        content: Row(children: [
+          SizedBox(width: 56, height: 50, child: CustomPaint(painter: _HeroPreviewPainter(i + 32, 1.0))),
+          const SizedBox(width: 16),
+          Expanded(child: Text('Ton héros en or, avec ses étincelles, visible par tous dans les classements et le chat.\n\nPrix : ${_fmtNum(_heroGoldPrice)} pièces\nTu en as ${_fmtNum(_coins)}.${_coins < _heroGoldPrice ? '\nIl te manque ${_fmtNum(_heroGoldPrice - _coins)} pièces.' : ''}',
+              style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(onPressed: _coins >= _heroGoldPrice ? () => Navigator.pop(ctx, true) : null, child: const Text('Acheter')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted || _coins < _heroGoldPrice) return;
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _coins -= _heroGoldPrice;
+      _goldHeroes.add(i);
+      _goldOff.remove(i);
+    });
+    await prefs.setInt(_kCoinsKey, _coins);
+    await prefs.setStringList(_kHeroGoldKey, _goldHeroes.map((e) => '$e').toList());
+    await prefs.setStringList(_kHeroGoldOffKey, _goldOff.map((e) => '$e').toList());
+    QuizAudio.win();
+    _snack('✨ ${_heroNames[i]} doré débloqué !', ok: true);
+  }
+
   Future<void> _selectHero(int i) async {
     if (!_unlocked.contains(i)) {
       await _tryUnlock(i);
@@ -1430,7 +1569,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: Text('Débloquer ${_heroNames[i]} ?'),
         content: Row(children: [
           SizedBox(width: 56, height: 50, child: CustomPaint(painter: _HeroPreviewPainter(i))),
@@ -1477,7 +1616,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final code = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Row(children: [
           Icon(Icons.vpn_key_rounded, color: Colors.amberAccent, size: 22),
           SizedBox(width: 8),
@@ -1517,7 +1656,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         content: Row(children: [
           Icon(msg.$2 ? Icons.check_circle_rounded : Icons.error_outline_rounded,
               color: msg.$2 ? Colors.greenAccent : Colors.redAccent, size: 28),
@@ -1556,6 +1695,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         break;
       case 2:
         await all(_kThemeUnlockKey, _themeNames.length);
+        await all(_kSkinUnlockKey, _skins.length);
         msg = 'Code accepté : tous les thèmes débloqués !';
         break;
       default:
@@ -1580,7 +1720,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     if (total > _coins) {
       ScaffoldMessenger.of(_sheetCtx ?? context).showSnackBar(SnackBar(
         content: Text('Pas assez de pièces (il t\'en faut ${total - _coins} de plus)', style: const TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
@@ -1599,7 +1739,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(0.12) : const Color(0xFF1C2230),
+          color: selected ? accent.withOpacity(0.12) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? accent : Colors.white.withOpacity(0.08),
@@ -1647,7 +1787,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _snack(String msg, {bool ok = false}) {
     ScaffoldMessenger.of(_sheetCtx ?? context).showSnackBar(SnackBar(
       content: Text(msg, style: const TextStyle(color: Colors.white)),
-      backgroundColor: ok ? const Color(0xFF1B5E20) : const Color(0xFF1C2230),
+      backgroundColor: ok ? const Color(0xFF1B5E20) : _uiStyle.panel,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
@@ -1749,7 +1889,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Text('Charger la sauvegarde ?'),
         content: Text('Sauvegarde du $when.\nTa progression actuelle sera remplacée, ainsi que ton pseudo et tes scores en ligne.', style: const TextStyle(color: Colors.white70, height: 1.4)),
         actions: [
@@ -1801,7 +1941,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Row(children: [
           Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
           SizedBox(width: 8),
@@ -1852,12 +1992,15 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
 
   // ── Roue de la fortune ────────────────────────────────────────────────────
   Future<void> _openWheel() async {
-    final code = await showDialog<int>(
+    await showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (_) => _WheelDialog(ready: _wheelReady, coins: _coins),
+      builder: (_) => _WheelDialog(ready: _wheelReady, coins: () => _coins, onPrize: _claimWheel),
     );
-    if (code == null || !mounted) return;
+  }
+
+  /// Applique le lot de la roue (code = segment, +100 si tour payant) et renvoie le message.
+  Future<String> _claimWheel(int code) async {
     final paid = code >= 100; // tour payant : code = segment + 100
     final s = _wheel[code % 100];
     final prefs = await SharedPreferences.getInstance();
@@ -1916,15 +2059,14 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       _freeBonus.add(s.bonus);
       await prefs.setStringList(_kFreeBonusKey, _freeBonus.map((e) => '$e').toList());
     }
-    if (!mounted) return;
-    setState(() {
+    if (mounted) setState(() {
       if (!paid) _wheelReady = false;
       _bonusSel.remove(s.bonus);
     });
     QuizAudio.sfx('powerup');
-    _snack(s.bonus == 6
+    return s.bonus == 6
         ? (surprise != null ? 'Roue : 🎁 $surprise débloqué !' : 'Roue : tout est déjà débloqué, +1 000 pièces !')
-        : s.coins > 0 ? 'Roue : +${_fmtNum(s.coins)} pièces !' : 'Roue : ${_prizeName(s.bonus)} offert pour ta prochaine partie !', ok: true);
+        : s.coins > 0 ? 'Roue : +${_fmtNum(s.coins)} pièces !' : 'Roue : ${_prizeName(s.bonus)} offert pour ta prochaine partie !';
   }
 
   Future<void> _selectTrail(int i) async {
@@ -1942,7 +2084,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: Text('Débloquer ${_trailNames[i]} ?'),
         content: Row(children: [
           Text(_trailIcons[i], style: const TextStyle(fontSize: 40)),
@@ -1979,7 +2121,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(0.12) : const Color(0xFF1C2230),
+          color: selected ? accent.withOpacity(0.12) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? accent : Colors.white.withOpacity(0.08),
@@ -2032,7 +2174,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: Text('Débloquer ${_themeNames[i]} ?'),
         content: Row(children: [
           _ThemeSwatch(theme: i, size: 50),
@@ -2069,7 +2211,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(0.12) : const Color(0xFF1C2230),
+          color: selected ? accent.withOpacity(0.12) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? accent : Colors.white.withOpacity(0.08),
@@ -2106,6 +2248,102 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         ]),
       ),
     );
+  }
+
+  Future<void> _selectSkin(int i) async {
+    if (!_skinUnlocked.contains(i)) {
+      await _tryUnlockSkin(i);
+      if (!_skinUnlocked.contains(i)) return;
+    }
+    setState(() => _uiSkin = i);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kSkinKey, i);
+  }
+
+  Future<void> _tryUnlockSkin(int i) async {
+    final price = _skins[i].price;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _uiStyle.panel,
+        title: Text('Débloquer le style ${_skins[i].name} ?'),
+        content: Row(children: [
+          _SkinSwatch(i, w: 64, h: 50),
+          const SizedBox(width: 16),
+          Expanded(child: Text('Prix : $price pièces\nTu en as $_coins.${_coins < price ? '\nIl te manque ${price - _coins} pièces.' : ''}',
+              style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(onPressed: _coins >= price ? () => Navigator.pop(ctx, true) : null, child: const Text('Débloquer')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _coins -= price;
+      _skinUnlocked.add(i);
+      _uiSkin = i;
+    });
+    await prefs.setInt(_kCoinsKey, _coins);
+    await prefs.setStringList(_kSkinUnlockKey, _skinUnlocked.map((e) => '$e').toList());
+    await prefs.setInt(_kSkinKey, i);
+  }
+
+  Widget _skinTile(int i, Color accent) {
+    final selected = _uiSkin == i;
+    final locked = !_skinUnlocked.contains(i);
+    return GestureDetector(
+      onTap: () => _selectSkin(i),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? accent.withOpacity(0.12) : _uiStyle.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? accent : Colors.white.withOpacity(0.08),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(children: [
+          SizedBox(
+            width: 56, height: 40,
+            child: Center(child: Stack(alignment: Alignment.center, children: [
+              Opacity(opacity: locked ? 0.3 : 1, child: _SkinSwatch(i)),
+              if (locked) const Icon(Icons.lock_rounded, color: Colors.white70, size: 20),
+            ])),
+          ),
+          const SizedBox(height: 6),
+          // Nom toujours affiché (grisé tant que l'objet est verrouillé)
+          Text(_skins[i].name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: locked ? Colors.white38 : selected ? Colors.white : Colors.white54,
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                )),
+          if (locked)
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const _CoinIcon(size: 11),
+              const SizedBox(width: 3),
+              Text('${_skins[i].price}',
+                  style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.w700)),
+            ])
+          else
+            const SizedBox(height: 14), // même hauteur que la ligne de prix
+        ]),
+      ),
+    );
+  }
+
+  /// Son coupé / remis, mémorisé pour les prochains lancements.
+  void _setSound(bool v) {
+    QuizAudio.enabled = v;
+    SharedPreferences.getInstance().then((p) => p.setBool(_kSoundKey, v));
   }
 
   Future<void> _setHaptics(bool v) async {
@@ -2196,7 +2434,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           return CustomPaint(painter: _MiiPainter(List<int>.of(a)..[cat] = v));
         }
         return Dialog(
-          backgroundColor: const Color(0xFF151A24),
+          backgroundColor: _uiStyle.dialog,
           insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 28),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Padding(
@@ -2345,6 +2583,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       builder: (_) => _JumpGame(
         bestScore: best,
         hero: _hero,
+        goldHero: _goldOn,
         theme: _theme,
         trail: _trail,
         haptics: _haptics,
@@ -2370,12 +2609,14 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
+    final accent = _uiStyle.accent ?? Theme.of(context).colorScheme.primary;
     final challenges = _challengesFor(_challengeLevel);
     final doneCount = challenges.where((c) => _completed.contains(c.id)).length;
     final logoCount = _collection.where((n) => n >= _logoGoal).length;
     return Scaffold(
+      backgroundColor: _uiStyle.bg,
       body: Stack(children: [
+       if (_uiSkin != 0) Positioned.fill(child: _SkinBackdrop(_uiSkin, key: ValueKey(_uiSkin))),
        SafeArea(
         child: Column(children: [
           // En-tête : titre (5 appuis = code secret), pièces, son
@@ -2452,7 +2693,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               const SizedBox(width: 8),
               _hdrItem('Son', StatefulBuilder(
                 builder: (ctx, setS) => GestureDetector(
-                  onTap: () => setS(() => QuizAudio.enabled = !QuizAudio.enabled),
+                  onTap: () => setS(() => _setSound(!QuizAudio.enabled)),
                   child: Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
@@ -2533,7 +2774,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                               colors: [
                                 _themeSwatch[_theme][0].withOpacity(0.28),
                                 _themeSwatch[_theme][1].withOpacity(0.10),
-                                const Color(0xFF1C2230),
+                                _uiStyle.panel,
                               ],
                             ),
                           ),
@@ -2543,7 +2784,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                               animation: _idle,
                               builder: (_, __) => SizedBox(
                                 width: 130, height: 112,
-                                child: CustomPaint(painter: _HeroPreviewPainter(_hero, 0.05 + _idle.value * 60)),
+                                child: CustomPaint(painter: _HeroPreviewPainter(_heroCode, 0.05 + _idle.value * 60)),
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -2624,7 +2865,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 child: ElevatedButton.icon(
                   onPressed: _startGame,
                   icon: const Icon(Icons.play_arrow_rounded, size: 28),
-                  label: const Text('Jouer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
+                  label: const Text('Jouer Solo', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1)),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -2637,7 +2878,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           Container(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF151A24),
+              color: _uiStyle.dialog,
               border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
             ),
             child: Row(children: [
@@ -2666,7 +2907,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                },
                child: GestureDetector(
                  onTap: _endSplash,
-                 child: _SplashView(hero: _hero, loading: _loading, podium: _podium, podiumTitle: 'MEILLEURS SCORES',
+                 child: _SplashView(hero: _heroCode, loading: _loading, podium: _podium, podiumTitle: 'MEILLEURS SCORES',
                      title1: 'RÉTRO', title2: 'JUMP', loadingText: 'Chargement…', tapText: 'Touche pour commencer'),
                ),
              ),
@@ -2744,8 +2985,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   }
 
   void _openSheet(String title, IconData icon, Color color, Widget Function(Color accent) body,
-      {bool showCoins = true}) {
-    final accent = Theme.of(context).colorScheme.primary;
+      {bool showCoins = true, Widget Function(Color accent)? header, Widget Function(Color accent)? footer}) {
+    final accent = _uiStyle.accent ?? Theme.of(context).colorScheme.primary;
     BuildContext? mine;
     showModalBottomSheet<void>(
       context: context,
@@ -2754,13 +2995,14 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       backgroundColor: Colors.transparent,
       builder: (_) => SizedBox(
         height: MediaQuery.of(context).size.height * 0.82,
-        child: ClipRRect(
+        child: _SkinClip(
+          rev: _rev,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: ScaffoldMessenger(
             child: Builder(builder: (ctx) {
               _sheetCtx = mine = ctx;
               return Scaffold(
-                backgroundColor: const Color(0xFF151A24),
+                backgroundColor: Colors.transparent, // fond peint par _SkinClip
                 body: Column(children: [
                   const SizedBox(height: 10),
                   Container(width: 40, height: 4,
@@ -2787,16 +3029,34 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                       ),
                     ]),
                   ),
+                  // En-tête fixe (ne défile pas avec la liste)
+                  if (header != null)
+                    ValueListenableBuilder<int>(
+                      valueListenable: _rev,
+                      builder: (_, __, ___) => Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                        child: header(accent),
+                      ),
+                    ),
                   Expanded(
                     child: ValueListenableBuilder<int>(
                       valueListenable: _rev,
                       builder: (_, __, ___) => SingleChildScrollView(
                         // + hauteur de la barre de navigation Android
-                        padding: EdgeInsets.fromLTRB(16, 4, 16, 24 + MediaQuery.of(ctx).viewPadding.bottom),
+                        padding: EdgeInsets.fromLTRB(16, 4, 16, footer != null ? 8 : 24 + MediaQuery.of(ctx).viewPadding.bottom),
                         child: body(accent),
                       ),
                     ),
                   ),
+                  // Pied fixe
+                  if (footer != null)
+                    ValueListenableBuilder<int>(
+                      valueListenable: _rev,
+                      builder: (_, __, ___) => Padding(
+                        padding: EdgeInsets.fromLTRB(16, 6, 16, 8 + MediaQuery.of(ctx).viewPadding.bottom),
+                        child: footer(accent),
+                      ),
+                    ),
                 ]),
               );
             }),
@@ -2959,7 +3219,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         Row(children: [
           Expanded(child: _dayPick<int>(
             label: 'Héros',
-            lead: SizedBox(width: 30, height: 26, child: CustomPaint(painter: _HeroPreviewPainter(_hero))),
+            lead: SizedBox(width: 30, height: 26, child: CustomPaint(painter: _HeroPreviewPainter(_heroCode))),
             value: _heroNames[_hero],
             items: [
               for (final i in heroes)
@@ -3064,14 +3324,14 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     required void Function(T) onSelected,
   }) {
     return PopupMenuButton<T>(
-      color: const Color(0xFF1C2230),
+      color: _uiStyle.panel,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       itemBuilder: (_) => items,
       onSelected: onSelected,
       child: Container(
         padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF1C2230),
+          color: _uiStyle.panel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.white.withOpacity(0.08)),
         ),
@@ -3197,39 +3457,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
             'Renseigne kLbUrl et kLbKey dans leaderboard_service.dart.');
       }
       final b = _lbBoard;
-      final tabs = Row(children: [
-        Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Défi du jour', accent)),
-        const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Défi semaine', accent)),
-        const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(3, Icons.emoji_events_rounded, 'Défi général', accent)),
-        const SizedBox(width: 6),
-        Expanded(child: _lbTabBtn(1, Icons.person_rounded, 'Solo', accent)),
-      ]);
       return Column(children: [
-        tabs,
-        const SizedBox(height: 10),
-        // Pseudo
-        Container(
-          padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1C2230),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(children: [
-            const Icon(Icons.person_rounded, color: Colors.white54, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text('Pseudo : ${_lbMyName ?? '—'}',
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600))),
-            TextButton.icon(
-              onPressed: _lbEditName,
-              icon: const Icon(Icons.edit_rounded, size: 16),
-              label: const Text('Modifier'),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 10),
         if (_lbLoading && b == null)
           const Padding(
             padding: EdgeInsets.all(30),
@@ -3239,39 +3467,6 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           _lbInfo(Icons.wifi_off_rounded, 'Hors ligne', 'Classement indisponible pour le moment.',
               retry: _lbLoad)
         else if (b != null) ...[
-          // Fin du défi du jour / de la semaine
-          if (_lbTab == 0 || _lbTab == 2)
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _lbTab == 0
-                    ? const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Fin du défi dans ')
-                    : const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Fin de la semaine dans ', weekly: true),
-              ),
-            ),
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.amberAccent.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amberAccent.withOpacity(0.3)),
-            ),
-            child: Text(
-              b.me.rank != null
-                  ? 'Ton rang : #${b.me.rank} / ${b.me.total}  ·  ${_fmtNum(b.me.score ?? 0)} pts'
-                  : (_lbTab == 0
-                      ? 'Pas encore de score aujourd\'hui : lance la partie du jour !'
-                      : _lbTab == 2
-                          ? 'Pas encore de défi cette semaine : joue la partie du jour !'
-                          : _lbTab == 3
-                          ? 'Pas encore de récompense : joue la partie du jour !'
-                          : 'Pas encore de score : joue une partie pour entrer au classement.'),
-              style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-          ),
           if (b.top.isEmpty)
             const Padding(
               padding: EdgeInsets.all(20),
@@ -3280,6 +3475,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           for (int i = 0; i < b.top.length + _lbMore.length; i++)
             _lbRow(i, i < b.top.length ? b.top[i] : _lbMore[i - b.top.length],
                 key: (i < b.top.length ? b.top[i] : _lbMore[i - b.top.length]).pid == _lbPid ? _lbMeKey : null),
+        ],
+        if (!_lbFailed && b != null) ...[
           // Voir plus (jusqu'à 500) + Ma position
           if (b.top.isNotEmpty)
             Padding(
@@ -3317,14 +3514,86 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         const SizedBox(height: 8),
         Text(
           _lbTab == 0
-              ? "Défi du jour : même parcours pour tous, sans bonus de départ, continue ni pièces. Nouveau parcours chaque jour à minuit. Les 3 premiers gagnent une médaille d'or, d'argent ou de bronze (remise à minuit)."
+              ? "Défi du jour : même parcours pour tous, sans bonus de départ, continue ni pièces. Nouveau parcours chaque jour à minuit. Les 3 premiers gagnent une médaille d'or, d'argent ou de bronze, les autres joueurs une médaille de participation (remise à minuit)."
               : _lbTab == 2
-                  ? "Défi semaine : médailles gagnées cette semaine au défi du jour (or, puis argent, puis bronze ; à égalité, meilleur score du défi). Chaque lundi, coupes d'or, d'argent et de bronze aux 3 premiers et médaille de participation aux autres joueurs de la semaine · fin dans ${Leaderboard.weekDaysLeft()} j."
+                  ? "Défi semaine : médailles gagnées cette semaine au défi du jour (or, puis argent, puis bronze, puis participation ; à égalité, meilleur score du défi). Chaque lundi, coupes d'or, d'argent et de bronze aux 3 premiers · fin dans ${Leaderboard.weekDaysLeft()} j."
                   : _lbTab == 3
                       ? "Défi général : toutes les récompenses gagnées depuis le début — coupes d'or, d'argent et de bronze, puis médailles du jour, puis médailles de participation (à égalité, meilleur score au défi)."
                       : 'Solo : meilleur score de chaque joueur en parties normales (hors défi du jour).',
           style: const TextStyle(color: Colors.white38, fontSize: 12, height: 1.4),
         ),
+      ]);
+    }, header: (accent) {
+      if (!Leaderboard.configured) return const SizedBox.shrink();
+      final b = _lbBoard;
+      final tabs = Row(children: [
+        Expanded(child: _lbTabBtn(0, Icons.today_rounded, 'Défi du jour', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(2, Icons.date_range_rounded, 'Défi semaine', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(3, Icons.emoji_events_rounded, 'Défi général', accent)),
+        const SizedBox(width: 6),
+        Expanded(child: _lbTabBtn(1, Icons.person_rounded, 'Solo', accent)),
+      ]);
+      return Column(children: [
+        tabs,
+        const SizedBox(height: 10),
+        // Pseudo
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+          decoration: BoxDecoration(
+            color: _uiStyle.panel,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(children: [
+            const Icon(Icons.person_rounded, color: Colors.white54, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Pseudo : ${_lbMyName ?? '—'}',
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600))),
+            TextButton.icon(
+              onPressed: _lbEditName,
+              icon: const Icon(Icons.edit_rounded, size: 16),
+              label: const Text('Modifier'),
+            ),
+          ]),
+        ),
+        if (!_lbFailed && b != null) ...[
+          const SizedBox(height: 8),
+          // Fin du défi du jour / de la semaine
+          if (_lbTab == 0 || _lbTab == 2)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _lbTab == 0
+                    ? const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Fin du défi dans ')
+                    : const _DailyCountdown(color: Colors.lightBlueAccent, prefix: '⏳ Fin de la semaine dans ', weekly: true),
+              ),
+            ),
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.amberAccent.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amberAccent.withOpacity(0.3)),
+            ),
+            child: Text(
+              b.me.rank != null
+                  ? 'Ton rang : #${b.me.rank} / ${b.me.total}  ·  ${_fmtNum(b.me.score ?? 0)} pts'
+                  : (_lbTab == 0
+                      ? 'Pas encore de score aujourd\'hui : lance la partie du jour !'
+                      : _lbTab == 2
+                          ? 'Pas encore de défi cette semaine : joue la partie du jour !'
+                          : _lbTab == 3
+                          ? 'Pas encore de récompense : joue la partie du jour !'
+                          : 'Pas encore de score : joue une partie pour entrer au classement.'),
+              style: const TextStyle(color: Colors.amberAccent, fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ]);
     });
   }
@@ -3344,7 +3613,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
-          color: sel ? accent.withOpacity(0.18) : const Color(0xFF1C2230),
+          color: sel ? accent.withOpacity(0.18) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: sel ? accent : Colors.white.withOpacity(0.06)),
         ),
@@ -3454,7 +3723,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final txt = _chatCtrl.text;
     if (txt.trim().isEmpty || _chatSending) return;
     setState(() => _chatSending = true);
-    final r = await Leaderboard.sendChat(txt, _hero);
+    final r = await Leaderboard.sendChat(txt, _heroCode);
     if (!mounted) return;
     setState(() => _chatSending = false);
     if (r == Leaderboard.chatOk || r == Leaderboard.chatEmpty) {
@@ -3479,7 +3748,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final ok = await showDialog<bool>(
       context: _sheetCtx ?? context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Text('Signaler ce message ?', style: TextStyle(color: Colors.white)),
         content: Text('${m.name} : ${m.msg}', style: const TextStyle(color: Colors.white70)),
         actions: [
@@ -3548,7 +3817,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 child: ActionChip(
                   avatar: const Icon(Icons.alternate_email_rounded, size: 16, color: Colors.lightBlueAccent),
                   label: Text(n, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  backgroundColor: const Color(0xFF1C2230),
+                  backgroundColor: _uiStyle.panel,
                   side: BorderSide(color: Colors.lightBlueAccent.withOpacity(0.4)),
                   onPressed: () => _chatInsertMention(n),
                 ),
@@ -3579,7 +3848,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               counterText: '',
               isDense: true,
               filled: true,
-              fillColor: const Color(0xFF1C2230),
+              fillColor: _uiStyle.panel,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
@@ -3615,7 +3884,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           Expanded(child: Container(
             padding: const EdgeInsets.fromLTRB(10, 6, 10, 7),
             decoration: BoxDecoration(
-              color: me ? Colors.amberAccent.withOpacity(0.10) : const Color(0xFF1C2230),
+              color: me ? Colors.amberAccent.withOpacity(0.10) : _uiStyle.panel,
               borderRadius: BorderRadius.circular(12),
               // Message qui me mentionne : encadré
               border: !me && _lbMyName != null && Leaderboard.mentions(m.msg, _lbMyName!)
@@ -3712,7 +3981,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     await showDialog<void>(
       context: _sheetCtx ?? context,
       builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF151A24),
+        backgroundColor: _uiStyle.dialog,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: FutureBuilder<Map<String, dynamic>?>(
@@ -3736,8 +4005,8 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                     Container(
                       width: 52, height: 52,
                       padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(color: const Color(0xFF1C2230), borderRadius: BorderRadius.circular(14)),
-                      child: CustomPaint(painter: _HeroPreviewPainter(min(max(h, 0), _heroCount - 1))),
+                      decoration: BoxDecoration(color: _uiStyle.panel, borderRadius: BorderRadius.circular(14)),
+                      child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(h))),
                     ),
                   const SizedBox(width: 12),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -3828,7 +4097,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     Widget tile(IconData icon, Color color, String label, String value) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: const Color(0xFF1C2230),
+            color: _uiStyle.panel,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: color.withOpacity(0.25)),
           ),
@@ -3887,7 +4156,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       grid([
         tile(Icons.today_rounded, Colors.cyanAccent, 'Défi du jour${rank(n('rank_today'))}', fmt(n('today'))),
         tile(Icons.date_range_rounded, Colors.lightBlueAccent, 'Défi semaine${rank(n('rank_wch'), n('total_wch'))}',
-            n('rank_wch') == null ? '—' : '🥇${n('wg') ?? 0} 🥈${n('ws') ?? 0} 🥉${n('wb') ?? 0}'),
+            n('rank_wch') == null ? '—' : '🥇${n('wg') ?? 0} 🥈${n('ws') ?? 0} 🥉${n('wb') ?? 0} ✅${n('wp') ?? 0}'),
         tile(Icons.emoji_events_rounded, Colors.amberAccent, 'Défi général${rank(n('rank_gen'), n('total_gen'))}',
             n('rank_gen') == null ? '—' : '🏆 ${(n('gold') ?? 0) + (n('silver') ?? 0) + (n('bronze') ?? 0)}'),
         tile(Icons.workspace_premium_rounded, Colors.orangeAccent, 'Défis gagnés', fmt(n('daily_wins'))),
@@ -3949,7 +4218,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: me ? Colors.amberAccent.withOpacity(0.12) : const Color(0xFF1C2230),
+        color: me ? Colors.amberAccent.withOpacity(0.12) : _uiStyle.panel,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: me ? Colors.amberAccent.withOpacity(0.5) : Colors.white.withOpacity(0.05)),
       ),
@@ -3965,7 +4234,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
           _Avatar(code: e.avatar, hero: e.hero, size: 30),
           if (_avParse(e.avatar) != null)
             Positioned(right: -6, bottom: -5, child: SizedBox(width: 17, height: 15,
-                child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1))))),
+                child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(e.hero))))),
         ])),
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -4053,7 +4322,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     final n = await showDialog<String>(
       context: _sheetCtx ?? context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Text('Ton pseudo', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: ctrl,
@@ -4150,7 +4419,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: _rankFor(lvl) == _levelRanks[i] ? _levelRanks[i].$2.withOpacity(0.12) : const Color(0xFF1C2230),
+                color: _rankFor(lvl) == _levelRanks[i] ? _levelRanks[i].$2.withOpacity(0.12) : _uiStyle.panel,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: _levelRanks[i].$2.withOpacity(_rankFor(lvl) == _levelRanks[i] ? 0.6 : 0.15)),
               ),
@@ -4201,7 +4470,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1C2230),
+                    color: _uiStyle.panel,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: it.$2.withOpacity(0.25)),
                   ),
@@ -4235,8 +4504,11 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _openShop() => _openSheet('Boutique', Icons.storefront_rounded, Colors.pinkAccent, (accent) => Column(children: [
         _section('Héros  ·  ${_unlocked.length}/$_heroCount'),
         _grid(_heroCount, (i) => _heroTile(i, accent)),
+        _goldHeroCard(),
         _section('Thème  ·  ${_themeUnlocked.length}/${_themeNames.length}'),
         _grid(_themeNames.length, (i) => _themeTile(i, accent)),
+        _section('Style des pages  ·  ${_skinUnlocked.length}/${_skins.length}'),
+        _grid(_skins.length, (i) => _skinTile(i, accent)),
         _section('Musique  ·  ${_musicUnlocked.length}/${_musicNames.length}'),
         _grid(_musicNames.length + 1, (k) => _musicTile(k - 1, accent)),
         _section('Traînée  ·  ${_trailUnlocked.length}/${_trailNames.length}'),
@@ -4303,7 +4575,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       decoration: BoxDecoration(
-        color: got ? c.withOpacity(0.10) : const Color(0xFF1C2230),
+        color: got ? c.withOpacity(0.10) : _uiStyle.panel,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: got ? c.withOpacity(0.6) : Colors.white.withOpacity(0.05)),
       ),
@@ -4385,7 +4657,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
-          color: sel ? color.withOpacity(0.16) : const Color(0xFF1C2230),
+          color: sel ? color.withOpacity(0.16) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: sel ? color : Colors.white.withOpacity(0.06)),
         ),
@@ -4489,7 +4761,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
   void _openSettings() => _openSheet('Réglages', Icons.settings_rounded, Colors.cyanAccent, (accent) => Column(children: [
         _section('Avatar'),
         Row(children: [
-          GestureDetector(onTap: _openAvatarEditor, child: _Avatar(code: _avatar, hero: _hero, size: 56)),
+          GestureDetector(onTap: _openAvatarEditor, child: _Avatar(code: _avatar, hero: _heroCode, size: 56)),
           const SizedBox(width: 12),
           Expanded(child: Text('Affiché dans le classement, le chat et ta fiche.', style: const TextStyle(color: Colors.white54, fontSize: 12))),
           const SizedBox(width: 8),
@@ -4515,7 +4787,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
               icon: QuizAudio.enabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
               color: Colors.amberAccent,
               label: 'Son', value: QuizAudio.enabled, accent: accent,
-              onTap: () => setState(() => QuizAudio.enabled = !QuizAudio.enabled))),
+              onTap: () => setState(() => _setSound(!QuizAudio.enabled)))),
         ]),
         _section('Sensibilité'),
         _sensSlider(Icons.touch_app_rounded, Colors.cyanAccent, 'Tactile', _sensTouch, 0.7, 1.3,
@@ -4603,7 +4875,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
                         text: 'Fantôme : dans la partie du jour, le n°1 du jour grimpe en même temps que toi'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.leaderboard_rounded, color: Colors.amberAccent,
-                        text: 'Classements : défi du jour (médaille aux 3 premiers chaque jour), défi semaine (coupes aux 3 joueurs les plus médaillés chaque lundi, médaille de participation aux autres), défi général (toutes les récompenses depuis le début) et Solo (meilleur score des parties normales). Touche un joueur pour voir sa fiche'),
+                        text: 'Classements : défi du jour (médaille aux 3 premiers et médaille de participation aux autres, chaque jour), défi semaine (coupes aux 3 joueurs les plus médaillés chaque lundi), défi général (toutes les récompenses depuis le début) et Solo (meilleur score des parties normales). Touche un joueur pour voir sa fiche'),
                     SizedBox(height: 10),
                     _RuleRow(icon: Icons.military_tech_rounded, color: Colors.lightGreenAccent,
                         text: 'Niveau : 1 XP pour 10 pts, +10 par partie, +25 par défi réussi, +30 pour la partie du jour. Chaque niveau rapporte 20 × le niveau en pièces'),
@@ -4649,7 +4921,7 @@ class _JumpScreenState extends State<JumpScreen> with SingleTickerProviderStateM
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? accent.withOpacity(0.12) : const Color(0xFF1C2230),
+          color: selected ? accent.withOpacity(0.12) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? accent : Colors.white.withOpacity(0.08),
@@ -4783,7 +5055,7 @@ class _SplashViewState extends State<_SplashView> with SingleTickerProviderState
             // Héros du record en pastille (si l'avatar le remplace)
             if (_avParse(e.avatar) != null)
               Positioned(right: -2, bottom: -2, child: SizedBox(width: 20, height: 18,
-                  child: CustomPaint(painter: _HeroPreviewPainter(min(max(e.hero, 0), _heroCount - 1))))),
+                  child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(e.hero))))),
           ])),
           const SizedBox(height: 4),
           Text(e.name,
@@ -4870,8 +5142,8 @@ class _SplashViewState extends State<_SplashView> with SingleTickerProviderState
                 // Héros qui rebondit + cartouche (réduit si l'écran est petit)
                 Expanded(flex: 4, child: FittedBox(child: SizedBox(
                   width: 160,
-                  height: 190,
-                  child: Stack(alignment: Alignment.bottomCenter, children: [
+                  height: 240,
+                  child: Stack(alignment: Alignment.bottomCenter, clipBehavior: Clip.none, children: [
                     Positioned(
                       bottom: 22 + jump * 110,
                       child: Transform.scale(
@@ -5006,8 +5278,9 @@ class _CoinIcon extends StatelessWidget {
 /// Roue de la fortune (fenêtre) : tourne puis renvoie l'index du segment gagné.
 class _WheelDialog extends StatefulWidget {
   final bool ready;
-  final int coins; // pour le tour payant
-  const _WheelDialog({required this.ready, required this.coins});
+  final int Function() coins; // solde actuel (tour payant)
+  final Future<String> Function(int code) onPrize;
+  const _WheelDialog({required this.ready, required this.coins, required this.onPrize});
   @override
   State<_WheelDialog> createState() => _WheelDialogState();
 }
@@ -5021,6 +5294,9 @@ class _WheelDialogState extends State<_WheelDialog> with SingleTickerProviderSta
   bool _paid = false;
   bool _spinning = false;
   int _lastTick = -1;
+  late bool _ready = widget.ready;
+  bool _claiming = false;
+  String? _lastWin; // dernier lot récupéré
 
   @override
   void initState() {
@@ -5047,7 +5323,7 @@ class _WheelDialogState extends State<_WheelDialog> with SingleTickerProviderSta
 
   void _spin() {
     if (_spinning || _result != null) return;
-    _paid = !widget.ready;
+    _paid = !_ready;
     // Tirage pondéré
     final total = _wheel.fold<int>(0, (a, s) => a + s.w);
     var r = _rng.nextInt(total);
@@ -5074,6 +5350,20 @@ class _WheelDialogState extends State<_WheelDialog> with SingleTickerProviderSta
     });
   }
 
+  Future<void> _claim() async {
+    final r = _result;
+    if (r == null || _claiming) return;
+    setState(() => _claiming = true);
+    final msg = await widget.onPrize(r + (_paid ? 100 : 0));
+    if (!mounted) return;
+    setState(() {
+      _claiming = false;
+      _ready = false;
+      _result = null;
+      _lastWin = msg;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = _result == null ? null : _wheel[_result!];
@@ -5083,7 +5373,7 @@ class _WheelDialogState extends State<_WheelDialog> with SingleTickerProviderSta
     return PopScope(
       canPop: !_spinning && _result == null,
       child: Dialog(
-      backgroundColor: const Color(0xFF151A24),
+      backgroundColor: _uiStyle.dialog,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
@@ -5107,7 +5397,7 @@ class _WheelDialogState extends State<_WheelDialog> with SingleTickerProviderSta
                 ),
               ),
               // Pointeur
-              CustomPaint(size: const Size(28, 30), painter: _WheelPointerPainter()),
+              CustomPaint(size: const Size(30, 34), painter: _WheelPointerPainter()),
             ]),
           ),
           const SizedBox(height: 14),
@@ -5115,11 +5405,16 @@ class _WheelDialogState extends State<_WheelDialog> with SingleTickerProviderSta
             Text(s.coins > 0 ? '+${s.coins} pièces !' : '${_prizeName(s.bonus)} offert !',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.amberAccent, fontSize: 20, fontWeight: FontWeight.w900))
-          else if (!widget.ready) ...[
+          else if (!_ready) ...[
+            if (_lastWin != null) ...[
+              Text('✅ $_lastWin', textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+            ],
             Text('Prochain tour dans ${d.inHours} h ${d.inMinutes % 60} min',
                 style: const TextStyle(color: Colors.white54, fontSize: 13)),
             const SizedBox(height: 4),
-            Text(widget.coins >= _wheelSpinPrice ? 'ou retente ta chance pour $_wheelSpinPrice pièces' : 'Pas assez de pièces pour un tour',
+            Text(widget.coins() >= _wheelSpinPrice ? 'ou retente ta chance pour $_wheelSpinPrice pièces' : 'Pas assez de pièces pour un tour',
                 style: const TextStyle(color: Colors.white38, fontSize: 12)),
           ],
           const SizedBox(height: 14),
@@ -5127,17 +5422,22 @@ class _WheelDialogState extends State<_WheelDialog> with SingleTickerProviderSta
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _result != null
-                  ? () => Navigator.pop(context, _result! + (_paid ? 100 : 0))
-                  : (!_spinning && (widget.ready || widget.coins >= _wheelSpinPrice) ? _spin : null),
+                  ? (_claiming ? null : _claim)
+                  : (!_spinning && (_ready || widget.coins() >= _wheelSpinPrice) ? _spin : null),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.purpleAccent,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text(_result != null ? 'Récupérer' : widget.ready ? 'Tourner !' : 'Tourner pour $_wheelSpinPrice pièces',
+              child: Text(_result != null ? 'Récupérer' : _ready ? 'Tourner !' : 'Tourner pour $_wheelSpinPrice pièces',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             ),
+          ),
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: _spinning || _result != null ? null : () => Navigator.pop(context),
+            child: const Text('Fermer', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
           ),
         ]),
       ),
@@ -5152,68 +5452,132 @@ class _WheelPainter extends CustomPainter {
   final int? winner;
   _WheelPainter(this.angle, this.t, this.winner);
 
+  static const _goldA = Color(0xFFFFE082);
+  static const _goldB = Color(0xFFB8860B);
+
+  static const _icons = <int, IconData>{
+    2: Icons.shield_rounded,
+    3: Icons.rocket_launch_rounded,
+    4: Icons.replay_rounded,
+    6: Icons.card_giftcard_rounded,
+  };
+
+  void _text(Canvas c, String txt, double y, double size, {Color color = Colors.white, String? family, String? package}) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: txt,
+        style: TextStyle(
+          color: color,
+          fontSize: size,
+          fontWeight: FontWeight.w900,
+          fontFamily: family,
+          package: package,
+          shadows: const [Shadow(color: Colors.black87, blurRadius: 4)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(c, Offset(-tp.width / 2, y));
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
-    final r = size.width / 2 - 8;
+    final outer = size.width / 2;
+    const rim = 13.0;
+    final r = outer - rim;
     final n = _wheel.length;
     final sweep = 2 * pi / n;
-    // Couronne
-    canvas.drawCircle(c, r + 8, Paint()..color = const Color(0xFF2E3446));
+    // Ombre portée + couronne dorée
+    canvas.drawCircle(c.translate(0, 4), outer, Paint()
+      ..color = Colors.black54
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7));
+    canvas.drawCircle(c, outer, Paint()
+      ..shader = ui.Gradient.sweep(c, const [_goldA, _goldB, _goldA, _goldB, _goldA], const [0, 0.25, 0.5, 0.75, 1]));
+    canvas.drawCircle(c, r + 2, Paint()..color = const Color(0xFF3A2A00));
     canvas.save();
     canvas.translate(c.dx, c.dy);
     canvas.rotate(angle);
+    final rect = Rect.fromCircle(center: Offset.zero, radius: r);
     for (int i = 0; i < n; i++) {
       final s = _wheel[i];
       final start = -pi / 2 + i * sweep;
-      final rect = Rect.fromCircle(center: Offset.zero, radius: r);
-      canvas.drawArc(rect, start, sweep, true, Paint()..color = s.color);
+      // Segment en relief (plus clair au centre)
       canvas.drawArc(rect, start, sweep, true, Paint()
-        ..color = Colors.white.withOpacity(0.35)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5);
-      // Libellé orienté vers l'extérieur
+        ..shader = ui.Gradient.radial(Offset.zero, r, [
+          Color.lerp(s.color, Colors.white, 0.28)!,
+          s.color,
+          Color.lerp(s.color, Colors.black, 0.3)!,
+        ], const [0, 0.6, 1]));
+      if (winner == i) {
+        canvas.drawArc(rect, start, sweep, true, Paint()..color = Colors.white.withOpacity(0.28));
+        canvas.drawArc(rect.deflate(2), start, sweep, true, Paint()
+          ..color = _goldA
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3);
+      }
+      // Séparateurs dorés
+      canvas.drawLine(Offset.zero, Offset(cos(start), sin(start)) * r, Paint()
+        ..color = _goldA.withOpacity(0.9)
+        ..strokeWidth = 2);
+      // Lot orienté vers l'extérieur
       canvas.save();
       canvas.rotate(start + sweep / 2 + pi / 2);
-      final label = s.coins > 0 ? '${s.coins}' : const ['500↑', '1000↑', '🛡️', '🚀', '❤️', '', '🎁'][s.bonus];
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: s.coins > 0 ? 20 : 18,
-            fontWeight: FontWeight.w900,
-            shadows: const [Shadow(color: Colors.black54, blurRadius: 3)],
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(-tp.width / 2, -r + 14));
+      final top = -r + 12;
       if (s.coins > 0) {
-        final cy = -r + 14 + tp.height + 8;
-        canvas.drawCircle(Offset(0, cy), 6, Paint()..color = const Color(0xFFFFD740));
-        canvas.drawCircle(Offset(0, cy), 4, Paint()
+        _text(canvas, s.coins >= 1000 ? '1000' : '${s.coins}', top, s.coins >= 1000 ? 17 : 19,
+            color: s.coins >= 1000 ? const Color(0xFFFFF8E1) : Colors.white);
+        final cy = top + 30;
+        canvas.drawCircle(Offset(0, cy), 6.5, Paint()..color = const Color(0xFFFFD740));
+        canvas.drawCircle(Offset(0, cy), 4.5, Paint()
           ..color = const Color(0xFFE6A800)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2);
+        if (s.coins >= 1000) _text(canvas, '★', cy + 8, 13, color: const Color(0xFFFFF59D));
+      } else {
+        final ic = _icons[s.bonus];
+        if (ic != null) {
+          _text(canvas, String.fromCharCode(ic.codePoint), top, 26,
+              family: ic.fontFamily, package: ic.fontPackage);
+        } else {
+          _text(canvas, s.bonus == 0 ? '500' : '1000', top, 15);
+          _text(canvas, String.fromCharCode(Icons.arrow_upward_rounded.codePoint), top + 18, 18,
+              family: Icons.arrow_upward_rounded.fontFamily, package: Icons.arrow_upward_rounded.fontPackage);
+        }
       }
       canvas.restore();
     }
     canvas.restore();
-    // Ampoules autour de la roue (clignotent)
-    for (int i = 0; i < 24; i++) {
-      final a = i / 24 * 2 * pi;
-      final on = ((i + (t * 40).floor()) % 2 == 0) || winner != null && i.isEven;
-      canvas.drawCircle(c + Offset(cos(a), sin(a)) * (r + 4), 2.6,
-          Paint()..color = on ? const Color(0xFFFFF59D) : const Color(0xFF6D6A4A));
+    // Ombre intérieure (effet de profondeur)
+    canvas.drawCircle(c, r, Paint()
+      ..shader = ui.Gradient.radial(c, r, [Colors.transparent, Colors.black.withOpacity(0.3)], const [0.72, 1]));
+    // Ampoules sur la couronne (clignotent, s'allument toutes au résultat)
+    const bulbs = 22;
+    for (int i = 0; i < bulbs; i++) {
+      final a = i / bulbs * 2 * pi;
+      final p = c + Offset(cos(a), sin(a)) * (outer - rim / 2);
+      final on = winner != null ? (t * 1000).floor().isEven || i.isEven : ((i + (t * 40).floor()) % 2 == 0);
+      if (on) {
+        canvas.drawCircle(p, 6, Paint()
+          ..color = const Color(0xFFFFF59D).withOpacity(0.55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+        canvas.drawCircle(p, 3, Paint()..color = const Color(0xFFFFFDE7));
+      } else {
+        canvas.drawCircle(p, 2.6, Paint()..color = const Color(0xFF7A6A2A));
+      }
     }
-    // Moyeu
-    canvas.drawCircle(c, 22, Paint()..color = const Color(0xFF1C2230));
-    canvas.drawCircle(c, 22, Paint()
-      ..color = Colors.amberAccent
+    // Moyeu doré + étoile
+    canvas.drawCircle(c, 25, Paint()
+      ..shader = ui.Gradient.radial(c.translate(-6, -6), 30, const [Color(0xFFFFF3C4), _goldA, _goldB], const [0, 0.5, 1]));
+    canvas.drawCircle(c, 25, Paint()
+      ..color = const Color(0xFF6D4C00)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3);
-    canvas.drawCircle(c, 8, Paint()..color = Colors.amberAccent);
+      ..strokeWidth = 2);
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    _text(canvas, String.fromCharCode(Icons.star_rounded.codePoint), -13, 26,
+        color: const Color(0xFF8D6200), family: Icons.star_rounded.fontFamily, package: Icons.star_rounded.fontPackage);
+    canvas.restore();
   }
 
   @override
@@ -5224,19 +5588,23 @@ class _WheelPainter extends CustomPainter {
 class _WheelPointerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    // Aiguille : goutte rouge cerclée d'or
     final p = Path()
-      ..moveTo(size.width / 2, size.height)
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
+      ..moveTo(w / 2, h)
+      ..lineTo(w * 0.12, h * 0.38)
+      ..arcToPoint(Offset(w * 0.88, h * 0.38), radius: Radius.circular(w * 0.42))
       ..close();
-    canvas.drawPath(p, Paint()
+    canvas.drawPath(p.shift(const Offset(0, 2)), Paint()
       ..color = Colors.black54
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
-    canvas.drawPath(p, Paint()..color = const Color(0xFFFF5252));
     canvas.drawPath(p, Paint()
-      ..color = Colors.white
+      ..shader = ui.Gradient.linear(Offset(0, 0), Offset(0, h), const [Color(0xFFFF8A80), Color(0xFFD32F2F)]));
+    canvas.drawPath(p, Paint()
+      ..color = const Color(0xFFFFE082)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2);
+    canvas.drawCircle(Offset(w / 2, h * 0.34), w * 0.14, Paint()..color = Colors.white.withOpacity(0.85));
   }
 
   @override
@@ -5302,7 +5670,7 @@ class _OptionTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: value ? accent.withOpacity(0.12) : const Color(0xFF1C2230),
+          color: value ? accent.withOpacity(0.12) : _uiStyle.panel,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: value ? accent : Colors.white.withOpacity(0.08),
@@ -5467,6 +5835,7 @@ class _JumpGame extends StatefulWidget {
   final int hero;
   final int theme;
   final int trail; // traînée de saut choisie
+  final bool goldHero; // héros doré (affichage + classement)
   final bool haptics;
   final int hapticLvl;     // intensité des vibrations (0 faible, 1 normale, 2 forte)
   final bool tilt;
@@ -5486,6 +5855,7 @@ class _JumpGame extends StatefulWidget {
     required this.hero,
     required this.theme,
     this.trail = 0,
+    this.goldHero = false,
     required this.haptics,
     this.hapticLvl = 1,
     required this.tilt,
@@ -5749,6 +6119,8 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     }
   }
 
+  int get _heroCode => widget.hero + (widget.goldHero ? 32 : 0);
+
   void _haptic(int level) {
     if (!widget.haptics) return;
     _hapticAt(level, widget.hapticLvl);
@@ -5873,8 +6245,18 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
       final turbo = type == _PlatType.normal && _gen.nextDouble() < 0.025;
       // Bonus bouclier (rare)
       final shield = type == _PlatType.normal && !turbo && heightPts > 150 && _gen.nextDouble() < 0.03;
-      _plats.add(_Plat(x, y, type,
-          vx: vx, hasTurbo: turbo, hasShield: shield, colorIdx: _gen.nextInt(_cartColors.length)));
+      final plat = _Plat(x, y, type,
+          vx: vx, hasTurbo: turbo, hasShield: shield, colorIdx: _gen.nextInt(_cartColors.length));
+      // Parties normales : une mobile sur trois monte et descend au lieu d'aller de gauche à droite
+      // (pas dans la partie du jour, pour garder le même parcours pour tous)
+      if (widget.daily == null && type == _PlatType.moving && heightPts > 200 && gap < 125 && _gen.nextDouble() < 0.35) {
+        plat.vx = 0;
+        plat.baseY = y;
+        plat.amp = min(45.0, 165 - gap);
+        plat.vSpeed = 1.2 + 1.0 * d;
+        plat.phase = _gen.nextDouble() * 2 * pi;
+      }
+      _plats.add(plat);
 
       // Pièce posée au-dessus de la cartouche
       if (type == _PlatType.normal && !turbo && !shield && _gen.nextDouble() < 0.28) {
@@ -5998,6 +6380,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         if (widget.startTurbo) {
           _turbo = _turboDur;
           _turbos++;
+          QuizAudio.sfx('boost');
         } else {
           _turbo = 0.05;
         }
@@ -6031,7 +6414,9 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
 
     // Plateformes mobiles / cassées
     for (final p in _plats) {
-      if (p.type == _PlatType.moving) {
+      if (p.vertical) {
+        if (!p.broken) p.y = p.baseY + sin(_time * p.vSpeed + p.phase) * p.amp;
+      } else if (p.type == _PlatType.moving) {
         p.x += p.vx * dt;
         if (p.x < 0) { p.x = 0; p.vx = p.vx.abs(); }
         if (p.x > _w - _platW) { p.x = _w - _platW; p.vx = -p.vx.abs(); }
@@ -6144,7 +6529,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         _turbo = _turboDur;
         _turbos++;
         _burst(c, Colors.greenAccent, 14);
-        QuizAudio.sfx('powerup');
+        QuizAudio.sfx('boost');
         _haptic(2);
       }
     }
@@ -6594,10 +6979,10 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     // Solo : parties normales seulement (le défi du jour a son propre classement)
     final all = day != null
         ? null
-        : Leaderboard.submit(mode: 'all', day: lbAllDay, score: score, hero: widget.hero, time: time, name: name);
+        : Leaderboard.submit(mode: 'all', day: lbAllDay, score: score, hero: _heroCode, time: time, name: name);
     final daily = day == null
         ? null
-        : Leaderboard.submit(mode: 'daily', day: day, score: score, hero: widget.hero, time: time, name: name);
+        : Leaderboard.submit(mode: 'daily', day: day, score: score, hero: _heroCode, time: time, name: name);
     final rAll = all == null ? null : await all;
     final rDay = daily == null ? null : await daily;
     if (day != null && rDay != null && newDayBest) await Leaderboard.uploadGhost(day, score, ghostData);
@@ -6728,11 +7113,11 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
         if (widget.startPts > 0) {
           _launchTo = widget.startPts;
           _turbo = 0.2;
-          QuizAudio.sfx('powerup');
+          QuizAudio.sfx('boost');
         } else if (widget.startTurbo) {
           _turbo = _turboDur;
           _turbos++;
-          QuizAudio.sfx('powerup');
+          QuizAudio.sfx('boost');
         }
       }
     }
@@ -6782,7 +7167,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
     final quit = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: _uiStyle.panel,
         title: const Text('Quitter la partie ?'),
         content: const Text('Ta progression sera perdue.'),
         actions: [
@@ -6905,7 +7290,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             shieldOn: _shield,
             invuln: _invuln,
             turboImg: _turboImg,
-            hero: widget.hero,
+            hero: _heroCode,
             time: _time,
             neon: widget.neon,
             crt: widget.theme == 4,
@@ -7252,7 +7637,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
                     Text('$_score pts',
                         style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, height: 1.15)),
                     Row(children: [
-                      SizedBox(width: 22, height: 20, child: CustomPaint(painter: _HeroPreviewPainter(widget.hero))),
+                      SizedBox(width: 22, height: 20, child: CustomPaint(painter: _HeroPreviewPainter(_heroCode))),
                       const SizedBox(width: 6),
                       Flexible(child: Text('${widget.daily != null ? 'Partie du jour' : 'Rétro Jump'} · ${_heroNames[widget.hero]}${widget.theme != 0 ? ' · ${_themeNames[widget.theme]}' : ''}',
                           maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -7340,7 +7725,7 @@ class _JumpGameState extends State<_JumpGame> with SingleTickerProviderStateMixi
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C2230),
+              color: _uiStyle.panel,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.amberAccent.withOpacity(0.25)),
             ),
@@ -7552,7 +7937,35 @@ void _rr(Canvas c, double x, double y, double w, double h, double r, Color color
 }
 
 /// Dessine le héros [id]. [time] (secondes) anime le clignement des yeux.
+/// Filtre « or » des héros dorés.
+const _goldMatrix = <double>[
+  0.38, 0.75, 0.15, 0, 40,
+  0.30, 0.60, 0.12, 0, 25,
+  0.10, 0.20, 0.05, 0, 0,
+  0, 0, 0, 1, 0,
+];
+
 void _drawHero(Canvas c, int id, bool right, double time) {
+  if (id < 32) {
+    _drawHeroBase(c, id, right, time);
+    return;
+  }
+  // Héros doré : rendu passé au filtre or + étincelles
+  c.saveLayer(null, Paint()..colorFilter = const ColorFilter.matrix(_goldMatrix));
+  _drawHeroBase(c, (id % 32).clamp(0, _heroCount - 1), right, time);
+  c.restore();
+  final sp = Paint()..color = const Color(0xFFFFF8E1);
+  for (int k = 0; k < 3; k++) {
+    final a = time * 2 + k * 2.1;
+    final o = Offset(cos(a) * 17, -22 + sin(a * 1.3) * 17);
+    final r = 0.8 + (sin(time * 6 + k) + 1) * 0.9;
+    c.drawCircle(o, r, sp);
+    c.drawLine(o.translate(-r * 2.2, 0), o.translate(r * 2.2, 0), sp..strokeWidth = 0.8);
+    c.drawLine(o.translate(0, -r * 2.2), o.translate(0, r * 2.2), sp);
+  }
+}
+
+void _drawHeroBase(Canvas c, int id, bool right, double time) {
   switch (id) {
     case 1:
       _drawJoystick(c, right, time);
@@ -8099,13 +8512,16 @@ void _drawHeadset(Canvas c, bool right, double time) {
 // ─── Avatars façon Mii ────────────────────────────────────────────────────────
 // Code de 8 caractères (base 36) : peau, visage, coiffure, couleur des cheveux,
 // yeux, bouche, accessoire, fond. Quelques octets côté serveur.
-const _avCounts = [12, 6, 20, 16, 12, 12, 14, 16];
+const _avCounts = [16, 8, 28, 24, 18, 18, 22, 24];
 const _avSkin = [0xFFFFE0C4, 0xFFF5C9A0, 0xFFE0A878, 0xFFC68A5A, 0xFF8D5A3B, 0xFF5C3A24,
-    0xFFFDEDE2, 0xFFD9A066, 0xFFB07A4F, 0xFF6E4630, 0xFF9CCC65, 0xFF81D4FA];
+    0xFFFDEDE2, 0xFFD9A066, 0xFFB07A4F, 0xFF6E4630, 0xFF9CCC65, 0xFF81D4FA,
+    0xFFFFD1B0, 0xFFC99A6E, 0xFF4A2E1E, 0xFFB39DDB];
 const _avHair = [0xFF1E1A18, 0xFF5A3825, 0xFF8B5A2B, 0xFFE5C26B, 0xFFB5462A, 0xFFB8B8C0, 0xFF3F7CFF, 0xFFFF6FB5,
-    0xFFF5F5F5, 0xFFF0E2B6, 0xFF3B2416, 0xFF7B2E1E, 0xFF43A047, 0xFF8E44D9, 0xFF00BFA5, 0xFFFF8F00];
+    0xFFF5F5F5, 0xFFF0E2B6, 0xFF3B2416, 0xFF7B2E1E, 0xFF43A047, 0xFF8E44D9, 0xFF00BFA5, 0xFFFF8F00,
+    0xFF050505, 0xFF6D4C41, 0xFFD7A15A, 0xFFE57373, 0xFFFFEB3B, 0xFF26C6DA, 0xFFCE93D8, 0xFF8D8D8D];
 const _avBg = [0xFF3949AB, 0xFF00897B, 0xFFE53935, 0xFFFB8C00, 0xFF8E24AA, 0xFF43A047, 0xFF546E7A, 0xFFFFB300,
-    0xFFEC407A, 0xFF00ACC1, 0xFF6D4C41, 0xFF1A237E, 0xFF7CB342, 0xFF37474F, 0xFF5E35B1, 0xFFF4511E];
+    0xFFEC407A, 0xFF00ACC1, 0xFF6D4C41, 0xFF1A237E, 0xFF7CB342, 0xFF37474F, 0xFF5E35B1, 0xFFF4511E,
+    0xFF263238, 0xFFAD1457, 0xFF00695C, 0xFF827717, 0xFFFF7043, 0xFF4FC3F7, 0xFFBA68C8, 0xFFFDD835];
 
 List<int>? _avParse(String? c) {
   if (c == null || c.length != 8) return null;
@@ -8137,7 +8553,7 @@ class _Avatar extends StatelessWidget {
       child: a == null
           ? Padding(
               padding: EdgeInsets.all(size * 0.06),
-              child: CustomPaint(painter: _HeroPreviewPainter(min(max(hero, 0), _heroCount - 1))))
+              child: CustomPaint(painter: _HeroPreviewPainter(_heroSafe(hero))))
           : CustomPaint(painter: _MiiPainter(a)),
     );
   }
@@ -8217,11 +8633,15 @@ class _MiiPainter extends CustomPainter {
     canvas.drawRRect(box, Paint()
       ..shader = ui.Gradient.linear(Offset.zero, Offset(0, s),
           [Color.lerp(bg, Colors.white, 0.18)!, Color.lerp(bg, Colors.black, 0.22)!]));
+    // Halo clair derrière la tête
+    canvas.drawCircle(Offset(s * 0.5, s * 0.44), s * 0.48, Paint()
+      ..shader = ui.Gradient.radial(Offset(s * 0.5, s * 0.44), s * 0.48,
+          [Colors.white.withOpacity(0.2), Colors.white.withOpacity(0)]));
 
     final c = Offset(s * 0.5, s * 0.5);
     final face = a[1];
-    final hw = s * const [0.52, 0.46, 0.52, 0.52, 0.58, 0.44][face];
-    final hh = s * const [0.54, 0.58, 0.54, 0.55, 0.50, 0.60][face];
+    final hw = s * const [0.52, 0.46, 0.52, 0.52, 0.58, 0.44, 0.58, 0.42][face];
+    final hh = s * const [0.54, 0.58, 0.54, 0.55, 0.50, 0.60, 0.50, 0.60][face];
     final head = Rect.fromCenter(center: c, width: hw, height: hh);
     final Path headPath;
     switch (face) {
@@ -8230,6 +8650,9 @@ class _MiiPainter extends CustomPainter {
         break;
       case 5:
         headPath = Path()..addRRect(RRect.fromRectAndRadius(head, Radius.circular(s * 0.16)));
+        break;
+      case 6: // large carré doux
+        headPath = Path()..addRRect(RRect.fromRectAndRadius(head, Radius.circular(s * 0.14)));
         break;
       case 3: // en cœur
         headPath = Path()
@@ -8242,13 +8665,27 @@ class _MiiPainter extends CustomPainter {
       default:
         headPath = Path()..addOval(head);
     }
-    final hairP = Paint()..color = hairC;
+    // Cheveux : léger dégradé (reflet en haut)
+    final hairP = Paint()
+      ..shader = ui.Gradient.linear(Offset(0, head.top - s * 0.12), Offset(0, c.dy + hh * 0.7), [
+        Color.lerp(hairC, Colors.white, 0.25)!,
+        hairC,
+        Color.lerp(hairC, Colors.black, 0.2)!,
+      ], const [0, 0.35, 1]);
     final style = a[2], extra = a[6];
 
     // Épaules + cou
-    canvas.drawOval(Rect.fromLTRB(s * 0.12, s * 0.8, s * 0.88, s * 1.25), Paint()..color = Color.lerp(bg, Colors.black, 0.45)!);
+    final shirtC = Color.lerp(bg, Colors.black, 0.45)!;
+    canvas.drawOval(Rect.fromLTRB(s * 0.12, s * 0.8, s * 0.88, s * 1.25), Paint()
+      ..shader = ui.Gradient.linear(Offset(0, s * 0.8), Offset(0, s), [Color.lerp(shirtC, Colors.white, 0.18)!, shirtC]));
     canvas.drawRect(Rect.fromCenter(center: Offset(c.dx, head.bottom + s * 0.03), width: s * 0.14, height: s * 0.1),
         Paint()..color = skinD);
+    // Col en V
+    canvas.drawPath(Path()
+      ..moveTo(c.dx - s * 0.075, s * 0.81)
+      ..lineTo(c.dx, s * 0.9)
+      ..lineTo(c.dx + s * 0.075, s * 0.81)
+      ..close(), Paint()..color = skinD);
 
     void longBack(double bottom) => canvas.drawRRect(RRect.fromRectAndRadius(
         Rect.fromLTRB(head.left - s * 0.04, head.top - s * 0.02, head.right + s * 0.04, bottom),
@@ -8298,14 +8735,45 @@ class _MiiPainter extends CustomPainter {
       case 18: // chignon haut
         canvas.drawCircle(Offset(c.dx, head.top - s * 0.04), s * 0.065, hairP);
         break;
+      case 21: // dreadlocks
+        for (final sx in const [-1.0, 1.0]) {
+          for (int k = 0; k < 3; k++) {
+            final x = sx < 0 ? head.left - s * 0.015 + k * s * 0.035 : head.right + s * 0.015 - k * s * 0.035;
+            canvas.drawRRect(RRect.fromRectAndRadius(
+                Rect.fromCenter(center: Offset(x, c.dy + hh * 0.12 + k * s * 0.025), width: s * 0.036, height: s * 0.42),
+                Radius.circular(s * 0.018)), hairP);
+          }
+        }
+        break;
+      case 24: // queue haute
+        canvas.drawOval(Rect.fromCenter(center: Offset(head.right - hw * 0.08, head.top - s * 0.05), width: s * 0.12, height: s * 0.2), hairP);
+        break;
+      case 25: // longs, raie au milieu
+        longBack(c.dy + hh * 0.6);
+        break;
+      case 27: // chignon samouraï
+        canvas.drawCircle(Offset(c.dx, head.top - s * 0.035), s * 0.045, hairP);
+        break;
     }
 
     // Oreilles + tête
     for (final sx in const [-1.0, 1.0]) {
       canvas.drawCircle(Offset(c.dx + sx * hw / 2, c.dy + s * 0.02), s * 0.045, Paint()..color = skinD);
+      canvas.drawCircle(Offset(c.dx + sx * (hw / 2 + s * 0.008), c.dy + s * 0.02), s * 0.02,
+          Paint()..color = Color.lerp(skinD, Colors.black, 0.15)!);
     }
-    final headP = Paint()..color = skin;
+    // Visage en relief (plus clair en haut à gauche) + contour discret
+    final headP = Paint()
+      ..shader = ui.Gradient.radial(Offset(c.dx - hw * 0.18, c.dy - hh * 0.22), hw * 0.95, [
+        Color.lerp(skin, Colors.white, 0.16)!,
+        skin,
+        Color.lerp(skin, Colors.black, 0.1)!,
+      ], const [0, 0.55, 1]);
     canvas.drawPath(headPath, headP);
+    canvas.drawPath(headPath, Paint()
+      ..color = Color.lerp(skin, Colors.black, 0.35)!.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.01);
 
     final eyeY = c.dy - hh * 0.02, ex = hw * 0.2;
     final noseY = c.dy + hh * 0.12, mouthY = c.dy + hh * 0.28;
@@ -8407,7 +8875,7 @@ class _MiiPainter extends CustomPainter {
           roundEye(e, 0.053);
           canvas.drawCircle(e.translate(s * 0.012, s * 0.016), s * 0.006, Paint()..color = Colors.white);
           break;
-        default: // cils
+        case 11: // cils
           roundEye(e);
           final lash = Paint()
             ..color = dark
@@ -8418,6 +8886,35 @@ class _MiiPainter extends CustomPainter {
             final p0 = e + Offset(cos(an) * s * 0.045, sin(an) * s * 0.045);
             canvas.drawLine(p0, e + Offset(cos(an) * s * 0.07, sin(an) * s * 0.07), lash);
           }
+          break;
+        case 12: // louche
+          canvas.drawCircle(e, s * 0.042, Paint()..color = Colors.white);
+          canvas.drawCircle(e.translate(-sx * s * 0.017, s * 0.004), s * 0.022, Paint()..color = dark);
+          break;
+        case 13: // fatigué (cernes)
+          roundEye(e, 0.038);
+          canvas.drawArc(Rect.fromCenter(center: e.translate(0, s * 0.034), width: s * 0.075, height: s * 0.03), 0.3, pi - 0.6, false,
+              Paint()
+                ..color = Color.lerp(skinD, Colors.black, 0.2)!
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = s * 0.01);
+          break;
+        case 14: // surpris
+          canvas.drawCircle(e, s * 0.05, Paint()..color = Colors.white);
+          canvas.drawCircle(e, s * 0.013, Paint()..color = dark);
+          break;
+        case 15: // regard en coin
+          canvas.drawCircle(e, s * 0.042, Paint()..color = Colors.white);
+          canvas.drawCircle(e.translate(s * 0.019, s * 0.002), s * 0.022, Paint()..color = dark);
+          canvas.drawLine(e.translate(-s * 0.045, -s * 0.03), e.translate(s * 0.045, -s * 0.03), line);
+          break;
+        case 16: // pixel
+          canvas.drawRect(Rect.fromCenter(center: e, width: s * 0.05, height: s * 0.05), Paint()..color = dark);
+          canvas.drawRect(Rect.fromLTWH(e.dx - s * 0.019, e.dy - s * 0.019, s * 0.016, s * 0.016), Paint()..color = Colors.white);
+          break;
+        default: // K.-O.
+          canvas.drawLine(e.translate(-s * 0.026, -s * 0.026), e.translate(s * 0.026, s * 0.026), line);
+          canvas.drawLine(e.translate(-s * 0.026, s * 0.026), e.translate(s * 0.026, -s * 0.026), line);
       }
     }
 
@@ -8505,7 +9002,7 @@ class _MiiPainter extends CustomPainter {
         canvas.drawOval(Rect.fromCenter(center: m.translate(mw * 0.45, s * 0.008), width: s * 0.03, height: s * 0.036),
             Paint()..color = const Color(0xFF7A1F2B));
         break;
-      default: // rouge à lèvres
+      case 11: // rouge à lèvres
         canvas.drawPath(Path()
           ..moveTo(m.dx - mw, m.dy)
           ..quadraticBezierTo(m.dx - mw * 0.5, m.dy - s * 0.03, m.dx, m.dy - s * 0.008)
@@ -8515,6 +9012,55 @@ class _MiiPainter extends CustomPainter {
         canvas.drawLine(m.translate(-mw * 0.8, 0), m.translate(mw * 0.8, 0), Paint()
           ..color = const Color(0xFF880E4F)
           ..strokeWidth = s * 0.008);
+        break;
+      case 12: // dents de lapin
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw, m.dy)
+          ..quadraticBezierTo(m.dx, m.dy + s * 0.045, m.dx + mw, m.dy), ml);
+        for (final dx in const [-1.0, 1.0]) {
+          final r = Rect.fromLTWH(m.dx + (dx < 0 ? -s * 0.019 : s * 0.002), m.dy + s * 0.016, s * 0.017, s * 0.024);
+          canvas.drawRect(r, Paint()..color = Colors.white);
+          canvas.drawRect(r, Paint()
+            ..color = const Color(0x55000000)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = s * 0.004);
+        }
+        break;
+      case 13: // vampire
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw, m.dy)
+          ..quadraticBezierTo(m.dx, m.dy + s * 0.04, m.dx + mw, m.dy), ml);
+        for (final dx in const [-1.0, 1.0]) {
+          final x = m.dx + dx * mw * 0.45;
+          canvas.drawPath(Path()
+            ..moveTo(x - s * 0.01, m.dy + s * 0.014)
+            ..lineTo(x + s * 0.01, m.dy + s * 0.014)
+            ..lineTo(x, m.dy + s * 0.04)
+            ..close(), Paint()..color = Colors.white);
+        }
+        break;
+      case 14: // zigzag (nerveux)
+        final zz = Path()..moveTo(m.dx - mw, m.dy + s * 0.01);
+        for (int k = 1; k <= 6; k++) {
+          zz.lineTo(m.dx - mw + k * mw / 3, m.dy + (k.isOdd ? -s * 0.006 : s * 0.018));
+        }
+        canvas.drawPath(zz, ml);
+        break;
+      case 15: // grand « O »
+        canvas.drawOval(Rect.fromCenter(center: m.translate(0, s * 0.012), width: s * 0.07, height: s * 0.08),
+            Paint()..color = const Color(0xFF7A1F2B));
+        canvas.drawOval(Rect.fromCenter(center: m.translate(0, s * 0.035), width: s * 0.04, height: s * 0.025),
+            Paint()..color = const Color(0xFFFF7A9A));
+        break;
+      case 16: // langue sur le côté
+        canvas.drawPath(Path()
+          ..moveTo(m.dx - mw, m.dy)
+          ..quadraticBezierTo(m.dx, m.dy + s * 0.045, m.dx + mw, m.dy), ml);
+        canvas.drawOval(Rect.fromCenter(center: m.translate(mw * 0.45, s * 0.032), width: s * 0.038, height: s * 0.045),
+            Paint()..color = const Color(0xFFFF7A9A));
+        break;
+      default: // bisou
+        canvas.drawPath(_MiiPainter._heart(m.translate(0, s * 0.012), s * 0.022), Paint()..color = const Color(0xFFD81B60));
     }
 
     // Moustache
@@ -8622,8 +9168,68 @@ class _MiiPainter extends CustomPainter {
       case 19:
         cap(0.4);
         break;
+      case 20: // carré asymétrique
+        cap(0.3);
+        canvas.drawPath(Path()
+          ..moveTo(head.right - hw * 0.32, head.top + hh * 0.06)
+          ..quadraticBezierTo(head.right + s * 0.06, head.top + hh * 0.08, head.right + s * 0.025, c.dy + hh * 0.24)
+          ..lineTo(head.right - s * 0.03, c.dy + hh * 0.16)
+          ..quadraticBezierTo(head.right - hw * 0.06, c.dy - hh * 0.12, head.right - hw * 0.34, head.top + hh * 0.24)
+          ..close(), hairP);
+        break;
+      case 21:
+      case 24:
+        cap(0.26);
+        break;
+      case 22: // coupe au bol
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(0, 0, s, head.top + hh * 0.36));
+        canvas.drawOval(head.inflate(s * 0.03), hairP);
+        canvas.restore();
+        break;
+      case 23: // hérisson
+        cap(0.24);
+        for (int k = 0; k <= 8; k++) {
+          final an = pi * (1.0 + k / 8);
+          final b = Offset(c.dx + cos(an) * hw * 0.5, c.dy - hh * 0.04 + sin(an) * hh * 0.5);
+          final t = Offset(c.dx + cos(an) * hw * 0.72, c.dy - hh * 0.04 + sin(an) * hh * 0.72);
+          final n = Offset(-sin(an), cos(an)) * (s * 0.035);
+          canvas.drawPath(Path()
+            ..moveTo(b.dx + n.dx, b.dy + n.dy)
+            ..lineTo(t.dx, t.dy)
+            ..lineTo(b.dx - n.dx, b.dy - n.dy)
+            ..close(), hairP);
+        }
+        break;
+      case 25: // raie au milieu, mèches rideau
+        cap(0.26);
+        for (final sx in const [-1.0, 1.0]) {
+          final edge = sx < 0 ? head.left : head.right;
+          canvas.drawPath(Path()
+            ..moveTo(c.dx, head.top + s * 0.01)
+            ..quadraticBezierTo(c.dx + sx * hw * 0.38, head.top + hh * 0.12, edge + sx * s * 0.01, c.dy + hh * 0.02)
+            ..lineTo(edge + sx * s * 0.025, head.top + hh * 0.12)
+            ..close(), hairP);
+        }
+        break;
+      case 26: // frange droite
+        cap(0.36);
+        break;
+      case 27:
+        cap(0.2);
+        canvas.drawRect(Rect.fromCenter(center: Offset(c.dx, head.top - s * 0.005), width: s * 0.05, height: s * 0.018),
+            Paint()..color = accent);
+        break;
     }
 
+    // Reflet sur les cheveux (ou le crâne)
+    if (style != 8) {
+      canvas.drawArc(head.inflate(style == 0 ? -s * 0.02 : s * 0.006), pi * 1.15, pi * 0.22, false, Paint()
+        ..color = Colors.white.withOpacity(style == 0 ? 0.35 : 0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s * 0.018
+        ..strokeCap = StrokeCap.round);
+    }
     // Sourcils
     final brow = Paint()
       ..color = style == 0 && hairC.computeLuminance() > 0.5 ? skinD : hairC
@@ -8745,6 +9351,106 @@ class _MiiPainter extends CustomPainter {
         canvas.drawRect(Rect.fromLTRB(c.dx - hw * 0.34, head.top - s * 0.16, c.dx + hw * 0.34, head.top + hh * 0.11), hp);
         canvas.drawRect(Rect.fromLTRB(c.dx - hw * 0.34, head.top + hh * 0.02, c.dx + hw * 0.34, head.top + hh * 0.08),
             Paint()..color = accent);
+        break;
+      case 14: // casque de chantier
+        const yel = Color(0xFFFFC400);
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(0, 0, s, head.top + hh * 0.28));
+        canvas.drawOval(head.inflate(s * 0.045).translate(0, -s * 0.015), Paint()..color = yel);
+        canvas.restore();
+        canvas.drawRRect(RRect.fromRectAndRadius(
+            Rect.fromLTRB(head.left - s * 0.05, head.top + hh * 0.22, head.right + s * 0.05, head.top + hh * 0.3),
+            Radius.circular(s * 0.02)), Paint()..color = const Color(0xFFFFA000));
+        canvas.drawRect(Rect.fromCenter(center: Offset(c.dx, head.top + s * 0.02), width: s * 0.04, height: s * 0.12),
+            Paint()..color = const Color(0xFFFFE082));
+        break;
+      case 15: // auréole
+        final halo = Rect.fromCenter(center: Offset(c.dx, head.top - s * 0.065), width: hw * 0.75, height: s * 0.08);
+        canvas.drawOval(halo, Paint()
+          ..color = const Color(0xFFFFF59D).withOpacity(0.6)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.04
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+        canvas.drawOval(halo, Paint()
+          ..color = const Color(0xFFFFD54F)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.018);
+        break;
+      case 16: // cornes
+        for (final sx in const [-1.0, 1.0]) {
+          final bx = c.dx + sx * hw * 0.3;
+          canvas.drawPath(Path()
+            ..moveTo(bx - s * 0.04, head.top + s * 0.04)
+            ..quadraticBezierTo(bx + sx * s * 0.02, head.top - s * 0.04, bx + sx * s * 0.05, head.top - s * 0.09)
+            ..quadraticBezierTo(bx + sx * s * 0.04, head.top, bx + s * 0.04, head.top + s * 0.05)
+            ..close(), Paint()..color = const Color(0xFFD32F2F));
+        }
+        break;
+      case 17: // bandana de pirate
+        const red = Color(0xFFD32F2F);
+        canvas.save();
+        canvas.clipRect(Rect.fromLTRB(0, 0, s, head.top + hh * 0.3));
+        canvas.drawOval(head.inflate(s * 0.03), Paint()..color = red);
+        canvas.restore();
+        for (int k = 0; k < 5; k++) {
+          canvas.drawCircle(Offset(head.left + hw * (0.2 + k * 0.15), head.top + hh * (0.12 + (k % 2) * 0.08)), s * 0.009,
+              Paint()..color = Colors.white);
+        }
+        for (final dy in const [-1.0, 1.0]) {
+          canvas.drawPath(Path()
+            ..moveTo(head.right - s * 0.01, head.top + hh * 0.24)
+            ..lineTo(head.right + s * 0.08, head.top + hh * (0.24 + dy * 0.1))
+            ..lineTo(head.right + s * 0.06, head.top + hh * 0.3)
+            ..close(), Paint()..color = red);
+        }
+        break;
+      case 18: // visière VR
+        final v = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(c.dx, eyeY), width: hw * 0.98, height: s * 0.12),
+            Radius.circular(s * 0.04));
+        canvas.drawRRect(v, Paint()..color = const Color(0xFF1C1F2B));
+        canvas.drawRRect(v.deflate(s * 0.018), Paint()
+          ..shader = ui.Gradient.linear(Offset(v.left, 0), Offset(v.right, 0), const [Color(0xFF00E5FF), Color(0xFFE040FB)]));
+        break;
+      case 19: // lunettes + moustache
+        final gp2 = Paint()
+          ..color = const Color(0xFF2A2A35)
+          ..strokeWidth = s * 0.016
+          ..style = PaintingStyle.stroke;
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(c.dx - ex, eyeY), width: s * 0.12, height: s * 0.1), Radius.circular(s * 0.02)), gp2);
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(c.dx + ex, eyeY), width: s * 0.12, height: s * 0.1), Radius.circular(s * 0.02)), gp2);
+        canvas.drawLine(Offset(c.dx - ex + s * 0.06, eyeY), Offset(c.dx + ex - s * 0.06, eyeY), gp2);
+        final my = (noseY + mouthY) / 2;
+        for (final sx in const [-1.0, 1.0]) {
+          canvas.drawPath(Path()
+            ..moveTo(c.dx, my - s * 0.01)
+            ..quadraticBezierTo(c.dx + sx * s * 0.06, my - s * 0.035, c.dx + sx * s * 0.095, my + s * 0.015)
+            ..quadraticBezierTo(c.dx + sx * s * 0.045, my + s * 0.008, c.dx, my + s * 0.014)
+            ..close(), hairP);
+        }
+        break;
+      case 20: // oreilles de chat
+        for (final sx in const [-1.0, 1.0]) {
+          final bx = c.dx + sx * hw * 0.32;
+          final tri = Path()
+            ..moveTo(bx - s * 0.06, head.top + s * 0.05)
+            ..lineTo(bx + sx * s * 0.02, head.top - s * 0.09)
+            ..lineTo(bx + s * 0.06, head.top + s * 0.05)
+            ..close();
+          canvas.drawPath(tri, hairP);
+          canvas.drawPath(Path()
+            ..moveTo(bx - s * 0.03, head.top + s * 0.03)
+            ..lineTo(bx + sx * s * 0.015, head.top - s * 0.05)
+            ..lineTo(bx + s * 0.03, head.top + s * 0.03)
+            ..close(), Paint()..color = const Color(0xFFFF8FB1));
+        }
+        break;
+      case 21: // fleur dans les cheveux
+        final fc = Offset(head.left + hw * 0.18, head.top + s * 0.05);
+        for (int k = 0; k < 5; k++) {
+          final an = k * 2 * pi / 5;
+          canvas.drawCircle(fc + Offset(cos(an), sin(an)) * (s * 0.028), s * 0.024, Paint()..color = const Color(0xFFFF80AB));
+        }
+        canvas.drawCircle(fc, s * 0.018, Paint()..color = const Color(0xFFFFEB3B));
         break;
     }
     canvas.restore();
@@ -11055,7 +11761,7 @@ class _JumpPainter extends CustomPainter {
     if (sy < -70 || sy > size.height + 20) return;
     canvas.saveLayer(Rect.fromLTWH(g.$1 - 50, sy - 70, 100, 80), Paint()..color = Colors.white.withOpacity(0.42));
     canvas.translate(g.$1, sy);
-    _drawHero(canvas, min(max(g.$4, 0), _heroCount - 1), g.$5, time);
+    _drawHero(canvas, _heroSafe(g.$4), g.$5, time);
     canvas.restore();
     final tp = TextPainter(
       text: TextSpan(text: '👻 ${g.$3}',
@@ -11109,4 +11815,263 @@ class _JumpPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _JumpPainter old) => true;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Style des pages : fonds animés Futuriste et Disco
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SkinBackdrop extends StatefulWidget {
+  final int skin;
+  final bool dim; // assombri (sous les panneaux)
+  const _SkinBackdrop(this.skin, {super.key, this.dim = false});
+  @override
+  State<_SkinBackdrop> createState() => _SkinBackdropState();
+}
+
+class _SkinBackdropState extends State<_SkinBackdrop> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 12))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+        child: RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (_, __) => CustomPaint(
+              size: Size.infinite,
+              painter: _SkinPainter(widget.skin, _c.value, dim: widget.dim),
+            ),
+          ),
+        ),
+      );
+}
+
+/// Fond des panneaux (boutique, classements…) : suit le style choisi.
+class _SkinClip extends StatelessWidget {
+  final ValueNotifier<int> rev;
+  final BorderRadius borderRadius;
+  final Widget child;
+  const _SkinClip({required this.rev, required this.borderRadius, required this.child});
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: borderRadius,
+        child: Stack(children: [
+          Positioned.fill(
+            child: ValueListenableBuilder<int>(
+              valueListenable: rev,
+              builder: (_, __, ___) => _uiSkin == 0
+                  ? ColoredBox(color: _uiStyle.dialog)
+                  : _SkinBackdrop(_uiSkin, dim: true, key: ValueKey(_uiSkin)),
+            ),
+          ),
+          child,
+        ]),
+      );
+}
+
+class _SkinSwatch extends StatelessWidget {
+  final int skin;
+  final double w, h;
+  const _SkinSwatch(this.skin, {this.w = 52, this.h = 34});
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(width: w, height: h, child: CustomPaint(painter: _SkinPainter(skin, 0.3))),
+      );
+}
+
+class _SkinPainter extends CustomPainter {
+  final int skin;
+  final double t; // 0 → 1 en boucle
+  final bool dim;
+  _SkinPainter(this.skin, this.t, {this.dim = false});
+
+  static const _cyan = Color(0xFF00E5FF);
+  static const _pink = Color(0xFFFF2BD6);
+  static const _disco = [
+    Color(0xFFFF4FD8), Color(0xFF00E5FF), Color(0xFFFFEA00),
+    Color(0xFF76FF03), Color(0xFFFF6D00), Color(0xFFB388FF),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (skin == 1) {
+      _futur(canvas, size);
+    } else if (skin == 2) {
+      _discoBg(canvas, size);
+    } else {
+      canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF1C2230));
+      canvas.drawCircle(size.center(Offset.zero), size.shortestSide * 0.22,
+          Paint()..color = Colors.lightBlueAccent.withOpacity(0.5));
+    }
+    if (dim) canvas.drawRect(Offset.zero & size, Paint()..color = Colors.black.withOpacity(0.45));
+  }
+
+  void _futur(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    canvas.drawRect(Offset.zero & size, Paint()
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, h),
+          const [Color(0xFF020611), Color(0xFF061A33), Color(0xFF0A1030)], const [0, 0.62, 1]));
+    // Étoiles qui scintillent
+    final rnd = Random(7);
+    final star = Paint();
+    for (int i = 0; i < 60; i++) {
+      final x = rnd.nextDouble() * w, y = rnd.nextDouble() * h * 0.6, r = rnd.nextDouble() * 1.2 + 0.3;
+      final tw = 0.35 + 0.65 * (0.5 + 0.5 * sin(t * 2 * pi * 3 + i));
+      canvas.drawCircle(Offset(x, y), r, star..color = Colors.white.withOpacity(0.5 * tw));
+    }
+    // Anneaux HUD qui tournent
+    final hc = Offset(w * 0.82, h * 0.16);
+    final rr = w * 0.17;
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..color = _cyan.withOpacity(0.18);
+    canvas.drawCircle(hc, rr, ring);
+    canvas.drawCircle(hc, rr * 0.74, ring..strokeWidth = 1);
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round
+      ..color = _cyan.withOpacity(0.38);
+    for (int k = 0; k < 3; k++) {
+      canvas.drawArc(Rect.fromCircle(center: hc, radius: rr), t * 2 * pi + k * 2 * pi / 3, 0.7, false, arc);
+    }
+    canvas.drawArc(Rect.fromCircle(center: hc, radius: rr * 0.74), -t * 4 * pi, 1.4, false, arc
+      ..strokeWidth = 3
+      ..color = _pink.withOpacity(0.32));
+    // Horizon lumineux
+    final hy = h * 0.66;
+    canvas.drawRect(Rect.fromLTWH(0, hy - 40, w, 80), Paint()
+      ..shader = ui.Gradient.linear(Offset(0, hy - 40), Offset(0, hy + 40),
+          [Colors.transparent, _cyan.withOpacity(0.22), Colors.transparent], const [0, 0.5, 1]));
+    // Sol quadrillé en perspective qui défile
+    final grid = Paint()..strokeWidth = 1;
+    canvas.drawLine(Offset(0, hy), Offset(w, hy), grid..color = _cyan.withOpacity(0.6));
+    grid.color = _cyan.withOpacity(0.25);
+    for (int i = -12; i <= 12; i++) {
+      canvas.drawLine(Offset(w / 2 + i * w * 0.02, hy), Offset(w / 2 + i * w * 0.22, h), grid);
+    }
+    final ph = (t * 6) % 1;
+    for (int i = 0; i < 10; i++) {
+      final z = (i + ph) / 10; // 0 = horizon, 1 = bas de l'écran
+      final y = hy + (h - hy) * z * z;
+      canvas.drawLine(Offset(0, y), Offset(w, y), grid..color = _cyan.withOpacity(0.08 + 0.3 * z));
+    }
+    // Lignes de balayage + barre de scan qui descend
+    final scan = Paint()..color = Colors.white.withOpacity(0.025);
+    for (double y = 0; y < h; y += 4) {
+      canvas.drawRect(Rect.fromLTWH(0, y, w, 1), scan);
+    }
+    final sy = (t * 2 % 1) * h;
+    canvas.drawRect(Rect.fromLTWH(0, sy - 30, w, 60), Paint()
+      ..shader = ui.Gradient.linear(Offset(0, sy - 30), Offset(0, sy + 30),
+          [Colors.transparent, _cyan.withOpacity(0.07), Colors.transparent], const [0, 0.5, 1]));
+  }
+
+  void _sparkle(Canvas c, Offset p, double r, Color col) {
+    final path = Path()
+      ..moveTo(p.dx, p.dy - r)
+      ..quadraticBezierTo(p.dx, p.dy, p.dx + r, p.dy)
+      ..quadraticBezierTo(p.dx, p.dy, p.dx, p.dy + r)
+      ..quadraticBezierTo(p.dx, p.dy, p.dx - r, p.dy)
+      ..quadraticBezierTo(p.dx, p.dy, p.dx, p.dy - r)
+      ..close();
+    c.drawPath(path, Paint()..color = col);
+  }
+
+  void _discoBg(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    canvas.drawRect(Offset.zero & size, Paint()
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, h),
+          const [Color(0xFF12021C), Color(0xFF2A0740), Color(0xFF180428)], const [0, 0.6, 1]));
+    final ball = Offset(w / 2, h * 0.1);
+    // Faisceaux colorés qui balaient la salle
+    final len = h * 1.2;
+    for (int i = 0; i < 6; i++) {
+      final a = pi / 2 + sin(t * 2 * pi * (i.isEven ? 1 : 2) + i * 1.3) * 0.9;
+      const spread = 0.09;
+      final p1 = ball + Offset(cos(a - spread), sin(a - spread)) * len;
+      final p2 = ball + Offset(cos(a + spread), sin(a + spread)) * len;
+      final beam = Path()
+        ..moveTo(ball.dx, ball.dy)
+        ..lineTo(p1.dx, p1.dy)
+        ..lineTo(p2.dx, p2.dy)
+        ..close();
+      canvas.drawPath(beam, Paint()
+        ..shader = ui.Gradient.radial(ball, len, [_disco[i].withOpacity(0.32), _disco[i].withOpacity(0)], const [0, 1]));
+    }
+    // Reflets de la boule qui glissent sur les murs
+    final rnd = Random(3);
+    for (int i = 0; i < 45; i++) {
+      final bx = rnd.nextDouble(), by = rnd.nextDouble(), r = 2 + rnd.nextDouble() * 2.5;
+      final o = 0.25 + 0.35 * (0.5 + 0.5 * sin(t * 2 * pi * 4 + i));
+      canvas.drawCircle(Offset(((bx + t) % 1) * w, h * 0.05 + by * h * 0.75), r,
+          Paint()..color = _disco[i % _disco.length].withOpacity(o));
+    }
+    // Piste de danse lumineuse
+    final fy = h * 0.8;
+    final step = (t * 12).floor();
+    const rows = 4, ncol = 7;
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = Colors.black.withOpacity(0.5);
+    for (int r = 0; r < rows; r++) {
+      final y0 = fy + (h - fy) * r / rows, y1 = fy + (h - fy) * (r + 1) / rows;
+      final s0 = 0.5 + 0.5 * r / rows, s1 = 0.5 + 0.5 * (r + 1) / rows; // perspective
+      double x(int c, double s) => w / 2 + (c / ncol - 0.5) * w * 1.1 * s;
+      for (int c = 0; c < ncol; c++) {
+        final on = (r * 3 + c * 5 + step) % 4 == 0;
+        final tile = Path()
+          ..moveTo(x(c, s0), y0)
+          ..lineTo(x(c + 1, s0), y0)
+          ..lineTo(x(c + 1, s1), y1)
+          ..lineTo(x(c, s1), y1)
+          ..close();
+        canvas.drawPath(tile, Paint()..color = _disco[(r + c + step) % _disco.length].withOpacity(on ? 0.4 : 0.08));
+        canvas.drawPath(tile, edge);
+      }
+    }
+    // Boule à facettes
+    final br = w * 0.065;
+    canvas.drawLine(Offset(ball.dx, 0), ball, Paint()
+      ..color = Colors.white24
+      ..strokeWidth = 1.5);
+    canvas.drawCircle(ball, br + 14, Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12));
+    canvas.drawCircle(ball, br, Paint()
+      ..shader = ui.Gradient.radial(ball + Offset(-br * 0.3, -br * 0.3), br * 1.4,
+          const [Color(0xFFFFFFFF), Color(0xFFB0BEC5), Color(0xFF455A64)], const [0, 0.45, 1]));
+    canvas.save();
+    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: ball, radius: br)));
+    final facet = Paint()
+      ..color = Colors.black.withOpacity(0.35)
+      ..strokeWidth = 1;
+    final gap = max(3.0, br / 4.5);
+    for (double y = -br; y <= br; y += gap) {
+      canvas.drawLine(Offset(ball.dx - br, ball.dy + y), Offset(ball.dx + br, ball.dy + y), facet);
+    }
+    final sh = (t * 6 * gap * 6) % gap; // les facettes tournent
+    for (double x = -br - gap + sh; x <= br; x += gap) {
+      final xx = sin((x / br).clamp(-1.0, 1.0) * pi / 2) * br;
+      canvas.drawLine(Offset(ball.dx + xx, ball.dy - br), Offset(ball.dx + xx, ball.dy + br), facet);
+    }
+    canvas.restore();
+    final g = 0.5 + 0.5 * sin(t * 2 * pi * 5);
+    _sparkle(canvas, ball + Offset(-br * 0.35, -br * 0.4), br * (0.25 + 0.2 * g), Colors.white.withOpacity(0.5 + 0.5 * g));
+  }
+
+  @override
+  bool shouldRepaint(_SkinPainter old) => old.t != t || old.skin != skin || old.dim != dim;
 }
